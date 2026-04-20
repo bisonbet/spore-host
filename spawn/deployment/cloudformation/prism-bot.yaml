@@ -1,0 +1,164 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'prism-bot — Slack/Teams chat interface for instance control (spore.host + prism)'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues: [production, staging, development]
+
+  LambdaCodeBucket:
+    Type: String
+    Default: ''
+    Description: S3 bucket containing Lambda zip (leave empty to skip Lambda deployment)
+
+  LambdaCodeKey:
+    Type: String
+    Default: ''
+
+Conditions:
+  DeployLambda: !Not [!Equals [!Ref LambdaCodeBucket, '']]
+
+Resources:
+
+  # ── DynamoDB: instance registry ──────────────────────────────────────────────
+
+  BotRegistryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: spore-bot-registry
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_key
+          AttributeType: S
+        - AttributeName: nickname
+          AttributeType: S
+        - AttributeName: instance_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_key
+          KeyType: HASH
+        - AttributeName: nickname
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: instance_id-index
+          KeySchema:
+            - AttributeName: instance_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: prism-bot
+
+  # ── DynamoDB: workspace OAuth tokens ─────────────────────────────────────────
+
+  BotWorkspacesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: spore-bot-workspaces
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+      AttributeDefinitions:
+        - AttributeName: workspace_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: workspace_key
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: prism-bot
+
+  # ── Lambda ────────────────────────────────────────────────────────────────────
+
+  PrismBotFunction:
+    Type: AWS::Serverless::Function
+    Condition: DeployLambda
+    Properties:
+      FunctionName: prism-bot
+      Runtime: provided.al2023
+      Architectures: [arm64]
+      Handler: bootstrap
+      Timeout: 30
+      MemorySize: 256
+      CodeUri:
+        Bucket: !Ref LambdaCodeBucket
+        Key: !Ref LambdaCodeKey
+      Environment:
+        Variables:
+          BOT_REGISTRY_TABLE: !Ref BotRegistryTable
+          BOT_WORKSPACES_TABLE: !Ref BotWorkspacesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BotRegistryTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BotWorkspacesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - sts:AssumeRole
+              Resource: 'arn:aws:iam::*:role/SpawnBotCrossAccount'
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:prism-bot'
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/prism-bot*'
+      Tags:
+        Environment: !Ref Environment
+        Application: prism-bot
+
+  PrismBotFunctionUrl:
+    Type: AWS::Lambda::Url
+    Condition: DeployLambda
+    Properties:
+      AuthType: NONE
+      TargetFunctionArn: !GetAtt PrismBotFunction.Arn
+      Cors:
+        AllowOrigins: ['*']
+        AllowMethods: [POST]
+
+  PrismBotFunctionUrlPermission:
+    Type: AWS::Lambda::Permission
+    Condition: DeployLambda
+    Properties:
+      FunctionName: !Ref PrismBotFunction
+      Action: lambda:InvokeFunctionUrl
+      Principal: '*'
+      FunctionUrlAuthType: NONE
+
+Outputs:
+  BotRegistryTableName:
+    Value: !Ref BotRegistryTable
+    Export:
+      Name: !Sub '${AWS::StackName}-registry-table'
+
+  BotWorkspacesTableName:
+    Value: !Ref BotWorkspacesTable
+    Export:
+      Name: !Sub '${AWS::StackName}-workspaces-table'
+
+  LambdaFunctionUrl:
+    Condition: DeployLambda
+    Value: !GetAtt PrismBotFunctionUrl.FunctionUrl
+    Description: 'Use this as the Slack slash command Request URL (append /slack)'
+    Export:
+      Name: !Sub '${AWS::StackName}-function-url'
