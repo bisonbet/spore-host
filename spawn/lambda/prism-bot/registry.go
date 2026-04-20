@@ -169,6 +169,126 @@ func (r *Registry) DeleteRegistration(ctx context.Context, platform, workspaceID
 	return nil
 }
 
+// PutWorkspace stores workspace credentials (bot token + signing secret).
+func (r *Registry) PutWorkspace(ctx context.Context, ws *WorkspaceConfig) error {
+	if ws.InstalledAt == "" {
+		ws.InstalledAt = time.Now().UTC().Format(time.RFC3339)
+	}
+	item, err := attributevalue.MarshalMap(ws)
+	if err != nil {
+		return fmt.Errorf("marshal workspace: %w", err)
+	}
+	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(r.workspacesTable),
+		Item:      item,
+	})
+	if err != nil {
+		return fmt.Errorf("put workspace: %w", err)
+	}
+	return nil
+}
+
+// DeleteWorkspace removes a workspace record.
+func (r *Registry) DeleteWorkspace(ctx context.Context, platform, workspaceID string) error {
+	_, err := r.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String(r.workspacesTable),
+		Key: map[string]dynamodbtypes.AttributeValue{
+			"workspace_key": &dynamodbtypes.AttributeValueMemberS{Value: workspaceKey(platform, workspaceID)},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("delete workspace: %w", err)
+	}
+	return nil
+}
+
+// ListWorkspaceRegistrations returns ALL registrations across all users in a workspace.
+// Used for workspace-destroy and workspace-list --all.
+func (r *Registry) ListWorkspaceRegistrations(ctx context.Context, platform, workspaceID string) ([]BotRegistration, error) {
+	prefix := platform + "#" + workspaceID + "#"
+	var regs []BotRegistration
+	var lastKey map[string]dynamodbtypes.AttributeValue
+
+	for {
+		input := &dynamodb.ScanInput{
+			TableName:        aws.String(r.registryTable),
+			FilterExpression: aws.String("begins_with(user_key, :prefix)"),
+			ExpressionAttributeValues: map[string]dynamodbtypes.AttributeValue{
+				":prefix": &dynamodbtypes.AttributeValueMemberS{Value: prefix},
+			},
+		}
+		if lastKey != nil {
+			input.ExclusiveStartKey = lastKey
+		}
+		result, err := r.client.Scan(ctx, input)
+		if err != nil {
+			return nil, fmt.Errorf("scan workspace registrations: %w", err)
+		}
+		for _, item := range result.Items {
+			var reg BotRegistration
+			if err := attributevalue.UnmarshalMap(item, &reg); err != nil {
+				continue
+			}
+			regs = append(regs, reg)
+		}
+		if result.LastEvaluatedKey == nil {
+			break
+		}
+		lastKey = result.LastEvaluatedKey
+	}
+	return regs, nil
+}
+
+// DestroyWorkspace removes ALL instance registrations for a workspace and deletes
+// the workspace credentials record. Returns the number of registrations deleted.
+// This is irreversible — use for full integration teardown.
+func (r *Registry) DestroyWorkspace(ctx context.Context, platform, workspaceID string) (int, error) {
+	// List all registrations for this workspace
+	regs, err := r.ListWorkspaceRegistrations(ctx, platform, workspaceID)
+	if err != nil {
+		return 0, fmt.Errorf("list registrations: %w", err)
+	}
+
+	// Batch-delete all registrations (DynamoDB BatchWriteItem handles up to 25 per call)
+	deleted := 0
+	for i := 0; i < len(regs); i += 25 {
+		end := i + 25
+		if end > len(regs) {
+			end = len(regs)
+		}
+		batch := regs[i:end]
+
+		requests := make([]dynamodbtypes.WriteRequest, len(batch))
+		for j, reg := range batch {
+			requests[j] = dynamodbtypes.WriteRequest{
+				DeleteRequest: &dynamodbtypes.DeleteRequest{
+					Key: map[string]dynamodbtypes.AttributeValue{
+						"user_key": &dynamodbtypes.AttributeValueMemberS{Value: reg.UserKey},
+						"nickname": &dynamodbtypes.AttributeValueMemberS{Value: reg.Nickname},
+					},
+				},
+			}
+		}
+
+		_, err := r.client.BatchWriteItem(ctx, &dynamodb.BatchWriteItemInput{
+			RequestItems: map[string][]dynamodbtypes.WriteRequest{
+				r.registryTable: requests,
+			},
+		})
+		if err != nil {
+			return deleted, fmt.Errorf("batch delete registrations: %w", err)
+		}
+		deleted += len(batch)
+	}
+
+	// Delete the workspace record
+	if err := r.DeleteWorkspace(ctx, platform, workspaceID); err != nil {
+		return deleted, fmt.Errorf("delete workspace record: %w", err)
+	}
+
+	return deleted, nil
+}
+
 // isActionAllowed checks if an action is in the allowed list.
 func isActionAllowed(reg *BotRegistration, action string) bool {
 	for _, a := range reg.AllowedActions {

@@ -130,20 +130,20 @@ func TestVerifyTeamsSignature_MissingPrefix(t *testing.T) {
 
 func TestParseCommandText(t *testing.T) {
 	tests := []struct {
-		input   string
-		wantCmd string
+		input    string
+		wantCmd  string
 		wantNick string
 	}{
 		{"stop rstudio", "stop", "rstudio"},
-		{"STATUS", "status", ""},       // case-insensitive
+		{"STATUS", "status", ""}, // case-insensitive
 		{"hibernate jupyter", "hibernate", "jupyter"},
 		{"list", "list", ""},
-		{"", "help", ""},               // empty → help
+		{"", "help", ""},                         // empty → help
 		{"  stop  rstudio  ", "stop", "rstudio"}, // trimmed
 		{"stop i-0abc123", "stop", "i-0abc123"},  // instance ID as target
 		{"url", "url", ""},
 		{"help", "help", ""},
-		{"unknown", "unknown", ""},     // unknown command passes through, handler rejects
+		{"unknown", "unknown", ""}, // unknown command passes through, handler rejects
 	}
 	for _, tt := range tests {
 		cmd, nick := parseCommandText(tt.input)
@@ -187,15 +187,23 @@ func resolveFromList(regs []BotRegistration, target string) (*BotRegistration, s
 			return &regs[0], ""
 		}
 		names := make([]string, len(regs))
-		for i, r := range regs { names[i] = r.Nickname }
+		for i, r := range regs {
+			names[i] = r.Nickname
+		}
 		return nil, fmt.Sprintf("multiple instances: %s", strings.Join(names, ", "))
 	}
 	for i := range regs {
-		if strings.EqualFold(regs[i].Nickname, target) { return &regs[i], "" }
+		if strings.EqualFold(regs[i].Nickname, target) {
+			return &regs[i], ""
+		}
 	}
 	for i := range regs {
-		if strings.EqualFold(regs[i].InstanceID, target) { return &regs[i], "" }
-		if regs[i].DNSName != "" && strings.EqualFold(regs[i].DNSName, target) { return &regs[i], "" }
+		if strings.EqualFold(regs[i].InstanceID, target) {
+			return &regs[i], ""
+		}
+		if regs[i].DNSName != "" && strings.EqualFold(regs[i].DNSName, target) {
+			return &regs[i], ""
+		}
 	}
 	return nil, fmt.Sprintf("no instance named %q", target)
 }
@@ -333,7 +341,7 @@ func TestAckMessage(t *testing.T) {
 
 func TestFormatSlackStatus(t *testing.T) {
 	tests := []struct {
-		state   string
+		state    string
 		wantIcon string
 	}{
 		{"running", "🟢"},
