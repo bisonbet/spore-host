@@ -440,6 +440,152 @@ var botWorkspaceListCmd = &cobra.Command{
 	},
 }
 
+// ── workspace-destroy ─────────────────────────────────────────────────────────
+
+var botDestroyConfirm bool
+
+var botWorkspaceDestroyCmd = &cobra.Command{
+	Use:   "workspace-destroy",
+	Short: "Completely remove a workspace: all registrations and credentials",
+	Long: `Permanently delete all instance registrations across all users in a workspace,
+and remove the workspace's bot token and signing secret.
+
+Without --confirm, performs a dry-run showing what would be removed.
+With --confirm, executes the full teardown.
+
+Note: The SpawnBotCrossAccount IAM role in customer accounts is not
+deleted automatically. Remove it separately with:
+  aws cloudformation delete-stack --stack-name spawn-bot-cross-account`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if botPlatform == "" || botWorkspaceID == "" {
+			return fmt.Errorf("--platform and --workspace-id are required")
+		}
+		ctx := context.Background()
+		cfg, err := awsconfig.LoadDefaultConfig(ctx)
+		if err != nil {
+			return fmt.Errorf("load AWS config: %w", err)
+		}
+
+		registryTable := botTable
+		if registryTable == "" {
+			registryTable = defaultBotRegistryTable
+		}
+		workspacesTable := botWorkspacesTable
+		if workspacesTable == "" {
+			workspacesTable = defaultBotWorkspacesTable
+		}
+
+		client := dynamodb.NewFromConfig(cfg)
+
+		// Scan all registrations for this workspace
+		prefix := botPlatform + "#" + botWorkspaceID + "#"
+		scanResult, err := client.Scan(ctx, &dynamodb.ScanInput{
+			TableName:        aws.String(registryTable),
+			FilterExpression: aws.String("begins_with(user_key, :prefix)"),
+			ExpressionAttributeValues: map[string]dynamodbtypes.AttributeValue{
+				":prefix": &dynamodbtypes.AttributeValueMemberS{Value: prefix},
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("scan registrations: %w", err)
+		}
+
+		// Look up workspace record
+		wsResult, _ := client.GetItem(ctx, &dynamodb.GetItemInput{
+			TableName: aws.String(workspacesTable),
+			Key: map[string]dynamodbtypes.AttributeValue{
+				"workspace_key": &dynamodbtypes.AttributeValueMemberS{Value: botPlatform + "#" + botWorkspaceID},
+			},
+		})
+		wsFound := wsResult != nil && wsResult.Item != nil
+
+		// Dry-run: show what would be removed
+		if !botDestroyConfirm {
+			fmt.Println("Would remove:")
+			if len(scanResult.Items) == 0 {
+				fmt.Println("  registrations: (none)")
+			} else {
+				fmt.Printf("  registrations: %d\n", len(scanResult.Items))
+				for _, item := range scanResult.Items {
+					var r botRegistration
+					if err := attributevalue.UnmarshalMap(item, &r); err == nil {
+						parts := strings.SplitN(r.UserKey, "#", 3)
+						userID := ""
+						if len(parts) == 3 {
+							userID = parts[2]
+						}
+						fmt.Printf("    %s/%s\n", userID, r.Nickname)
+					}
+				}
+			}
+			if wsFound {
+				fmt.Printf("  workspace: %s/%s\n", botPlatform, botWorkspaceID)
+			} else {
+				fmt.Printf("  workspace: %s/%s (not found)\n", botPlatform, botWorkspaceID)
+			}
+			fmt.Println("\nRun with --confirm to proceed.")
+			return nil
+		}
+
+		// Execute: batch-delete all registrations
+		deleted := 0
+		items := scanResult.Items
+		for i := 0; i < len(items); i += 25 {
+			end := i + 25
+			if end > len(items) {
+				end = len(items)
+			}
+			requests := make([]dynamodbtypes.WriteRequest, 0, end-i)
+			for _, item := range items[i:end] {
+				var r botRegistration
+				if err := attributevalue.UnmarshalMap(item, &r); err != nil {
+					continue
+				}
+				requests = append(requests, dynamodbtypes.WriteRequest{
+					DeleteRequest: &dynamodbtypes.DeleteRequest{
+						Key: map[string]dynamodbtypes.AttributeValue{
+							"user_key": &dynamodbtypes.AttributeValueMemberS{Value: r.UserKey},
+							"nickname": &dynamodbtypes.AttributeValueMemberS{Value: r.Nickname},
+						},
+					},
+				})
+			}
+			if len(requests) > 0 {
+				if _, err := client.BatchWriteItem(ctx, &dynamodb.BatchWriteItemInput{
+					RequestItems: map[string][]dynamodbtypes.WriteRequest{
+						registryTable: requests,
+					},
+				}); err != nil {
+					return fmt.Errorf("batch delete: %w", err)
+				}
+				deleted += len(requests)
+			}
+		}
+
+		// Delete workspace record
+		if wsFound {
+			if _, err := client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+				TableName: aws.String(workspacesTable),
+				Key: map[string]dynamodbtypes.AttributeValue{
+					"workspace_key": &dynamodbtypes.AttributeValueMemberS{Value: botPlatform + "#" + botWorkspaceID},
+				},
+			}); err != nil {
+				return fmt.Errorf("delete workspace: %w", err)
+			}
+		}
+
+		fmt.Printf("Destroyed workspace %s/%s:\n", botPlatform, botWorkspaceID)
+		fmt.Printf("  Removed %d instance registration(s)\n", deleted)
+		if wsFound {
+			fmt.Println("  Removed workspace credentials")
+		}
+		fmt.Println("\nNote: The SpawnBotCrossAccount IAM role in customer accounts must be")
+		fmt.Println("deleted separately:")
+		fmt.Println("  aws cloudformation delete-stack --stack-name spawn-bot-cross-account")
+		return nil
+	},
+}
+
 // ── types ────────────────────────────────────────────────────────────────────
 
 type botRegistration struct {
@@ -461,12 +607,14 @@ type botRegistration struct {
 func init() {
 	rootCmd.AddCommand(botCmd)
 	botCmd.AddCommand(botRegisterCmd, botDeregisterCmd, botListCmd,
-		botWorkspaceAddCmd, botWorkspaceRemoveCmd, botWorkspaceListCmd)
+		botWorkspaceAddCmd, botWorkspaceRemoveCmd, botWorkspaceListCmd,
+		botWorkspaceDestroyCmd)
 
 	// Shared flags across all subcommands
 	allSubs := []*cobra.Command{
 		botRegisterCmd, botDeregisterCmd, botListCmd,
 		botWorkspaceAddCmd, botWorkspaceRemoveCmd, botWorkspaceListCmd,
+		botWorkspaceDestroyCmd,
 	}
 	for _, sub := range allSubs {
 		sub.Flags().StringVar(&botPlatform, "platform", "", "Chat platform: slack or teams")
@@ -504,7 +652,11 @@ func init() {
 	// List flags
 	botListCmd.Flags().StringVar(&botWorkspaceID, "workspace-id", "", "Platform workspace ID")
 
-	// workspace-add/remove share workspace-id
+	// workspace-add/remove/destroy share workspace-id
 	botWorkspaceAddCmd.Flags().StringVar(&botWorkspaceID, "workspace-id", "", "Platform workspace ID")
 	botWorkspaceRemoveCmd.Flags().StringVar(&botWorkspaceID, "workspace-id", "", "Platform workspace ID")
+	botWorkspaceDestroyCmd.Flags().StringVar(&botWorkspaceID, "workspace-id", "", "Platform workspace ID (required)")
+	botWorkspaceDestroyCmd.Flags().StringVar(&botWorkspacesTable, "workspaces-table", "", "Override DynamoDB workspaces table name")
+	botWorkspaceDestroyCmd.Flags().StringVar(&botTable, "registry-table", "", "Override DynamoDB registry table name")
+	botWorkspaceDestroyCmd.Flags().BoolVar(&botDestroyConfirm, "confirm", false, "Execute destroy (default: dry-run)")
 }
