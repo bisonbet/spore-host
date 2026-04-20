@@ -195,6 +195,66 @@ var botDeregisterCmd = &cobra.Command{
 	},
 }
 
+// ── enable / disable ─────────────────────────────────────────────────────────
+
+// botEnableDisable handles both enable and disable with a single implementation.
+func botEnableDisable(enabled bool) func(cmd *cobra.Command, args []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		if botPlatform == "" || botUserID == "" || botWorkspaceID == "" || botNickname == "" {
+			return fmt.Errorf("--platform, --user-id, --workspace-id, and --nickname are all required")
+		}
+		ctx := context.Background()
+		cfg, err := awsconfig.LoadDefaultConfig(ctx)
+		if err != nil {
+			return fmt.Errorf("load AWS config: %w", err)
+		}
+		tableName := botTable
+		if tableName == "" {
+			tableName = defaultBotRegistryTable
+		}
+		userKey := strings.Join([]string{botPlatform, botWorkspaceID, botUserID}, "#")
+		client := dynamodb.NewFromConfig(cfg)
+		_, err = client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+			TableName: aws.String(tableName),
+			Key: map[string]dynamodbtypes.AttributeValue{
+				"user_key": &dynamodbtypes.AttributeValueMemberS{Value: userKey},
+				"nickname": &dynamodbtypes.AttributeValueMemberS{Value: botNickname},
+			},
+			UpdateExpression: aws.String("SET enabled = :v"),
+			ExpressionAttributeValues: map[string]dynamodbtypes.AttributeValue{
+				":v": &dynamodbtypes.AttributeValueMemberBOOL{Value: enabled},
+			},
+			ConditionExpression: aws.String("attribute_exists(user_key)"),
+		})
+		if err != nil {
+			return fmt.Errorf("update enabled: %w", err)
+		}
+		action := "Enabled"
+		if !enabled {
+			action = "Disabled"
+		}
+		fmt.Printf("%s bot access for %s/%s (%s)\n", action, botPlatform, botNickname, botUserID)
+		return nil
+	}
+}
+
+var botEnableCmd = &cobra.Command{
+	Use:   "enable",
+	Short: "Enable bot access for a registered instance",
+	Long: `Grant bot access to a registered instance. Registrations are created
+disabled by default — this command must be run before a chat user can
+control the instance via slash commands.`,
+	RunE: botEnableDisable(true),
+}
+
+var botDisableCmd = &cobra.Command{
+	Use:   "disable",
+	Short: "Temporarily disable bot access for a registered instance",
+	Long: `Suspend bot access without removing the registration. Use during
+sensitive computation runs or maintenance. Re-enable with 'spawn bot enable'.`,
+	RunE: botEnableDisable(false),
+}
+
 // ── list ──────────────────────────────────────────────────────────────────────
 
 var botListCmd = &cobra.Command{
@@ -607,12 +667,14 @@ type botRegistration struct {
 func init() {
 	rootCmd.AddCommand(botCmd)
 	botCmd.AddCommand(botRegisterCmd, botDeregisterCmd, botListCmd,
+		botEnableCmd, botDisableCmd,
 		botWorkspaceAddCmd, botWorkspaceRemoveCmd, botWorkspaceListCmd,
 		botWorkspaceDestroyCmd)
 
 	// Shared flags across all subcommands
 	allSubs := []*cobra.Command{
 		botRegisterCmd, botDeregisterCmd, botListCmd,
+		botEnableCmd, botDisableCmd,
 		botWorkspaceAddCmd, botWorkspaceRemoveCmd, botWorkspaceListCmd,
 		botWorkspaceDestroyCmd,
 	}
@@ -651,6 +713,14 @@ func init() {
 
 	// List flags
 	botListCmd.Flags().StringVar(&botWorkspaceID, "workspace-id", "", "Platform workspace ID")
+
+	// enable/disable flags
+	for _, sub := range []*cobra.Command{botEnableCmd, botDisableCmd} {
+		sub.Flags().StringVar(&botUserID, "user-id", "", "Platform user ID")
+		sub.Flags().StringVar(&botWorkspaceID, "workspace-id", "", "Platform workspace ID")
+		sub.Flags().StringVar(&botNickname, "nickname", "", "Nickname of the registration to enable/disable")
+		sub.Flags().StringVar(&botTable, "table", "", "Override DynamoDB registry table name")
+	}
 
 	// workspace-add/remove/destroy share workspace-id
 	botWorkspaceAddCmd.Flags().StringVar(&botWorkspaceID, "workspace-id", "", "Platform workspace ID")

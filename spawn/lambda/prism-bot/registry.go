@@ -27,6 +27,9 @@ type BotRegistration struct {
 	RegisteredBy   string   `dynamodbav:"registered_by"`
 	Platform       string   `dynamodbav:"platform"`
 	CreatedAt      string   `dynamodbav:"created_at"`
+	// Enabled must be explicitly set true before the bot will execute any EC2 command.
+	// Registrations are created disabled (false) by default.
+	Enabled bool `dynamodbav:"enabled" json:"enabled"`
 }
 
 // WorkspaceConfig stores per-workspace OAuth tokens (bot token + signing secret).
@@ -165,6 +168,28 @@ func (r *Registry) DeleteRegistration(ctx context.Context, platform, workspaceID
 	})
 	if err != nil {
 		return fmt.Errorf("delete registration: %w", err)
+	}
+	return nil
+}
+
+// SetEnabled enables or disables bot access for a specific registration.
+// Disabled registrations are visible in lists but the Lambda will refuse
+// to execute EC2 commands on them until re-enabled.
+func (r *Registry) SetEnabled(ctx context.Context, platform, workspaceID, userID, nickname string, enabled bool) error {
+	_, err := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: &r.registryTable,
+		Key: map[string]dynamodbtypes.AttributeValue{
+			"user_key": &dynamodbtypes.AttributeValueMemberS{Value: userKey(platform, workspaceID, userID)},
+			"nickname": &dynamodbtypes.AttributeValueMemberS{Value: nickname},
+		},
+		UpdateExpression: aws.String("SET enabled = :v"),
+		ExpressionAttributeValues: map[string]dynamodbtypes.AttributeValue{
+			":v": &dynamodbtypes.AttributeValueMemberBOOL{Value: enabled},
+		},
+		ConditionExpression: aws.String("attribute_exists(user_key)"),
+	})
+	if err != nil {
+		return fmt.Errorf("set enabled: %w", err)
 	}
 	return nil
 }

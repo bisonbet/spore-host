@@ -24,10 +24,12 @@ type BotAction struct {
 	Registration *BotRegistration `json:"registration"`
 }
 
-// executeAction runs the EC2 operation and posts the result back to the chat platform.
+// executeAction runs the EC2 operation, posts the result to the chat platform,
+// and logs an audit event regardless of outcome.
 func executeAction(ctx context.Context, cfg aws.Config, reg *Registry, action *BotAction) {
 	var result string
 	var err error
+	auditResult := AuditResultSuccess
 
 	switch action.Command {
 	case "list":
@@ -46,10 +48,25 @@ func executeAction(ctx context.Context, cfg aws.Config, reg *Registry, action *B
 		result, err = cmdEC2Op(ctx, cfg, action, "url")
 	default:
 		result = fmt.Sprintf("Unknown command: `%s`. Try `/prism help`.", action.Command)
+		auditResult = AuditResultDenied
 	}
 
+	detail := ""
 	if err != nil {
 		result = fmt.Sprintf("❌ Error: %s", err.Error())
+		auditResult = AuditResultError
+		detail = err.Error()
+	} else if strings.HasPrefix(result, "⚠️") {
+		auditResult = AuditResultNotEnabled
+		detail = result
+	} else if strings.HasPrefix(result, "❌") {
+		auditResult = AuditResultDenied
+		detail = result
+	}
+
+	// Audit log is fire-and-forget — never blocks the response to Slack/Teams
+	if auditor != nil {
+		auditor.Log(ctx, newAuditEvent(action, auditResult, detail))
 	}
 
 	// Post result back to the chat platform
@@ -135,6 +152,13 @@ func cmdEC2Op(ctx context.Context, cfg aws.Config, action *BotAction, op string)
 	reg := action.Registration
 	if reg == nil {
 		return "", fmt.Errorf("no registration provided")
+	}
+
+	// Enabled is the explicit opt-in gate — off by default after registration.
+	if !reg.Enabled {
+		return fmt.Sprintf("⚠️ *%s* (`%s`) is registered but not enabled for bot access.\n"+
+			"The workspace admin must run:\n```\nspawn bot enable --platform %s --user-id %s --workspace-id %s --nickname %s\n```",
+			reg.Nickname, reg.InstanceID, reg.Platform, "<user-id>", "<workspace-id>", reg.Nickname), nil
 	}
 
 	if !isActionAllowed(reg, op) {

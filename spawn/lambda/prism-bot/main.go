@@ -21,6 +21,7 @@ import (
 var (
 	cfg          aws.Config
 	reg          *Registry
+	auditor      *Auditor
 	lambdaClient *lambdasvc.Client
 	functionName string
 	httpClient   = &http.Client{Timeout: 15 * time.Second}
@@ -34,6 +35,7 @@ func init() {
 		log.Fatalf("load config: %v", err)
 	}
 	reg = newRegistry(cfg)
+	auditor = NewAuditor(cfg)
 	lambdaClient = lambdasvc.NewFromConfig(cfg)
 	functionName = os.Getenv("AWS_LAMBDA_FUNCTION_NAME")
 }

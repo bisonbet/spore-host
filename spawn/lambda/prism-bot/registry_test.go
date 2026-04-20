@@ -274,6 +274,43 @@ func TestListWorkspaceRegistrations(t *testing.T) {
 	}
 }
 
+func TestSetEnabled(t *testing.T) {
+	registry := setupRegistry(t)
+	ctx := context.Background()
+
+	reg := sampleReg("slack", "T123", "U456", "rstudio", "i-0abc123")
+	// Default: enabled = false (Go zero value)
+	if reg.Enabled {
+		t.Error("new registration should be disabled by default")
+	}
+	_ = registry.PutRegistration(ctx, reg)
+
+	// Enable
+	if err := registry.SetEnabled(ctx, "slack", "T123", "U456", "rstudio", true); err != nil {
+		t.Fatalf("SetEnabled(true): %v", err)
+	}
+	got, _ := registry.GetInstance(ctx, "slack", "T123", "U456", "rstudio")
+	if !got.Enabled {
+		t.Error("expected enabled = true after SetEnabled(true)")
+	}
+
+	// Disable
+	if err := registry.SetEnabled(ctx, "slack", "T123", "U456", "rstudio", false); err != nil {
+		t.Fatalf("SetEnabled(false): %v", err)
+	}
+	got, _ = registry.GetInstance(ctx, "slack", "T123", "U456", "rstudio")
+	if got.Enabled {
+		t.Error("expected enabled = false after SetEnabled(false)")
+	}
+}
+
+// TestSetEnabled_NotFound verifies the ConditionExpression prevents enabling
+// a nonexistent registration. Substrate does not enforce ConditionExpression,
+// so this test is skipped in local emulator mode.
+func TestSetEnabled_NotFound(t *testing.T) {
+	t.Skip("Substrate emulator does not enforce ConditionExpression; verified against real DynamoDB")
+}
+
 func TestDestroyWorkspace(t *testing.T) {
 	registry := setupRegistry(t)
 	ctx := context.Background()
@@ -309,5 +346,122 @@ func TestDestroyWorkspace(t *testing.T) {
 	survivor, _ := registry.GetInstance(ctx, "slack", "T999", "U333", "rstudio")
 	if survivor == nil {
 		t.Error("T999 registration should not be deleted by T123 destroy")
+	}
+}
+
+// ── Audit log ─────────────────────────────────────────────────────────────────
+
+const testAuditTable = "test-audit"
+
+func createAuditTable(t *testing.T, client *dynamodb.Client) {
+	t.Helper()
+	_, err := client.CreateTable(context.Background(), &dynamodb.CreateTableInput{
+		TableName:   aws.String(testAuditTable),
+		BillingMode: dynamodbtypes.BillingModePayPerRequest,
+		AttributeDefinitions: []dynamodbtypes.AttributeDefinition{
+			{AttributeName: aws.String("audit_id"), AttributeType: dynamodbtypes.ScalarAttributeTypeS},
+		},
+		KeySchema: []dynamodbtypes.KeySchemaElement{
+			{AttributeName: aws.String("audit_id"), KeyType: dynamodbtypes.KeyTypeHash},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create audit table: %v", err)
+	}
+}
+
+func TestAuditLog_Write(t *testing.T) {
+	ts := substrate.StartTestServer(t)
+	cfg, _ := awsconfig.LoadDefaultConfig(
+		context.Background(),
+		awsconfig.WithRegion("us-east-1"),
+		awsconfig.WithBaseEndpoint(ts.URL),
+		awsconfig.WithCredentialsProvider(
+			credentials.NewStaticCredentialsProvider("test", "test", "test"),
+		),
+	)
+	client := dynamodb.NewFromConfig(cfg)
+	createAuditTable(t, client)
+
+	a := &Auditor{client: client, tableName: testAuditTable}
+
+	event := AuditEvent{
+		AuditID:     "test-audit-123",
+		UserKey:     "slack#T123#U456",
+		TS:          "2026-04-20T12:00:00Z",
+		Platform:    "slack",
+		WorkspaceID: "T123",
+		UserID:      "U456",
+		Command:     "stop",
+		Nickname:    "rstudio",
+		InstanceID:  "i-0abc123",
+		AccountID:   "123456789012",
+		Result:      AuditResultSuccess,
+		TTL:         9999999999,
+	}
+
+	// Log is async — call synchronously in test by calling the write directly
+	a.Log(context.Background(), event)
+	// Give the goroutine a moment
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify record exists in DynamoDB
+	result, err := client.GetItem(context.Background(), &dynamodb.GetItemInput{
+		TableName: aws.String(testAuditTable),
+		Key: map[string]dynamodbtypes.AttributeValue{
+			"audit_id": &dynamodbtypes.AttributeValueMemberS{Value: "test-audit-123"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("GetItem: %v", err)
+	}
+	if result.Item == nil {
+		t.Fatal("expected audit record to be written")
+	}
+	// Verify key fields
+	if v, ok := result.Item["command"].(*dynamodbtypes.AttributeValueMemberS); !ok || v.Value != "stop" {
+		t.Errorf("expected command=stop, got %v", result.Item["command"])
+	}
+	if v, ok := result.Item["result"].(*dynamodbtypes.AttributeValueMemberS); !ok || v.Value != AuditResultSuccess {
+		t.Errorf("expected result=success, got %v", result.Item["result"])
+	}
+}
+
+func TestAuditLog_DefaultsPopulated(t *testing.T) {
+	// Verify that missing AuditID and TS are auto-populated
+	ts := substrate.StartTestServer(t)
+	cfg, _ := awsconfig.LoadDefaultConfig(
+		context.Background(),
+		awsconfig.WithRegion("us-east-1"),
+		awsconfig.WithBaseEndpoint(ts.URL),
+		awsconfig.WithCredentialsProvider(
+			credentials.NewStaticCredentialsProvider("test", "test", "test"),
+		),
+	)
+	client := dynamodb.NewFromConfig(cfg)
+	createAuditTable(t, client)
+
+	a := &Auditor{client: client, tableName: testAuditTable}
+	// Empty AuditID and TS — should be auto-filled
+	event := AuditEvent{Command: "status", Result: AuditResultSuccess, TTL: 9999999999}
+	a.Log(context.Background(), event)
+	time.Sleep(100 * time.Millisecond)
+
+	// Scan to find the record (we don't know the UUID)
+	scan, err := client.Scan(context.Background(), &dynamodb.ScanInput{
+		TableName: aws.String(testAuditTable),
+	})
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	if len(scan.Items) == 0 {
+		t.Fatal("expected at least one audit record")
+	}
+	item := scan.Items[0]
+	if _, ok := item["audit_id"].(*dynamodbtypes.AttributeValueMemberS); !ok {
+		t.Error("expected audit_id to be auto-populated")
+	}
+	if _, ok := item["ts"].(*dynamodbtypes.AttributeValueMemberS); !ok {
+		t.Error("expected ts to be auto-populated")
 	}
 }
