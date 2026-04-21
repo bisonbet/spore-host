@@ -360,6 +360,10 @@ func loadConfigFromEC2Tags(ctx context.Context, client *ec2.Client, instanceID s
 			}
 		case tagprefix.Tag("dns-name"):
 			config.DNSName = *tag.Value
+		case tagprefix.Tag("notify-url"):
+			config.NotifyURL = *tag.Value
+		case tagprefix.Tag("slack-workspace-id"):
+			config.SlackWorkspaceID = *tag.Value
 		case tagprefix.Tag("pre-stop"):
 			config.PreStop = *tag.Value
 		case tagprefix.Tag("pre-stop-timeout"):

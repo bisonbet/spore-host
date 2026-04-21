@@ -48,12 +48,20 @@ func handler(ctx context.Context, rawEvent json.RawMessage) (interface{}, error)
 	// Lambda Function URLs use requestContext.http.method instead of httpMethod.
 	var fnURLReq events.LambdaFunctionURLRequest
 	if err := json.Unmarshal(rawEvent, &fnURLReq); err == nil && fnURLReq.RequestContext.HTTP.Method != "" {
-		return handleWebhook(ctx, cfg, reg, funcURLToAPIGW(fnURLReq))
+		apiReq := funcURLToAPIGW(fnURLReq)
+		// /notify is a pre-auth route — authenticated via instance identity, not user credentials
+		if apiReq.Path == "/notify" && apiReq.HTTPMethod == "POST" {
+			return handleNotify(ctx, cfg, reg, apiReq)
+		}
+		return handleWebhook(ctx, cfg, reg, apiReq)
 	}
 
 	// Try API Gateway proxy event (deployed behind API Gateway).
 	var apiReq events.APIGatewayProxyRequest
 	if err := json.Unmarshal(rawEvent, &apiReq); err == nil && apiReq.HTTPMethod != "" {
+		if apiReq.Path == "/notify" && apiReq.HTTPMethod == "POST" {
+			return handleNotify(ctx, cfg, reg, apiReq)
+		}
 		return handleWebhook(ctx, cfg, reg, apiReq)
 	}
 

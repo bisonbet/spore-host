@@ -52,6 +52,11 @@ type WorkspaceConfig struct {
 	RefreshToken   string `dynamodbav:"refresh_token,omitempty"`
 	TokenExpiresAt int64  `dynamodbav:"token_expires_at,omitempty"`
 	TokenRotation  bool   `dynamodbav:"token_rotation,omitempty"`
+	// IncomingWebhookURL is a ready-to-use Slack webhook URL for channel notifications.
+	// Populated automatically during OAuth when the user selects a channel.
+	// Can also be set manually via spawn bot workspace-add --webhook-url.
+	IncomingWebhookURL     string `dynamodbav:"incoming_webhook_url,omitempty"`
+	IncomingWebhookChannel string `dynamodbav:"incoming_webhook_channel,omitempty"`
 }
 
 // ConnectCode is a short-lived token generated when a user types /spore connect.

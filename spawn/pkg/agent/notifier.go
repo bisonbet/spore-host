@@ -1,0 +1,145 @@
+package agent
+
+import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"strings"
+	"time"
+
+	awsconfig "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
+	"github.com/scttfrdmn/spore-host/spawn/pkg/provider"
+)
+
+// notifyRequest mirrors the NotifyRequest struct in the spore-bot Lambda.
+type notifyRequest struct {
+	InstanceIdentityDocument  string `json:"instance_identity_document"`
+	InstanceIdentitySignature string `json:"instance_identity_signature"`
+	Platform                  string `json:"platform"`
+	WorkspaceID               string `json:"workspace_id"`
+	EventType                 string `json:"event_type"`
+	InstanceName              string `json:"instance_name"`
+	InstanceID                string `json:"instance_id"`
+	Region                    string `json:"region"`
+	DNSName                   string `json:"dns_name,omitempty"`
+	Detail                    string `json:"detail,omitempty"`
+}
+
+// Notifier sends lifecycle event notifications to the spore-bot Lambda.
+// All calls are fire-and-forget — a slow or unavailable endpoint never
+// delays or cancels a lifecycle action.
+type Notifier struct {
+	notifyURL    string
+	workspaceID  string
+	platform     string
+	instanceID   string
+	instanceName string
+	region       string
+	dnsName      string
+	imdsClient   *imds.Client
+	httpClient   *http.Client
+}
+
+// NewNotifier creates a Notifier from the agent config and provider identity.
+// Returns nil if NotifyURL is empty — nil Notifier is safe to call (no-op).
+func NewNotifier(cfg *provider.Config, identity *provider.Identity) *Notifier {
+	if cfg.NotifyURL == "" {
+		return nil
+	}
+	name := cfg.DNSName
+	if name == "" {
+		name = identity.InstanceID
+	}
+	return &Notifier{
+		notifyURL:    strings.TrimRight(cfg.NotifyURL, "/"),
+		workspaceID:  cfg.SlackWorkspaceID,
+		platform:     "slack",
+		instanceID:   identity.InstanceID,
+		instanceName: name,
+		region:       identity.Region,
+		dnsName:      cfg.DNSName,
+		imdsClient:   imds.NewFromConfig(awsconfig.Config{}), // default IMDS via link-local
+		httpClient:   &http.Client{Timeout: 5 * time.Second},
+	}
+}
+
+// Notify sends a lifecycle event notification asynchronously.
+// Safe to call on a nil Notifier.
+func (n *Notifier) Notify(ctx context.Context, eventType, detail string) {
+	if n == nil || n.notifyURL == "" {
+		return
+	}
+	// Fire-and-forget — use a fresh context so the goroutine isn't cancelled
+	// when the calling lifecycle function's context is cancelled at shutdown.
+	go func() {
+		sendCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := n.send(sendCtx, eventType, detail); err != nil {
+			log.Printf("spore-bot notify (%s) failed: %v", eventType, err)
+		}
+	}()
+}
+
+func (n *Notifier) send(ctx context.Context, eventType, detail string) error {
+	// Get instance identity document + signature from IMDS
+	identityDoc, err := n.imdsClient.GetInstanceIdentityDocument(ctx, &imds.GetInstanceIdentityDocumentInput{})
+	if err != nil {
+		return fmt.Errorf("get identity doc: %w", err)
+	}
+	identityDocJSON, err := json.Marshal(identityDoc)
+	if err != nil {
+		return fmt.Errorf("marshal identity doc: %w", err)
+	}
+
+	sigResp, err := n.imdsClient.GetDynamicData(ctx, &imds.GetDynamicDataInput{
+		Path: "instance-identity/signature",
+	})
+	if err != nil {
+		return fmt.Errorf("get signature: %w", err)
+	}
+	defer sigResp.Content.Close()
+	sigBytes, err := io.ReadAll(sigResp.Content)
+	if err != nil {
+		return fmt.Errorf("read signature: %w", err)
+	}
+
+	nr := notifyRequest{
+		InstanceIdentityDocument:  base64.StdEncoding.EncodeToString(identityDocJSON),
+		InstanceIdentitySignature: strings.TrimSpace(string(sigBytes)),
+		Platform:                  n.platform,
+		WorkspaceID:               n.workspaceID,
+		EventType:                 eventType,
+		InstanceName:              n.instanceName,
+		InstanceID:                n.instanceID,
+		Region:                    n.region,
+		DNSName:                   n.dnsName,
+		Detail:                    detail,
+	}
+
+	body, err := json.Marshal(nr)
+	if err != nil {
+		return fmt.Errorf("marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", n.notifyURL+"/notify", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := n.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("HTTP POST: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("notify endpoint returned %d", resp.StatusCode)
+	}
+	return nil
+}

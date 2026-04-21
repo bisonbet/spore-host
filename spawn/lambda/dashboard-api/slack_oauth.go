@@ -151,20 +151,28 @@ func handleSlackTokenRotate(ctx context.Context, cfg aws.Config, request events.
 
 // slackOAuthTokenResponse is the response from Slack's oauth.v2.access endpoint.
 type slackOAuthTokenResponse struct {
-	OK                  bool   `json:"ok"`
-	Error               string `json:"error,omitempty"`
-	AccessToken         string `json:"access_token"`
-	RefreshToken        string `json:"refresh_token,omitempty"`
-	TokenRotationEnabled bool  `json:"token_rotation_enabled,omitempty"`
-	ExpiresIn           int    `json:"expires_in,omitempty"` // seconds
-	BotToken            string `json:"-"`                    // set after parsing
-	Team                struct {
+	OK                   bool   `json:"ok"`
+	Error                string `json:"error,omitempty"`
+	AccessToken          string `json:"access_token"`
+	RefreshToken         string `json:"refresh_token,omitempty"`
+	TokenRotationEnabled bool   `json:"token_rotation_enabled,omitempty"`
+	ExpiresIn            int    `json:"expires_in,omitempty"` // seconds
+	BotToken             string `json:"-"`                    // set after parsing
+	Team                 struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
 	} `json:"team"`
 	AuthedUser struct {
 		ID string `json:"id"`
 	} `json:"authed_user"`
+	// IncomingWebhook is only present when the user selects a channel during OAuth.
+	// It provides a ready-to-use webhook URL for posting to that channel.
+	IncomingWebhook struct {
+		URL           string `json:"url"`
+		Channel       string `json:"channel"`
+		ChannelID     string `json:"channel_id"`
+		ConfigurationURL string `json:"configuration_url"`
+	} `json:"incoming_webhook,omitempty"`
 }
 
 func exchangeSlackCode(ctx context.Context, clientID, clientSecret, code, codeVerifier, redirectURI string) (*slackOAuthTokenResponse, error) {
@@ -228,6 +236,12 @@ func storeSlackWorkspace(ctx context.Context, cfg aws.Config, tableName string, 
 		"installed_by":   "oauth:" + token.AuthedUser.ID,
 		"installed_at":   time.Now().UTC().Format(time.RFC3339),
 		"token_rotation": token.TokenRotationEnabled,
+	}
+	// Store incoming webhook URL if the user selected a channel during OAuth.
+	// This enables zero-config channel notifications without bot registration.
+	if token.IncomingWebhook.URL != "" {
+		ws["incoming_webhook_url"] = token.IncomingWebhook.URL
+		ws["incoming_webhook_channel"] = token.IncomingWebhook.Channel
 	}
 	if token.TokenRotationEnabled && token.RefreshToken != "" {
 		ws["refresh_token"] = token.RefreshToken

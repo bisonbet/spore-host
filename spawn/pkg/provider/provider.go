@@ -46,6 +46,10 @@ type Config struct {
 	// DNS settings
 	DNSName string
 
+	// Notification settings — populated from EC2 tags at startup
+	NotifyURL        string // spore-bot Lambda Function URL for lifecycle notifications
+	SlackWorkspaceID string // Slack workspace ID (e.g. "T03NE3GTY")
+
 	// Job array settings
 	JobArrayID    string
 	JobArrayName  string

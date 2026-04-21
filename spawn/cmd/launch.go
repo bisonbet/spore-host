@@ -78,10 +78,11 @@ var (
 	name           string
 	userData       string
 	userDataFile   string
-	dnsName        string
-	dnsDomain      string
-	dnsAPIEndpoint string
-	noTimeout      bool
+	dnsName          string
+	dnsDomain        string
+	dnsAPIEndpoint   string
+	noTimeout        bool
+	slackWorkspaceID string // for lifecycle notifications via spore-bot
 
 	// Job array
 	count         int
@@ -228,6 +229,7 @@ func init() {
 	launchCmd.Flags().StringVar(&userData, "user-data", "", "User data (@file or inline)")
 	launchCmd.Flags().StringVar(&userDataFile, "user-data-file", "", "User data file")
 	launchCmd.Flags().StringVar(&dnsName, "dns", "", "Override DNS name if different from --name (advanced)")
+	launchCmd.Flags().StringVar(&slackWorkspaceID, "slack-workspace", "", "Slack workspace ID for lifecycle notifications (e.g. T03NE3GTY)")
 	launchCmd.Flags().StringVar(&dnsDomain, "dns-domain", "", "Custom DNS domain (overrides default)")
 	launchCmd.Flags().StringVar(&dnsAPIEndpoint, "dns-api-endpoint", "", "Custom DNS API endpoint (overrides default)")
 
@@ -1580,6 +1582,16 @@ func buildLaunchConfig(truffleInput *input.TruffleInput) (*aws.LaunchConfig, err
 	}
 	if dnsName != "" {
 		config.DNSName = dnsName
+	}
+	if slackWorkspaceID != "" {
+		config.SlackWorkspaceID = slackWorkspaceID
+		// The spore-bot Lambda Function URL — hard-coded for hosted spore.host;
+		// can be overridden via SPORE_BOT_NOTIFY_URL env var for self-hosted deployments.
+		notifyURL := os.Getenv("SPORE_BOT_NOTIFY_URL")
+		if notifyURL == "" {
+			notifyURL = "https://awdzf7fbbsvqcrnrzusqjsuybm0iiyvf.lambda-url.us-east-1.on.aws"
+		}
+		config.NotifyURL = notifyURL
 	}
 	if idleTimeout != "" {
 		config.IdleTimeout = idleTimeout

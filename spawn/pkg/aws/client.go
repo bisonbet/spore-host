@@ -143,6 +143,10 @@ type LaunchConfig struct {
 	IMDSv2Enforced bool   // Require IMDSv2 (no IMDSv1 fallback)
 	IMDSv2HopLimit int    // IMDSv2 hop limit (default: 1)
 
+	// Slack lifecycle notifications
+	SlackWorkspaceID string // Slack workspace ID — injected as spawn:slack-workspace-id tag
+	NotifyURL        string // spore-bot Lambda Function URL — injected as spawn:notify-url tag
+
 	// Metadata
 	Name string
 	Tags map[string]string
@@ -333,6 +337,13 @@ func buildTags(config LaunchConfig, accountID string, userARN string) []types.Ta
 
 	if config.DNSName != "" {
 		tags = append(tags, types.Tag{Key: aws.String("spawn:dns-name"), Value: aws.String(config.DNSName)})
+	}
+
+	if config.SlackWorkspaceID != "" {
+		tags = append(tags, types.Tag{Key: aws.String("spawn:slack-workspace-id"), Value: aws.String(config.SlackWorkspaceID)})
+	}
+	if config.NotifyURL != "" {
+		tags = append(tags, types.Tag{Key: aws.String("spawn:notify-url"), Value: aws.String(config.NotifyURL)})
 	}
 
 	if config.IdleTimeout != "" {

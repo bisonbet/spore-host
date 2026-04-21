@@ -26,6 +26,7 @@ type Agent struct {
 	dnsDomain        string // DNS domain (e.g. "spore.host" or "prismcloud.host")
 	registry         *registry.PeerRegistry
 	pluginRuntime    *pluginruntime.Runtime
+	notifier         *Notifier // Slack lifecycle notifications (nil if not configured)
 	startTime        time.Time
 	lastActivityTime time.Time
 	preStopDone      bool // guards against running pre-stop hook more than once
@@ -56,6 +57,12 @@ func NewAgent(ctx context.Context, prov provider.Provider) (*Agent, error) {
 		identity.InstanceID, identity.Region, identity.AccountID, identity.Provider)
 	log.Printf("Config: TTL=%v, IdleTimeout=%v, Hibernate=%v",
 		config.TTL, config.IdleTimeout, config.HibernateOnIdle)
+
+	// Initialize lifecycle notifier (Slack notifications via spore-bot Lambda)
+	if config.NotifyURL != "" {
+		agent.notifier = NewNotifier(config, identity)
+		log.Printf("Slack lifecycle notifications enabled for workspace %s", config.SlackWorkspaceID)
+	}
 
 	// Initialize DNS client and register if DNS name is configured
 	// Skip DNS for local provider (Phase 1 decision)
@@ -208,6 +215,7 @@ func (a *Agent) checkAndAct(ctx context.Context) {
 
 		if remaining <= 0 {
 			log.Printf("TTL expired (limit: %v, uptime: %v)", a.config.TTL, uptime)
+			a.notifier.Notify(ctx, "ttl_expired", "")
 			a.terminate(ctx, "TTL expired")
 			return
 		}
@@ -217,6 +225,7 @@ func (a *Agent) checkAndAct(ctx context.Context) {
 			a.warnUsers(i18n.Tf("spawn.agent.ttl_warning", map[string]interface{}{
 				"Duration": remaining.Round(time.Minute),
 			}))
+			a.notifier.Notify(ctx, "ttl_warning", remaining.Round(time.Minute).String())
 		}
 	}
 
@@ -250,6 +259,7 @@ func (a *Agent) checkAndAct(ctx context.Context) {
 
 			if idleTime >= a.config.IdleTimeout {
 				log.Printf("Idle timeout reached (%v)", idleTime)
+				a.notifier.Notify(ctx, "idle_stopped", "")
 
 				if a.config.HibernateOnIdle {
 					a.hibernate(ctx)
@@ -266,6 +276,7 @@ func (a *Agent) checkAndAct(ctx context.Context) {
 					"IdleDuration": idleTime.Round(time.Minute),
 					"Remaining":    remaining.Round(time.Minute),
 				}))
+				a.notifier.Notify(ctx, "idle_warning", remaining.Round(time.Minute).String())
 			}
 		} else {
 			// Activity detected, reset timer
@@ -562,7 +573,11 @@ func (a *Agent) checkSpotInterruption(ctx context.Context) bool {
 	// Run pre-stop hook with shortened timeout (stay within the 2-min window)
 	a.runPreStop(true)
 
-	// Send notifications (if configured)
+	// Send Slack notification
+	a.notifier.Notify(cleanupCtx, "spot_interrupt",
+		fmt.Sprintf("action: %s, interruption at %s", info.Action, info.Time.Format("15:04")))
+
+	// Send file-based notifications (legacy)
 	a.sendSpotInterruptionNotification(info.Action, info.Time.Format(time.RFC3339))
 
 	// Log for posterity
@@ -615,6 +630,9 @@ func (a *Agent) checkCompletion(ctx context.Context) bool {
 		if err == nil && len(content) > 0 {
 			log.Printf("Completion metadata: %s", strings.TrimSpace(string(content)))
 		}
+
+		// Notify via Slack before the grace period
+		a.notifier.Notify(ctx, "completion", "")
 
 		// Warn users with grace period
 		delay := a.config.CompletionDelay
@@ -767,6 +785,7 @@ func (a *Agent) runPreStop(spotMode bool) {
 	a.warnUsers(i18n.Tf("spawn.agent.pre_stop_running", map[string]interface{}{
 		"Timeout": timeout,
 	}))
+	a.notifier.Notify(context.Background(), "pre_stop_start", a.config.PreStop)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
