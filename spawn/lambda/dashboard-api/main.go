@@ -35,10 +35,20 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		}, nil
 	}
 
+	// OAuth routes bypass authentication — they're called by Slack's redirect,
+	// not by an authenticated spore.host user.
+	if path == "/api/slack/oauth" && method == "GET" {
+		return handleSlackOAuthRedirect(request)
+	}
+
 	// Load AWS config
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		return errorResponse(500, "Failed to load AWS config"), nil
+	}
+
+	if path == "/api/slack/oauth/callback" && method == "GET" {
+		return handleSlackOAuthCallback(ctx, cfg, request)
 	}
 
 	// Extract user identity and account info

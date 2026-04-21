@@ -374,9 +374,34 @@
 
             <!-- Settings Tab Content -->
             <div id="settings-tab-content" class="dashboard-tab-content" role="tabpanel" aria-labelledby="tab-settings" style="display: none;">
-                <p class="dashboard-subtitle">Configure alerts and notification preferences</p>
+                <p class="dashboard-subtitle">Configure alerts, notifications, and integrations</p>
 
                 <div style="max-width: 600px;">
+
+                    <!-- Slack Integration -->
+                    <div style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 1.5rem;">
+                        <h3 style="color: var(--text-primary); margin-bottom: 0.5rem;">💬 Slack Integration</h3>
+                        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+                            Connect your Slack workspace to control spores with <code>/spore</code> slash commands.
+                            After connecting, use <code>spawn bot register</code> to grant access to individual users.
+                        </p>
+                        <div id="slack-oauth-status" style="margin-bottom: 1rem;"></div>
+                        <a href="https://api.spore.host/api/slack/oauth"
+                           style="display: inline-flex; align-items: center; gap: 0.5rem; background: #4A154B; color: white; padding: 0.6rem 1.2rem; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.9rem; transition: opacity 0.2s;"
+                           onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+                            <svg xmlns="http://www.w3.org/2000/svg" style="width:1.1rem;height:1.1rem;" viewBox="0 0 122.8 122.8" aria-hidden="true">
+                                <path d="M25.8 77.6c0 7.1-5.8 12.9-12.9 12.9S0 84.7 0 77.6s5.8-12.9 12.9-12.9h12.9v12.9zm6.5 0c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9v32.3c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V77.6z" fill="#E01E5A"/>
+                                <path d="M45.2 25.8c-7.1 0-12.9-5.8-12.9-12.9S38.1 0 45.2 0s12.9 5.8 12.9 12.9v12.9H45.2zm0 6.5c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H12.9C5.8 58.1 0 52.3 0 45.2s5.8-12.9 12.9-12.9h32.3z" fill="#36C5F0"/>
+                                <path d="M97 45.2c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9-5.8 12.9-12.9 12.9H97V45.2zm-6.5 0c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V12.9C64.7 5.8 70.5 0 77.6 0s12.9 5.8 12.9 12.9v32.3z" fill="#2EB67D"/>
+                                <path d="M77.6 97c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9-12.9-5.8-12.9-12.9V97h12.9zm0-6.5c-7.1 0-12.9-5.8-12.9-12.9s5.8-12.9 12.9-12.9h32.3c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H77.6z" fill="#ECB22E"/>
+                            </svg>
+                            Add to Slack
+                        </a>
+                        <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.75rem;">
+                            Already connected? Run <code>spawn bot list --platform slack --workspace-id T...</code> to see registered users.
+                        </p>
+                    </div>
+
                     <div style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;">
                         <h3 style="color: var(--text-primary); margin-bottom: 1.5rem;">🔔 Alert Preferences</h3>
                         <form id="alert-prefs-form" onsubmit="saveAlertPreferences(event)">
