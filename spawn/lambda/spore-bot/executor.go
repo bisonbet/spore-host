@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -15,14 +16,14 @@ import (
 
 // BotAction is the payload passed from Phase 1 (ACK) to Phase 2 (execute).
 type BotAction struct {
-	Platform      string           `json:"platform"`
-	WorkspaceID   string           `json:"workspace_id"`
-	UserID        string           `json:"user_id"`
-	ResponseURL   string           `json:"response_url"`
-	Command       string           `json:"command"`       // "status","start","stop","hibernate","url","list","help"
-	Nickname      string           `json:"nickname"`      // may be empty (single-instance case)
-	SlashCommand  string           `json:"slash_command"` // e.g. "/spore" or "/prism" — from Slack payload
-	Registration  *BotRegistration `json:"registration"`
+	Platform     string           `json:"platform"`
+	WorkspaceID  string           `json:"workspace_id"`
+	UserID       string           `json:"user_id"`
+	ResponseURL  string           `json:"response_url"`
+	Command      string           `json:"command"`       // "status","start","stop","hibernate","url","list","help"
+	Nickname     string           `json:"nickname"`      // may be empty (single-instance case)
+	SlashCommand string           `json:"slash_command"` // e.g. "/spore" or "/prism" — from Slack payload
+	Registration *BotRegistration `json:"registration"`
 }
 
 // slashCmd returns the slash command name (e.g. "/spore"), defaulting to "/prism".
@@ -292,10 +293,9 @@ func getStatus(ctx context.Context, client *ec2.Client, reg *BotRegistration) (s
 		ip = *inst.PublicIpAddress
 	}
 
-	// Collect useful tags: display name, DNS name, account base36
+	// Collect useful tags
 	displayName := reg.Nickname
-	dnsShort := ""    // e.g. "spore-bot-test"
-	accountBase36 := "" // e.g. "5k0zfnmq"
+	var dnsShort, accountBase36, ttl, idleTimeout string
 	for _, tag := range inst.Tags {
 		if tag.Key == nil || tag.Value == nil {
 			continue
@@ -307,16 +307,44 @@ func getStatus(ctx context.Context, client *ec2.Client, reg *BotRegistration) (s
 			dnsShort = *tag.Value
 		case reg.TagPrefix + ":account-base36":
 			accountBase36 = *tag.Value
+		case reg.TagPrefix + ":ttl":
+			ttl = *tag.Value
+		case reg.TagPrefix + ":idle-timeout":
+			idleTimeout = *tag.Value
+		case "Name":
+			if displayName == reg.Nickname {
+				displayName = *tag.Value
+			}
 		}
 	}
 
-	// Construct full DNS name: {name}.{account-base36}.spore.host
 	dnsName := reg.DNSName
 	if dnsName == "" && dnsShort != "" && accountBase36 != "" {
 		dnsName = dnsShort + "." + accountBase36 + ".spore.host"
 	}
 
-	return formatSlackStatus(displayName, reg.InstanceID, state, ip, dnsName), nil
+	launchTime := ""
+	if inst.LaunchTime != nil {
+		launchTime = inst.LaunchTime.Format(time.RFC3339)
+	}
+
+	az := ""
+	if inst.Placement != nil && inst.Placement.AvailabilityZone != nil {
+		az = *inst.Placement.AvailabilityZone
+	}
+
+	return formatSlackStatus(InstanceStatus{
+		Nickname:     displayName,
+		InstanceID:   reg.InstanceID,
+		State:        state,
+		InstanceType: string(inst.InstanceType),
+		AZ:           az,
+		IP:           ip,
+		DNSName:      dnsName,
+		LaunchTime:   launchTime,
+		TTL:          ttl,
+		IdleTimeout:  idleTimeout,
+	}), nil
 }
 
 func startInstance(ctx context.Context, client *ec2.Client, reg *BotRegistration) (string, error) {

@@ -347,11 +347,10 @@ func TestFormatSlackStatus(t *testing.T) {
 		{"running", "🟢"},
 		{"stopped", "🔴"},
 		{"stopping", "🔴"},
-		{"hibernated", "💤"},
 		{"pending", "🟡"},
 	}
 	for _, tt := range tests {
-		result := formatSlackStatus("rstudio", "i-0abc123", tt.state, "", "")
+		result := formatSlackStatus(InstanceStatus{Nickname: "rstudio", InstanceID: "i-0abc123", State: tt.state})
 		if !strings.Contains(result, tt.wantIcon) {
 			t.Errorf("state %q: expected icon %q in %q", tt.state, tt.wantIcon, result)
 		}
@@ -359,12 +358,46 @@ func TestFormatSlackStatus(t *testing.T) {
 }
 
 func TestFormatSlackStatus_WithIPAndDNS(t *testing.T) {
-	result := formatSlackStatus("rstudio", "i-0abc123", "running", "1.2.3.4", "rstudio.abc.prismcloud.host")
+	result := formatSlackStatus(InstanceStatus{
+		Nickname:   "rstudio",
+		InstanceID: "i-0abc123",
+		State:      "running",
+		IP:         "1.2.3.4",
+		DNSName:    "rstudio.abc.prismcloud.host",
+	})
 	if !strings.Contains(result, "1.2.3.4") {
 		t.Error("expected IP in status output")
 	}
 	if !strings.Contains(result, "rstudio.abc.prismcloud.host") {
 		t.Error("expected DNS name in status output")
+	}
+}
+
+func TestFormatSlackStatus_RichCard(t *testing.T) {
+	result := formatSlackStatus(InstanceStatus{
+		Nickname:     "spore-bot-test",
+		InstanceID:   "i-038954d0b2e861273",
+		State:        "running",
+		InstanceType: "t3.small",
+		AZ:           "us-east-1f",
+		IP:           "98.92.241.152",
+		DNSName:      "spore-bot-test.5k0zfnmq.spore.host",
+		TTL:          "4h",
+		IdleTimeout:  "1h",
+	})
+	for _, want := range []string{
+		"🟢", "spore-bot-test", "Running",
+		"AWS Instance Type", "t3.small",
+		"AWS Region", "us-east-1f",
+		"IP Address", "98.92.241.152",
+		"URL", "https://spore-bot-test.5k0zfnmq.spore.host",
+		"Auto-terminate", "4h",
+		"Idle timeout", "1h",
+		"AWS Instance ID", "i-038954d0b2e861273",
+	} {
+		if !strings.Contains(result, want) {
+			t.Errorf("expected %q in status card\nGot:\n%s", want, result)
+		}
 	}
 }
 

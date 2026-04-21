@@ -102,26 +102,91 @@ func postSlackResponse(responseURL, text string, inChannel bool) error {
 	return httpPost(responseURL, "application/json", data)
 }
 
-// formatInstanceStatus formats a status response for Slack.
-func formatSlackStatus(nickname, instanceID, state, ip, dnsName string) string {
+// InstanceStatus holds all display data for a status card.
+type InstanceStatus struct {
+	Nickname     string // user-facing name
+	InstanceID   string // i-...
+	State        string // running, stopped, stopping, hibernated, pending
+	InstanceType string // t3.small, g7e.xlarge, etc.
+	AZ           string // us-east-1a
+	IP           string // public IP
+	DNSName      string // spore-bot-test.5k0zfnmq.spore.host
+	LaunchTime   string // RFC3339
+	TTL          string // "4h"
+	IdleTimeout  string // "1h"
+}
+
+// formatSlackStatus formats a rich status card for Slack.
+func formatSlackStatus(s InstanceStatus) string {
 	icon := "🟡"
-	switch state {
+	stateLabel := s.State
+	switch s.State {
 	case "running":
 		icon = "🟢"
-	case "stopped", "stopping":
+		stateLabel = "Running"
+	case "stopped":
 		icon = "🔴"
-	case "hibernated":
-		icon = "💤"
+		stateLabel = "Stopped"
+	case "stopping":
+		icon = "🔴"
+		stateLabel = "Stopping..."
+	case "pending":
+		icon = "🟡"
+		stateLabel = "Starting..."
+	case "shutting-down":
+		icon = "🔴"
+		stateLabel = "Shutting down..."
+	case "terminated":
+		icon = "⚫"
+		stateLabel = "Terminated"
 	}
+	// Hibernation is reported as "stopped" by EC2 but spored tags the instance
+	// — we don't distinguish here; user sees "stopped" which is accurate
 
 	lines := []string{
-		fmt.Sprintf("%s *%s* (`%s`) — %s", icon, nickname, instanceID, state),
+		fmt.Sprintf("%s *%s* — %s", icon, s.Nickname, stateLabel),
+		"",
 	}
-	if ip != "" {
-		lines = append(lines, fmt.Sprintf("  IP: `%s`", ip))
+
+	if s.InstanceType != "" {
+		lines = append(lines, fmt.Sprintf("  *AWS Instance Type:*  %s", s.InstanceType))
 	}
-	if dnsName != "" {
-		lines = append(lines, fmt.Sprintf("  URL: https://%s", dnsName))
+	if s.AZ != "" {
+		lines = append(lines, fmt.Sprintf("  *AWS Region:*         %s", s.AZ))
 	}
+	if s.IP != "" {
+		lines = append(lines, fmt.Sprintf("  *IP Address:*         `%s`", s.IP))
+	}
+	if s.DNSName != "" {
+		lines = append(lines, fmt.Sprintf("  *URL:*                https://%s", s.DNSName))
+	}
+	if s.LaunchTime != "" {
+		if t, err := time.Parse(time.RFC3339, s.LaunchTime); err == nil {
+			elapsed := formatDuration(time.Since(t))
+			lines = append(lines, fmt.Sprintf("  *Launched:*           %s (%s ago)", t.UTC().Format("2 Jan 15:04 UTC"), elapsed))
+		}
+	}
+	if s.TTL != "" {
+		lines = append(lines, fmt.Sprintf("  *Auto-terminate:*     after %s from launch", s.TTL))
+	}
+	if s.IdleTimeout != "" {
+		lines = append(lines, fmt.Sprintf("  *Idle timeout:*       after %s idle", s.IdleTimeout))
+	}
+	lines = append(lines, fmt.Sprintf("  *AWS Instance ID:*    `%s`", s.InstanceID))
+
 	return strings.Join(lines, "\n")
+}
+
+// formatDuration formats a duration as "2h 15m" or "45m" etc.
+func formatDuration(d time.Duration) string {
+	d = d.Round(time.Minute)
+	h := int(d.Hours())
+	m := int(d.Minutes()) % 60
+	if h > 0 && m > 0 {
+		return fmt.Sprintf("%dh %dm", h, m)
+	}
+	if h > 0 {
+		return fmt.Sprintf("%dh", h)
+	}
+	return fmt.Sprintf("%dm", m)
 }
