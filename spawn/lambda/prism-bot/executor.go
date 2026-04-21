@@ -15,13 +15,22 @@ import (
 
 // BotAction is the payload passed from Phase 1 (ACK) to Phase 2 (execute).
 type BotAction struct {
-	Platform     string           `json:"platform"`
-	WorkspaceID  string           `json:"workspace_id"`
-	UserID       string           `json:"user_id"`
-	ResponseURL  string           `json:"response_url"`
-	Command      string           `json:"command"`  // "status","start","stop","hibernate","url","list","help"
-	Nickname     string           `json:"nickname"` // may be empty (single-instance case)
-	Registration *BotRegistration `json:"registration"`
+	Platform      string           `json:"platform"`
+	WorkspaceID   string           `json:"workspace_id"`
+	UserID        string           `json:"user_id"`
+	ResponseURL   string           `json:"response_url"`
+	Command       string           `json:"command"`       // "status","start","stop","hibernate","url","list","help"
+	Nickname      string           `json:"nickname"`      // may be empty (single-instance case)
+	SlashCommand  string           `json:"slash_command"` // e.g. "/spore" or "/prism" — from Slack payload
+	Registration  *BotRegistration `json:"registration"`
+}
+
+// slashCmd returns the slash command name (e.g. "/spore"), defaulting to "/prism".
+func (a *BotAction) slashCmd() string {
+	if a.SlashCommand != "" {
+		return a.SlashCommand
+	}
+	return "/prism"
 }
 
 // executeAction runs the EC2 operation, posts the result to the chat platform,
@@ -35,7 +44,7 @@ func executeAction(ctx context.Context, cfg aws.Config, reg *Registry, action *B
 	case "list":
 		result, err = cmdList(ctx, reg, action)
 	case "help":
-		result = helpText()
+		result = helpText(action.slashCmd())
 	case "status":
 		result, err = cmdEC2Op(ctx, cfg, action, "status")
 	case "start":
@@ -95,8 +104,8 @@ func resolveRegistration(ctx context.Context, reg *Registry, action *BotAction) 
 		for i, r := range regs {
 			names[i] = r.Nickname
 		}
-		return nil, fmt.Sprintf("You have multiple instances: %s\nUse `/%s %s <nickname>` to specify one.",
-			strings.Join(names, ", "), action.Platform, action.Command), nil
+		return nil, fmt.Sprintf("You have multiple instances: %s\nUse `%s %s <nickname>` to specify one.",
+			strings.Join(names, ", "), action.slashCmd(), action.Command), nil
 	}
 
 	// Match by nickname first
@@ -157,8 +166,8 @@ func cmdEC2Op(ctx context.Context, cfg aws.Config, action *BotAction, op string)
 	// Enabled is the explicit opt-in gate — off by default after registration.
 	if !reg.Enabled {
 		return fmt.Sprintf("⚠️ *%s* (`%s`) is registered but not enabled for bot access.\n"+
-			"The workspace admin must run:\n```\nspawn bot enable --platform %s --user-id %s --workspace-id %s --nickname %s\n```",
-			reg.Nickname, reg.InstanceID, reg.Platform, "<user-id>", "<workspace-id>", reg.Nickname), nil
+			"The workspace admin must run:\n```\nspawn bot enable --platform %s --user-id <user-id> --workspace-id <workspace-id> --nickname %s\n```",
+			reg.Nickname, reg.InstanceID, reg.Platform, reg.Nickname), nil
 	}
 
 	if !isActionAllowed(reg, op) {
@@ -293,17 +302,22 @@ func getURL(ctx context.Context, client *ec2.Client, reg *BotRegistration) (stri
 	return fmt.Sprintf("*%s* has no public IP or DNS name configured.", reg.Nickname), nil
 }
 
-func helpText() string {
-	return `*Available commands:*
-• */prism status [name]* — instance state, IP, and URL
-• */prism start [name]* — start a stopped instance
-• */prism stop [name]* — stop a running instance
-• */prism hibernate [name]* — hibernate (saves RAM, pauses compute billing)
-• */prism url [name]* — get the instance URL
-• */prism list* — show all your registered instances
-• */prism help* — this message
+func helpText(slashCmd string) string {
+	c := slashCmd
+	if c == "" {
+		c = "/prism"
+	}
+	return fmt.Sprintf(`*Available commands:*
+• *%s status [name]* — instance state, IP, and URL
+• *%s start [name]* — start a stopped instance
+• *%s stop [name]* — stop a running instance
+• *%s hibernate [name]* — hibernate (saves RAM, pauses compute billing)
+• *%s url [name]* — get the instance URL
+• *%s list* — show all your registered instances
+• *%s help* — this message
 
-_[name] is optional if you have only one instance. Use the nickname, instance ID, or DNS name._`
+_[name] is optional if you have only one instance. Use the nickname, instance ID, or DNS name._`,
+		c, c, c, c, c, c, c)
 }
 
 func postResponse(platform, responseURL, text string) error {

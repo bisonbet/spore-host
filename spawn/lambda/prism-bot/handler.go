@@ -54,12 +54,13 @@ func handleWebhook(ctx context.Context, cfg aws.Config, reg *Registry, request e
 
 	// Build action payload for async Phase 2
 	action := &BotAction{
-		Platform:    platform,
-		WorkspaceID: sc.WorkspaceID,
-		UserID:      sc.UserID,
-		ResponseURL: sc.ResponseURL,
-		Command:     command,
-		Nickname:    nickname,
+		Platform:     platform,
+		WorkspaceID:  sc.WorkspaceID,
+		UserID:       sc.UserID,
+		ResponseURL:  sc.ResponseURL,
+		Command:      command,
+		Nickname:     nickname,
+		SlashCommand: sc.Command, // e.g. "/spore" or "/prism" — used in help text
 	}
 
 	// Invoke self async to execute the EC2 operation
