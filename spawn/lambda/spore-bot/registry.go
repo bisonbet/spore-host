@@ -48,6 +48,10 @@ type WorkspaceConfig struct {
 	// 0 = use platform default (BOT_CONNECT_CODE_TTL_HOURS env var, default 24h).
 	// Workspace admins can only set this lower than the platform default, not higher.
 	ConnectCodeTTLHours int `dynamodbav:"connect_code_ttl_hours,omitempty"`
+	// Token rotation fields (populated when Slack token rotation is enabled for the app).
+	RefreshToken   string `dynamodbav:"refresh_token,omitempty"`
+	TokenExpiresAt int64  `dynamodbav:"token_expires_at,omitempty"`
+	TokenRotation  bool   `dynamodbav:"token_rotation,omitempty"`
 }
 
 // ConnectCode is a short-lived token generated when a user types /spore connect.

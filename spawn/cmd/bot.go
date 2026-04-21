@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -369,6 +370,10 @@ type botWorkspace struct {
 	InstalledAt         string   `dynamodbav:"installed_at" json:"installed_at"`
 	AllowedChannels     []string `dynamodbav:"allowed_channels,omitempty" json:"allowed_channels,omitempty"`
 	ConnectCodeTTLHours int      `dynamodbav:"connect_code_ttl_hours,omitempty" json:"connect_code_ttl_hours,omitempty"`
+	// Token rotation fields — managed automatically via OAuth; not set via CLI
+	RefreshToken   string `dynamodbav:"refresh_token,omitempty" json:"refresh_token,omitempty"`
+	TokenExpiresAt int64  `dynamodbav:"token_expires_at,omitempty" json:"token_expires_at,omitempty"`
+	TokenRotation  bool   `dynamodbav:"token_rotation,omitempty" json:"token_rotation,omitempty"`
 }
 
 var botWorkspaceAddCmd = &cobra.Command{
@@ -706,10 +711,36 @@ func lookupSlackUserByEmail(ctx context.Context, cfg aws.Config, platform, works
 		return "", fmt.Errorf("no bot token stored for workspace %s — re-run spawn bot workspace-add with --bot-token", workspaceID)
 	}
 
+	// Refresh token if rotation is enabled and token is expired
+	botToken := ws.BotToken
+	if ws.TokenRotation && ws.RefreshToken != "" && ws.TokenExpiresAt > 0 {
+		if time.Now().Add(5*time.Minute).Unix() >= ws.TokenExpiresAt {
+			newToken, newRefresh, expiresIn, err := exchangeRefreshTokenCLI(ctx, ws.RefreshToken)
+			if err != nil {
+				return "", fmt.Errorf("refresh Slack token: %w", err)
+			}
+			botToken = newToken
+			// Update stored tokens
+			newExpiresAt := time.Now().Add(time.Duration(expiresIn) * time.Second).Unix()
+			client.UpdateItem(ctx, &dynamodb.UpdateItemInput{ //nolint:errcheck
+				TableName: aws.String(workspacesTable),
+				Key: map[string]dynamodbtypes.AttributeValue{
+					"workspace_key": &dynamodbtypes.AttributeValueMemberS{Value: platform + "#" + workspaceID},
+				},
+				UpdateExpression: aws.String("SET bot_token = :t, refresh_token = :r, token_expires_at = :e"),
+				ExpressionAttributeValues: map[string]dynamodbtypes.AttributeValue{
+					":t": &dynamodbtypes.AttributeValueMemberS{Value: newToken},
+					":r": &dynamodbtypes.AttributeValueMemberS{Value: newRefresh},
+					":e": &dynamodbtypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", newExpiresAt)},
+				},
+			})
+		}
+	}
+
 	// Call Slack users.lookupByEmail
 	req, _ := http.NewRequestWithContext(ctx, "GET",
 		"https://slack.com/api/users.lookupByEmail?email="+email, nil)
-	req.Header.Set("Authorization", "Bearer "+ws.BotToken)
+	req.Header.Set("Authorization", "Bearer "+botToken)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("Slack API request: %w", err)
@@ -734,6 +765,42 @@ func lookupSlackUserByEmail(ctx context.Context, cfg aws.Config, platform, works
 		return "", fmt.Errorf("Slack API error: %s", slackResp.Error)
 	}
 	return slackResp.User.ID, nil
+}
+
+// exchangeRefreshTokenCLI calls Slack's oauth.v2.exchange to get new tokens.
+// Used by the CLI when a workspace token has expired (token rotation enabled).
+func exchangeRefreshTokenCLI(ctx context.Context, refreshToken string) (accessToken, newRefreshToken string, expiresIn int, err error) {
+	clientID := os.Getenv("SLACK_CLIENT_ID")
+	clientSecret := os.Getenv("SLACK_CLIENT_SECRET")
+	if clientID == "" || clientSecret == "" {
+		return "", "", 0, fmt.Errorf("SLACK_CLIENT_ID and SLACK_CLIENT_SECRET must be set to refresh tokens")
+	}
+	vals := url.Values{
+		"client_id":     {clientID},
+		"client_secret": {clientSecret},
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {refreshToken},
+	}
+	resp, err := http.PostForm("https://slack.com/api/oauth.v2.exchange", vals)
+	if err != nil {
+		return "", "", 0, fmt.Errorf("HTTP: %w", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	var result struct {
+		OK           bool   `json:"ok"`
+		Error        string `json:"error,omitempty"`
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int    `json:"expires_in"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", "", 0, fmt.Errorf("parse: %w", err)
+	}
+	if !result.OK {
+		return "", "", 0, fmt.Errorf("Slack API: %s", result.Error)
+	}
+	return result.AccessToken, result.RefreshToken, result.ExpiresIn, nil
 }
 
 // connectCodeRecord mirrors the Lambda's ConnectCode struct for DynamoDB operations.

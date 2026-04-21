@@ -51,6 +51,10 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return handleSlackOAuthCallback(ctx, cfg, request)
 	}
 
+	if path == "/api/slack/token/rotate" && method == "POST" {
+		return handleSlackTokenRotate(ctx, cfg, request)
+	}
+
 	// Extract user identity and account info
 	userID, cliIamArn, accountBase36, err := getUserFromRequest(ctx, cfg, request)
 	if err != nil {
