@@ -20,7 +20,7 @@ type BotAction struct {
 	WorkspaceID  string           `json:"workspace_id"`
 	UserID       string           `json:"user_id"`
 	ResponseURL  string           `json:"response_url"`
-	Command      string           `json:"command"`       // "status","start","stop","hibernate","url","list","help"
+	Command      string           `json:"command"`       // "status","start","stop","hibernate","url","list","help","connect"
 	Nickname     string           `json:"nickname"`      // may be empty (single-instance case)
 	SlashCommand string           `json:"slash_command"` // e.g. "/spore" or "/prism" — from Slack payload
 	Registration *BotRegistration `json:"registration"`
@@ -42,6 +42,8 @@ func executeAction(ctx context.Context, cfg aws.Config, reg *Registry, action *B
 	auditResult := AuditResultSuccess
 
 	switch action.Command {
+	case "connect":
+		result, err = cmdConnect(ctx, reg, action)
 	case "list":
 		result, err = cmdList(ctx, reg, action)
 	case "help":
@@ -444,6 +446,75 @@ func getURL(ctx context.Context, client *ec2.Client, reg *BotRegistration) (stri
 	return fmt.Sprintf("*%s* has no public IP or DNS name configured.", reg.Nickname), nil
 }
 
+// platformConnectTTL returns the platform-level default connect code TTL.
+// Set BOT_CONNECT_CODE_TTL_HOURS to override; default is 24h.
+func platformConnectTTL() time.Duration {
+	if h := getEnv("BOT_CONNECT_CODE_TTL_HOURS", ""); h != "" {
+		if n, err := time.ParseDuration(h + "h"); err == nil {
+			return n
+		}
+	}
+	return 24 * time.Hour
+}
+
+// cmdConnect generates a connect code for self-registration.
+// Usage: /spore connect [duration]   e.g. /spore connect 4h
+// Duration cannot exceed the workspace or platform maximum.
+// The user shares SPORE-XXXXXX with their Instance Owner, who runs:
+//
+//	spawn bot register --connect-code SPORE-XXXXXX --instance i-... --nickname ...
+func cmdConnect(ctx context.Context, reg *Registry, action *BotAction) (string, error) {
+	platformMax := platformConnectTTL()
+
+	// Look up workspace TTL cap (workspace admin can only lower, not raise)
+	ws, err := reg.GetWorkspace(ctx, action.Platform, action.WorkspaceID)
+	workspaceMax := platformMax
+	if err == nil && ws.ConnectCodeTTLHours > 0 {
+		wsTTL := time.Duration(ws.ConnectCodeTTLHours) * time.Hour
+		if wsTTL < workspaceMax {
+			workspaceMax = wsTTL
+		}
+	}
+
+	// User-requested duration (optional: /spore connect 4h)
+	ttl := workspaceMax
+	if action.Nickname != "" {
+		requested, err := time.ParseDuration(action.Nickname)
+		if err != nil {
+			return fmt.Sprintf("❌ Invalid duration `%s`. Use a format like `4h`, `30m`, or `24h`.", action.Nickname), nil
+		}
+		if requested > workspaceMax {
+			return fmt.Sprintf("❌ Requested duration `%s` exceeds the workspace maximum of `%s`. Use a shorter value.",
+				action.Nickname, formatDuration(workspaceMax)), nil
+		}
+		ttl = requested
+	}
+
+	// Generate a human-friendly 6-character uppercase hex code
+	code := strings.ToUpper(fmt.Sprintf("%06x", time.Now().UnixNano()%0xFFFFFF))
+
+	cc := ConnectCode{
+		CodeKey:     "connect#" + code,
+		Platform:    action.Platform,
+		WorkspaceID: action.WorkspaceID,
+		UserID:      action.UserID,
+		TTL:         time.Now().Add(ttl).Unix(),
+	}
+	if err := reg.PutConnectCode(ctx, cc); err != nil {
+		return "", fmt.Errorf("generate connect code: %w", err)
+	}
+
+	expiryDesc := formatDuration(ttl)
+	return fmt.Sprintf("🔑 *Your connect code:* `SPORE-%s`\n\n"+
+		"Share this with your workspace admin and ask them to run:\n"+
+		"```\nspawn bot register \\\n"+
+		"  --connect-code SPORE-%s \\\n"+
+		"  --instance <instance-id-or-name> \\\n"+
+		"  --nickname <friendly-name>\n```\n"+
+		"_Code expires in %s and can only be used once._",
+		code, code, expiryDesc), nil
+}
+
 func helpText(slashCmd string) string {
 	c := slashCmd
 	if c == "" {
@@ -457,9 +528,10 @@ func helpText(slashCmd string) string {
 • *%s url [name]* — get the instance URL
 • *%s list* — show all your registered instances
 • *%s help* — this message
+• *%s connect [duration]* — get a one-time code to share with your workspace admin (e.g. /spore connect 4h)
 
 _[name] is optional if you have only one instance. Use the nickname, instance ID, or DNS name._`,
-		c, c, c, c, c, c, c)
+		c, c, c, c, c, c, c, c)
 }
 
 func postResponse(platform, responseURL, text string) error {

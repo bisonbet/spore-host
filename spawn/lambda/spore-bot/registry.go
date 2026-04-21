@@ -42,6 +42,24 @@ type WorkspaceConfig struct {
 	WorkspaceName string `dynamodbav:"workspace_name"`
 	InstalledBy   string `dynamodbav:"installed_by"`
 	InstalledAt   string `dynamodbav:"installed_at"`
+	// AllowedChannels restricts commands to specific channels. Empty = allow all channels.
+	AllowedChannels []string `dynamodbav:"allowed_channels,omitempty"`
+	// ConnectCodeTTLHours overrides the platform default TTL for /spore connect codes.
+	// 0 = use platform default (BOT_CONNECT_CODE_TTL_HOURS env var, default 24h).
+	// Workspace admins can only set this lower than the platform default, not higher.
+	ConnectCodeTTLHours int `dynamodbav:"connect_code_ttl_hours,omitempty"`
+}
+
+// ConnectCode is a short-lived token generated when a user types /spore connect.
+// The user shares the code with their Instance Owner, who uses it to register them
+// without needing to know their Slack user ID.
+type ConnectCode struct {
+	// PK: connect#{code}
+	CodeKey     string `dynamodbav:"code_key"`
+	Platform    string `dynamodbav:"platform"`
+	WorkspaceID string `dynamodbav:"workspace_id"`
+	UserID      string `dynamodbav:"user_id"`
+	TTL         int64  `dynamodbav:"ttl"` // 15-minute expiry
 }
 
 // userKey builds the DynamoDB PK for a user: "{platform}#{workspace}#{user}".
@@ -312,6 +330,60 @@ func (r *Registry) DestroyWorkspace(ctx context.Context, platform, workspaceID s
 	}
 
 	return deleted, nil
+}
+
+// IsChannelAllowed returns true if the workspace has no channel restriction,
+// or if the given channel ID is in the allowed list.
+func IsChannelAllowed(ws *WorkspaceConfig, channelID string) bool {
+	if len(ws.AllowedChannels) == 0 {
+		return true
+	}
+	for _, c := range ws.AllowedChannels {
+		if c == channelID {
+			return true
+		}
+	}
+	return false
+}
+
+// PutConnectCode stores a short-lived connect code for self-registration.
+func (r *Registry) PutConnectCode(ctx context.Context, code ConnectCode) error {
+	item, err := attributevalue.MarshalMap(code)
+	if err != nil {
+		return fmt.Errorf("marshal connect code: %w", err)
+	}
+	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: &r.workspacesTable, // reuses workspaces table with "connect#" prefix key
+		Item:      item,
+	})
+	return err
+}
+
+// RedeemConnectCode atomically deletes a connect code and returns it.
+// Returns nil if the code does not exist or has expired (DynamoDB TTL is eventual
+// so we also check the TTL field explicitly).
+func (r *Registry) RedeemConnectCode(ctx context.Context, code string) (*ConnectCode, error) {
+	result, err := r.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: &r.workspacesTable,
+		Key: map[string]dynamodbtypes.AttributeValue{
+			"workspace_key": &dynamodbtypes.AttributeValueMemberS{Value: "connect#" + code},
+		},
+		ReturnValues: dynamodbtypes.ReturnValueAllOld,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("redeem connect code: %w", err)
+	}
+	if result.Attributes == nil {
+		return nil, nil
+	}
+	var cc ConnectCode
+	if err := attributevalue.UnmarshalMap(result.Attributes, &cc); err != nil {
+		return nil, fmt.Errorf("unmarshal connect code: %w", err)
+	}
+	if time.Now().Unix() > cc.TTL {
+		return nil, nil // expired
+	}
+	return &cc, nil
 }
 
 // isActionAllowed checks if an action is in the allowed list.

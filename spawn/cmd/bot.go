@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -22,17 +24,20 @@ import (
 const defaultBotRegistryTable = "spore-bot-registry"
 
 var (
-	botPlatform    string
-	botUser        string
-	botUserID      string
-	botWorkspaceID string
-	botInstance    string
-	botNickname    string
-	botAllow       []string
-	botTagPrefix   string
-	botTable       string
-	botJSONOutput  bool
-	botRoleARN     string
+	botPlatform        string
+	botUser            string
+	botUserID          string
+	botWorkspaceID     string
+	botInstance        string
+	botNickname        string
+	botAllow           []string
+	botTagPrefix       string
+	botTable           string
+	botJSONOutput      bool
+	botRoleARN         string
+	botConnectCode     string   // for --connect-code self-registration
+	botAllowedChannels []string // for --allowed-channels channel restriction
+	botConnectTTLHours int      // for --connect-ttl workspace max connect code lifetime
 )
 
 var botCmd = &cobra.Command{
@@ -96,16 +101,39 @@ func runBotRegister(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load AWS config: %w", err)
 	}
 
-	// Resolve user ID if email provided
+	// Resolve user ID from connect code, email, or direct user-id
 	userID := botUserID
 	workspaceID := botWorkspaceID
-	if userID == "" {
-		if botUser == "" {
-			return fmt.Errorf("either --user (email) or --user-id must be provided")
+
+	if botConnectCode != "" {
+		// Self-registration: redeem connect code to get user's Slack ID and workspace
+		resolved, err := redeemConnectCode(ctx, cfg, botConnectCode, botTable)
+		if err != nil {
+			return fmt.Errorf("redeem connect code: %w", err)
 		}
-		// For now, require --user-id unless email resolution is implemented
-		// Email → user ID requires a Slack API call with the bot token
-		return fmt.Errorf("email resolution not yet implemented; use --user-id and --workspace-id directly")
+		if resolved == nil {
+			return fmt.Errorf("connect code %q not found or expired (codes are valid for 15 minutes)", botConnectCode)
+		}
+		userID = resolved.UserID
+		workspaceID = resolved.WorkspaceID
+		if botPlatform == "" {
+			botPlatform = resolved.Platform
+		}
+		fmt.Printf("Resolved connect code to user %s in workspace %s\n", userID, workspaceID)
+	} else if userID == "" {
+		if botUser == "" {
+			return fmt.Errorf("one of --user (email), --user-id, or --connect-code is required")
+		}
+		if workspaceID == "" {
+			return fmt.Errorf("--workspace-id is required when using --user (email)")
+		}
+		// Email → Slack user ID via Slack API using the workspace bot token
+		resolved, err := lookupSlackUserByEmail(ctx, cfg, botPlatform, workspaceID, botUser, botTable)
+		if err != nil {
+			return fmt.Errorf("look up Slack user by email: %w", err)
+		}
+		userID = resolved
+		fmt.Printf("Resolved %s → Slack user ID %s\n", botUser, userID)
 	}
 
 	// Get caller identity for registered_by
@@ -332,13 +360,15 @@ var (
 )
 
 type botWorkspace struct {
-	WorkspaceKey  string `dynamodbav:"workspace_key" json:"workspace_key"`
-	BotToken      string `dynamodbav:"bot_token" json:"bot_token"`
-	SigningSecret string `dynamodbav:"signing_secret" json:"signing_secret"`
-	Platform      string `dynamodbav:"platform" json:"platform"`
-	WorkspaceName string `dynamodbav:"workspace_name,omitempty" json:"workspace_name,omitempty"`
-	InstalledBy   string `dynamodbav:"installed_by" json:"installed_by"`
-	InstalledAt   string `dynamodbav:"installed_at" json:"installed_at"`
+	WorkspaceKey        string   `dynamodbav:"workspace_key" json:"workspace_key"`
+	BotToken            string   `dynamodbav:"bot_token" json:"bot_token"`
+	SigningSecret       string   `dynamodbav:"signing_secret" json:"signing_secret"`
+	Platform            string   `dynamodbav:"platform" json:"platform"`
+	WorkspaceName       string   `dynamodbav:"workspace_name,omitempty" json:"workspace_name,omitempty"`
+	InstalledBy         string   `dynamodbav:"installed_by" json:"installed_by"`
+	InstalledAt         string   `dynamodbav:"installed_at" json:"installed_at"`
+	AllowedChannels     []string `dynamodbav:"allowed_channels,omitempty" json:"allowed_channels,omitempty"`
+	ConnectCodeTTLHours int      `dynamodbav:"connect_code_ttl_hours,omitempty" json:"connect_code_ttl_hours,omitempty"`
 }
 
 var botWorkspaceAddCmd = &cobra.Command{
@@ -373,13 +403,15 @@ Run this once after installing the Slack app in a workspace:
 			return fmt.Errorf("get caller identity: %w", err)
 		}
 		ws := botWorkspace{
-			WorkspaceKey:  botPlatform + "#" + botWorkspaceID,
-			BotToken:      botBotToken,
-			SigningSecret: botSigningSecret,
-			Platform:      botPlatform,
-			WorkspaceName: botWorkspaceName,
-			InstalledBy:   *identity.Arn,
-			InstalledAt:   time.Now().UTC().Format(time.RFC3339),
+			WorkspaceKey:        botPlatform + "#" + botWorkspaceID,
+			BotToken:            botBotToken,
+			SigningSecret:       botSigningSecret,
+			Platform:            botPlatform,
+			WorkspaceName:       botWorkspaceName,
+			InstalledBy:         *identity.Arn,
+			InstalledAt:         time.Now().UTC().Format(time.RFC3339),
+			AllowedChannels:     botAllowedChannels,
+			ConnectCodeTTLHours: botConnectTTLHours,
 		}
 		tableName := botWorkspacesTable
 		if tableName == "" {
@@ -646,6 +678,108 @@ deleted automatically. Remove it separately with:
 	},
 }
 
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+// lookupSlackUserByEmail resolves a Slack user ID from an email address using
+// the workspace's bot token stored in spore-bot-workspaces DynamoDB.
+func lookupSlackUserByEmail(ctx context.Context, cfg aws.Config, platform, workspaceID, email, tableOverride string) (string, error) {
+	// Fetch bot token from workspaces table
+	workspacesTable := tableOverride
+	if workspacesTable == "" {
+		workspacesTable = defaultBotWorkspacesTable
+	}
+	client := dynamodb.NewFromConfig(cfg)
+	result, err := client.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(workspacesTable),
+		Key: map[string]dynamodbtypes.AttributeValue{
+			"workspace_key": &dynamodbtypes.AttributeValueMemberS{Value: platform + "#" + workspaceID},
+		},
+	})
+	if err != nil || result.Item == nil {
+		return "", fmt.Errorf("workspace %s/%s not registered (run spawn bot workspace-add first)", platform, workspaceID)
+	}
+	var ws botWorkspace
+	if err := attributevalue.UnmarshalMap(result.Item, &ws); err != nil {
+		return "", fmt.Errorf("unmarshal workspace: %w", err)
+	}
+	if ws.BotToken == "" {
+		return "", fmt.Errorf("no bot token stored for workspace %s — re-run spawn bot workspace-add with --bot-token", workspaceID)
+	}
+
+	// Call Slack users.lookupByEmail
+	req, _ := http.NewRequestWithContext(ctx, "GET",
+		"https://slack.com/api/users.lookupByEmail?email="+email, nil)
+	req.Header.Set("Authorization", "Bearer "+ws.BotToken)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("Slack API request: %w", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	var slackResp struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error"`
+		User  struct {
+			ID string `json:"id"`
+		} `json:"user"`
+	}
+	if err := json.Unmarshal(body, &slackResp); err != nil {
+		return "", fmt.Errorf("parse Slack response: %w", err)
+	}
+	if !slackResp.OK {
+		if slackResp.Error == "users_not_found" {
+			return "", fmt.Errorf("no Slack user found with email %q in workspace %s", email, workspaceID)
+		}
+		return "", fmt.Errorf("Slack API error: %s", slackResp.Error)
+	}
+	return slackResp.User.ID, nil
+}
+
+// connectCodeRecord mirrors the Lambda's ConnectCode struct for DynamoDB operations.
+type connectCodeRecord struct {
+	CodeKey     string `dynamodbav:"workspace_key"`
+	Platform    string `dynamodbav:"platform"`
+	WorkspaceID string `dynamodbav:"workspace_id"`
+	UserID      string `dynamodbav:"user_id"`
+	TTL         int64  `dynamodbav:"ttl"`
+}
+
+// redeemConnectCode atomically deletes a connect code and returns the associated
+// Slack identity. Returns nil if the code doesn't exist or has expired.
+func redeemConnectCode(ctx context.Context, cfg aws.Config, code, tableOverride string) (*connectCodeRecord, error) {
+	workspacesTable := tableOverride
+	if workspacesTable == "" {
+		workspacesTable = defaultBotWorkspacesTable
+	}
+	// Normalize: accept with or without "SPORE-" prefix
+	code = strings.TrimPrefix(strings.ToUpper(code), "SPORE-")
+	key := "connect#" + code
+
+	client := dynamodb.NewFromConfig(cfg)
+	result, err := client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String(workspacesTable),
+		Key: map[string]dynamodbtypes.AttributeValue{
+			"workspace_key": &dynamodbtypes.AttributeValueMemberS{Value: key},
+		},
+		ReturnValues: dynamodbtypes.ReturnValueAllOld,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("redeem: %w", err)
+	}
+	if result.Attributes == nil {
+		return nil, nil
+	}
+	var rec connectCodeRecord
+	if err := attributevalue.UnmarshalMap(result.Attributes, &rec); err != nil {
+		return nil, fmt.Errorf("unmarshal: %w", err)
+	}
+	if time.Now().Unix() > rec.TTL {
+		return nil, nil // expired
+	}
+	return &rec, nil
+}
+
 // ── types ────────────────────────────────────────────────────────────────────
 
 type botRegistration struct {
@@ -695,6 +829,8 @@ func init() {
 	botWorkspaceAddCmd.Flags().StringVar(&botWorkspaceName, "workspace-name", "", "Human-friendly workspace name")
 	botWorkspaceAddCmd.Flags().StringVar(&botBotToken, "bot-token", "", "Slack bot token (xoxb-...)")
 	botWorkspaceAddCmd.Flags().StringVar(&botSigningSecret, "signing-secret", "", "Slack signing secret (required)")
+	botWorkspaceAddCmd.Flags().StringSliceVar(&botAllowedChannels, "allowed-channels", nil, "Restrict commands to specific channel IDs (e.g. C12345,C67890). Empty = all channels.")
+	botWorkspaceAddCmd.Flags().IntVar(&botConnectTTLHours, "connect-ttl", 0, "Max /spore connect code lifetime in hours (0 = use platform default, typically 24h). Can only lower the platform default.")
 
 	// Register-specific flags
 	botRegisterCmd.Flags().StringVar(&botUser, "user", "", "User email address (resolved to platform user ID)")
@@ -705,6 +841,7 @@ func init() {
 	botRegisterCmd.Flags().StringSliceVar(&botAllow, "allow", nil, "Allowed actions (default: start,stop,status,hibernate,url)")
 	botRegisterCmd.Flags().StringVar(&botTagPrefix, "tag-prefix", "", "Tag prefix: spawn or prism (default: auto-detected)")
 	botRegisterCmd.Flags().StringVar(&botRoleARN, "role-arn", "", "Cross-account IAM role ARN for this instance's account")
+	botRegisterCmd.Flags().StringVar(&botConnectCode, "connect-code", "", "One-time code from /spore connect (alternative to --user-id)")
 
 	// Deregister flags
 	botDeregisterCmd.Flags().StringVar(&botUserID, "user-id", "", "Platform user ID")

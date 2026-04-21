@@ -89,7 +89,6 @@ func handleSlackWebhook(ctx context.Context, reg *Registry, request events.APIGa
 		return nil, fmt.Errorf("missing Slack signature headers")
 	}
 
-	logf("DEBUG body=%q headers=%v", request.Body, request.Headers)
 	sc, err := parseSlackCommand(request.Body)
 	if err != nil {
 		return nil, fmt.Errorf("parse command: %w", err)
@@ -103,6 +102,11 @@ func handleSlackWebhook(ctx context.Context, reg *Registry, request events.APIGa
 
 	if err := verifySlackSignature(ws.SigningSecret, ts, request.Body, sig); err != nil {
 		return nil, fmt.Errorf("signature verification failed: %w", err)
+	}
+
+	// Channel restriction: if the workspace has an allowed-channels list, enforce it.
+	if !IsChannelAllowed(ws, sc.ChannelID) {
+		return nil, fmt.Errorf("commands are only accepted from designated channels in this workspace")
 	}
 
 	return sc, nil
@@ -186,6 +190,8 @@ func ackMessage(command, nickname string) string {
 		return "🔍 Checking" + target + "..."
 	case "list":
 		return "📋 Fetching your instances..."
+	case "connect":
+		return "🔑 Generating your connect code — check your DMs..."
 	default:
 		return "⏳ On it..."
 	}

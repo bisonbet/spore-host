@@ -142,6 +142,7 @@ Resources:
           BOT_REGISTRY_TABLE: !Ref BotRegistryTable
           BOT_WORKSPACES_TABLE: !Ref BotWorkspacesTable
           BOT_AUDIT_TABLE: !Ref BotAuditTable
+          BOT_CONNECT_CODE_TTL_HOURS: '24'  # platform default; workspace admins can lower per workspace
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref BotRegistryTable
