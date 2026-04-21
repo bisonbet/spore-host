@@ -50,7 +50,7 @@ func (e *LocalExecutor) CheckLocalConditions(conditions []Condition) error {
 func (e *LocalExecutor) checkCondition(cond Condition) error {
 	switch cond.Type {
 	case "command":
-		cmd := exec.Command("sh", "-c", cond.Run)
+		cmd := exec.Command("sh", "-c", cond.Run) // nosemgrep: dangerous-exec-command -- plugin condition defined by plugin author
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("command %q: %w", cond.Run, err)
 		}
@@ -130,7 +130,7 @@ func (e *LocalExecutor) RunDeprovision(ctx context.Context, steps []Step, tmplCt
 
 // runCapture executes a shell command and extracts captured values from JSON stdout.
 func (e *LocalExecutor) runCapture(ctx context.Context, step Step) (map[string]string, error) {
-	cmd := exec.CommandContext(ctx, "sh", "-c", step.Run)
+	cmd := exec.CommandContext(ctx, "sh", "-c", step.Run) // nosemgrep: dangerous-exec-command -- plugin step defined by plugin author
 	// Initialize with a minimal safe environment to avoid inheriting parent credentials.
 	cmd.Env = []string{
 		"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",

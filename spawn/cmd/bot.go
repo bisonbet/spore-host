@@ -345,7 +345,7 @@ var botWorkspaceAddCmd = &cobra.Command{
 	Use:   "workspace-add",
 	Short: "Register a Slack/Teams workspace's bot token and signing secret",
 	Long: `Store the Slack bot token and signing secret for a workspace so the
-prism-bot Lambda can verify incoming slash command requests.
+spore-bot Lambda can verify incoming slash command requests.
 
 Run this once after installing the Slack app in a workspace:
 

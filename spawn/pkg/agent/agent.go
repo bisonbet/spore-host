@@ -771,7 +771,7 @@ func (a *Agent) runPreStop(spotMode bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "sh", "-c", a.config.PreStop)
+	cmd := exec.CommandContext(ctx, "sh", "-c", a.config.PreStop) // nosemgrep: dangerous-exec-command -- user-configured pre-stop hook runs on their own instance
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

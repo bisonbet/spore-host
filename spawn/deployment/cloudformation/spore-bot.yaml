@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: 'prism-bot — Slack/Teams chat interface for instance control (spore.host + prism)'
+Description: 'spore-bot — Slack/Teams chat interface for instance control (spore.host + prism)'
 
 Parameters:
   Environment:
@@ -57,7 +57,7 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
         - Key: Application
-          Value: prism-bot
+          Value: spore-bot
 
   # ── DynamoDB: workspace OAuth tokens ─────────────────────────────────────────
 
@@ -81,14 +81,14 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
         - Key: Application
-          Value: prism-bot
+          Value: spore-bot
 
   # ── Audit Log Table ───────────────────────────────────────────────────────────
 
   BotAuditTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: prism-bot-audit
+      TableName: spore-bot-audit
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: audit_id
@@ -118,17 +118,17 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
         - Key: Application
-          Value: prism-bot
+          Value: spore-bot
         - Key: Component
           Value: audit
 
   # ── Lambda ────────────────────────────────────────────────────────────────────
 
-  PrismBotFunction:
+  SporeBotFunction:
     Type: AWS::Serverless::Function
     Condition: DeployLambda
     Properties:
-      FunctionName: prism-bot
+      FunctionName: spore-bot
       Runtime: provided.al2023
       Architectures: [arm64]
       Handler: bootstrap
@@ -157,32 +157,34 @@ Resources:
             - Effect: Allow
               Action:
                 - lambda:InvokeFunction
-              Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:prism-bot'
+              Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:spore-bot'
             - Effect: Allow
               Action:
                 - logs:CreateLogGroup
                 - logs:CreateLogStream
                 - logs:PutLogEvents
-              Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/prism-bot*'
+              Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/spore-bot*'
       Tags:
         Environment: !Ref Environment
-        Application: prism-bot
+        Application: spore-bot
 
-  PrismBotFunctionUrl:
+  SporeBotFunctionUrl:
     Type: AWS::Lambda::Url
     Condition: DeployLambda
     Properties:
+      # trivy:ignore:AVD-AWS-0066 -- AuthType NONE is intentional; Slack request
+      # authentication is handled via HMAC-SHA256 signature verification in Lambda.
       AuthType: NONE
-      TargetFunctionArn: !GetAtt PrismBotFunction.Arn
+      TargetFunctionArn: !GetAtt SporeBotFunction.Arn
       Cors:
         AllowOrigins: ['*']
         AllowMethods: [POST]
 
-  PrismBotFunctionUrlPermission:
+  SporeBotFunctionUrlPermission:
     Type: AWS::Lambda::Permission
     Condition: DeployLambda
     Properties:
-      FunctionName: !Ref PrismBotFunction
+      FunctionName: !Ref SporeBotFunction
       Action: lambda:InvokeFunctionUrl
       Principal: '*'
       FunctionUrlAuthType: NONE
@@ -205,7 +207,7 @@ Outputs:
 
   LambdaFunctionUrl:
     Condition: DeployLambda
-    Value: !GetAtt PrismBotFunctionUrl.FunctionUrl
+    Value: !GetAtt SporeBotFunctionUrl.FunctionUrl
     Description: 'Use this as the Slack slash command Request URL (append /slack)'
     Export:
       Name: !Sub '${AWS::StackName}-function-url'

@@ -151,7 +151,7 @@ func (r *StageRunner) Run(ctx context.Context) error {
 	)
 
 	// Execute command
-	cmd := exec.CommandContext(ctx, "bash", "-c", r.stageDef.Command)
+	cmd := exec.CommandContext(ctx, "bash", "-c", r.stageDef.Command) // nosemgrep: dangerous-exec-command -- pipeline stage command defined by instance owner
 	cmd.Env = env
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

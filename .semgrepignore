@@ -1,0 +1,8 @@
+# Example scripts — not production code, subprocess.shell=True is expected
+spawn/examples/
+
+# Genomics example Python scripts
+spawn/examples/genomics/
+spawn/examples/genomics-cwl/
+spawn/examples/genomics-nextflow/
+spawn/examples/genomics-wdl/

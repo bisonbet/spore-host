@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
-  Cross-account IAM role that allows the prism-bot Lambda (in spore-host-infra)
+  Cross-account IAM role that allows the spore-bot Lambda (in spore-host-infra)
   to perform EC2 operations on instances in this account.
 
   Deploy this template in each AWS account that has instances you want to control
@@ -10,8 +10,8 @@ Parameters:
   BotLambdaRoleArn:
     Type: String
     Description: >
-      ARN of the prism-bot Lambda execution role in spore-host-infra.
-      Example: arn:aws:iam::966362334030:role/prism-bot-lambda
+      ARN of the spore-bot Lambda execution role in spore-host-infra.
+      Example: arn:aws:iam::966362334030:role/spore-bot-lambda
     AllowedPattern: 'arn:aws:iam::\d{12}:role/.+'
     ConstraintDescription: Must be a valid IAM role ARN
 
@@ -37,7 +37,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Ref RoleName
-      Description: !Sub 'Allows prism-bot Lambda to control ${TagPrefix}-managed EC2 instances'
+      Description: !Sub 'Allows spore-bot Lambda to control ${TagPrefix}-managed EC2 instances'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -68,12 +68,14 @@ Resources:
                 Action:
                   - ec2:StartInstances
                   - ec2:StopInstances
+                # trivy:ignore:AVD-AWS-0057 -- Resource * is intentional; access control
+                # is enforced by spore-bot DynamoDB registry (enabled flag per registration).
                 Resource: '*'
       Tags:
         - Key: !Sub '${TagPrefix}:managed'
           Value: 'false'
         - Key: Purpose
-          Value: prism-bot-cross-account
+          Value: spore-bot-cross-account
         - Key: BotLambdaRoleArn
           Value: !Ref BotLambdaRoleArn
 
@@ -81,7 +83,7 @@ Outputs:
   RoleArn:
     Description: >
       Pass this ARN to `spawn bot register --role-arn` when registering instances
-      in this account with the prism-bot.
+      in this account with the spore-bot.
     Value: !GetAtt BotCrossAccountRole.Arn
     Export:
       Name: !Sub '${AWS::StackName}-role-arn'
