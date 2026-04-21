@@ -155,18 +155,20 @@ func storeSlackWorkspace(ctx context.Context, cfg aws.Config, tableName string, 
 		},
 	})
 
-	// Preserve existing signing_secret if present
-	existingSigningSecret := ""
-	if existing != nil && existing.Item != nil {
+	// The signing secret is app-level (same for all workspaces using this Slack app).
+	// It is stored as SLACK_SIGNING_SECRET in the Lambda env — users never need to know it.
+	// Prefer: env var > existing stored value > empty (bot token-only install)
+	signingSecret := os.Getenv("SLACK_SIGNING_SECRET")
+	if signingSecret == "" && existing != nil && existing.Item != nil {
 		if v, ok := existing.Item["signing_secret"].(*dynamodbtypes.AttributeValueMemberS); ok {
-			existingSigningSecret = v.Value
+			signingSecret = v.Value
 		}
 	}
 
 	ws := map[string]interface{}{
 		"workspace_key":  workspaceKey,
 		"bot_token":      token.BotToken,
-		"signing_secret": existingSigningSecret, // preserved from previous install, if any
+		"signing_secret": signingSecret,
 		"platform":       "slack",
 		"workspace_name": token.Team.Name,
 		"installed_by":   "oauth:" + token.AuthedUser.ID,
