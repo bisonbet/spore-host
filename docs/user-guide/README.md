@@ -10,6 +10,7 @@ Welcome to the spore.host user guide. These docs cover everything you need to us
 | [Installation](installation.md) | Install spawn and truffle on macOS/Linux |
 | [CLI Reference](cli-reference.md) | Command overview and flag reference |
 | [Dashboard](dashboard.md) | Web dashboard guide (instances, cost, alerts) |
+| [spore-bot](spore-bot.md) | Control instances from Slack or Teams |
 | [Configuration](configuration.md) | Config file, environment variables, profiles |
 | [Authentication](authentication.md) | AWS credentials, IAM roles, multi-account |
 | [SSH Access](ssh-access.md) | Connecting to instances, key management |
