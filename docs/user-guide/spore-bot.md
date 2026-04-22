@@ -1,6 +1,6 @@
 # spore-bot — Slack & Teams Control
 
-spore-bot lets authorized users start, stop, hibernate, and check the status of their spore.host instances directly from Slack or Microsoft Teams — no CLI, SSH, or AWS account required.
+spore-bot lets authorized users start, stop, hibernate, and check the status of their spore.host instances directly from Slack or Microsoft Teams — no CLI, SSH, or AWS account required. It also delivers proactive lifecycle notifications — DMs or channel posts — when an instance terminates, completes a job, goes idle, or receives a Spot interruption warning.
 
 **If you are using spore.host (the hosted platform):** the bot infrastructure is already deployed. Start at [Instance Owner Setup](#instance-owner-setup).
 
@@ -26,7 +26,7 @@ In small teams the Instance Owner and Spore User may be the same person.
 
 ### 1. Connect your Slack workspace — one click
 
-Go to the **spore.host dashboard → Settings tab** and click **Add to Slack**. Approve the permissions in Slack, and you'll be redirected back to the dashboard confirming your workspace is connected.
+Go to the **spore.host dashboard → Settings tab** and click **Add to Slack**. Approve the permissions in Slack — you will be asked to choose a channel for notifications — and you'll be redirected back to the dashboard confirming your workspace is connected.
 
 Your Workspace ID (`T________`) is shown in the confirmation. Keep it — you'll need it in steps 4 and 5.
 
@@ -47,7 +47,7 @@ spawn bot workspace-add \
 
 If no channels are specified, commands are accepted from any channel.
 
-### 4. Deploy the cross-account IAM role
+### 2. Deploy the cross-account IAM role
 
 This grants the bot permission to control instances in your AWS account. Run once per AWS account where your instances live:
 
@@ -57,7 +57,7 @@ aws cloudformation deploy \
   --template-file spawn/deployment/cloudformation/bot-cross-account-role.yaml \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
-      BotLambdaRoleArn=arn:aws:iam::966362334030:role/prism-bot-PrismBotFunctionRole-U2vZFZXgWBeM \
+      BotLambdaRoleArn=arn:aws:iam::966362334030:role/spore-bot-SpawnBotFunctionRole \
       TagPrefix=spawn
 ```
 
@@ -68,7 +68,7 @@ aws cloudformation describe-stacks --stack-name spawn-bot-cross-account \
   --query 'Stacks[0].Outputs[?OutputKey==`RoleArn`].OutputValue' --output text
 ```
 
-### 5. Register instances for users
+### 3. Register instances for users
 
 You have three ways to register a user — pick whichever fits your situation:
 
@@ -120,7 +120,7 @@ spawn bot register \
   --role-arn arn:aws:iam::435415984226:role/SpawnBotCrossAccount
 ```
 
-### 6. Enable access
+### 4. Enable access
 
 Registrations are **disabled by default**. You must explicitly enable each one:
 
@@ -138,6 +138,21 @@ To temporarily suspend without removing the registration:
 spawn bot disable --platform slack --user-id U0XXXXXXX --workspace-id T00000000 --nickname rstudio
 ```
 
+### 5. Launch instances with Slack notifications enabled
+
+To receive proactive lifecycle notifications (terminations, completions, idle warnings), include `--slack-workspace` when launching:
+
+```bash
+spawn launch \
+  --name my-gpu-job \
+  --instance-type g5.xlarge \
+  --ttl 8h \
+  --on-complete terminate \
+  --slack-workspace T00000000
+```
+
+Any user subscribed to that instance (see [Lifecycle Notifications](#lifecycle-notifications)) will receive a DM when it terminates, completes, or idles out. If a channel was selected during the "Add to Slack" OAuth flow, lifecycle events are also posted there.
+
 ---
 
 ## Spore User Commands
@@ -151,7 +166,9 @@ spawn bot disable --platform slack --user-id U0XXXXXXX --workspace-id T00000000 
 | `/spore stop [name]` | Stop instance |
 | `/spore hibernate [name]` | Hibernate — saves RAM to disk, pauses compute billing |
 | `/spore url [name]` | Get the instance URL |
-| `/spore list` | Show all your registered instances |
+| `/spore list` | Show your registered instances and notification subscriptions |
+| `/spore notify <name>` | Subscribe to DM notifications for a workspace instance |
+| `/spore unnotify <name>` | Stop DM notifications for an instance |
 | `/spore connect [duration]` | Get a one-time code to share with your Instance Owner |
 | `/spore help` | Show available commands |
 
@@ -175,6 +192,73 @@ If you only have one registered instance, the name is optional:
 If you're new to a workspace and haven't been registered yet, type `/spore connect`. You'll receive a one-time code valid for 24 hours by default (your workspace admin may have set a shorter limit). Share that code with your Instance Owner — they use it to register you without needing your Slack user ID.
 
 You can request a shorter code lifetime: `/spore connect 4h`
+
+---
+
+## Lifecycle Notifications
+
+spore-bot can send Slack messages when an instance changes state. Three patterns are available — they can be used independently or together.
+
+### Notification events
+
+| Event | When | Message |
+|-------|------|---------|
+| `ttl_warning` | 10 min before TTL | ⏱️ *name* terminates in 10 minutes |
+| `ttl_expired` | At TTL | 🔴 *name* has terminated — scheduled end time reached |
+| `idle_warning` | 10 min before idle timeout | 💤 *name* will stop in 10 minutes — no activity |
+| `idle_stopped` | At idle timeout | 🔴 *name* has stopped — idle timeout reached |
+| `completion` | `/tmp/SPAWN_COMPLETE` detected | ✅ *name* has completed |
+| `spot_interrupt` | 2-minute Spot warning | ⚠️ *name* received a Spot interruption notice |
+| `pre_stop_start` | Pre-stop hook begins | 🔄 *name* is running its shutdown task before terminating |
+
+Each message includes instance name, AWS Instance ID, region, and DNS URL when available.
+
+### Pattern A — Channel notifications (workspace-wide)
+
+When connecting your workspace via **Add to Slack**, you are asked to choose a channel. After that, every lifecycle event for every instance in your workspace (launched with `--slack-workspace`) posts to that channel automatically — no per-user setup required.
+
+This is the recommended pattern for teams who want shared visibility. Re-run **Add to Slack** from the dashboard to change or remove the channel.
+
+### Pattern B — Admin-registered DMs
+
+When an admin registers a user with `spawn bot register`, that user automatically receives DMs for all lifecycle events on their registered instances — the same notification mechanism that sends control-command results.
+
+No additional setup is needed for registered users.
+
+### Pattern C — Self-service subscription
+
+Any Slack user can subscribe to DM notifications for an instance that is registered in their workspace, without needing admin involvement:
+
+```
+/spore notify my-gpu-job
+```
+
+```
+🔔 You'll receive DMs when *my-gpu-job* changes state.
+Use /spore unnotify my-gpu-job to stop.
+```
+
+To unsubscribe:
+
+```
+/spore unnotify my-gpu-job
+```
+
+To see all your subscriptions alongside your registered instances:
+
+```
+/spore list
+```
+
+```
+*Your instances:*
+• rstudio — i-0abc123 [start, stop, status]
+
+*Your notification subscriptions:*
+• 🔔 my-gpu-job — i-0xyz456 (notifications only)
+```
+
+**Requirements:** The instance must already be registered in the workspace by an Instance Owner (via `spawn bot register`). `/spore notify` does not grant control access — it only subscribes to DM notifications.
 
 ---
 
@@ -215,14 +299,16 @@ spawn bot workspace-destroy --platform slack --workspace-id T00000000 --confirm
 
 **Access is controlled by the registry — not by Slack.**
 
-Any workspace member who types `/spore` commands and hasn't been registered by an Instance Owner receives "no instances registered." The command does nothing. Channel restrictions are additional defense-in-depth, not the primary control.
+Any workspace member who types `/spore` commands and hasn't been registered by an Instance Owner receives "no instances registered." The command does nothing. Notification subscriptions (Pattern C) grant receive-only access — the `enabled` flag is never set, so EC2 operations remain blocked.
 
 | Layer | What it does |
 |-------|-------------|
-| Registry | Only registered users can issue commands |
+| Registry | Only registered users can issue control commands |
 | Enabled flag | Registrations are off by default; explicit enable required |
 | Allowed actions | Each registration specifies permitted operations |
+| Notification subscriptions | `notify_only` flag — DMs only, no EC2 ops |
 | HMAC verification | Every request cryptographically verified as coming from Slack |
+| Instance identity auth | Lifecycle notifications verified via AWS instance identity signature |
 | Cross-account IAM role | Bot can only act on instances in accounts that have the role deployed |
 | Audit log | Every command attempt recorded with user, instance, action, result |
 | Channel restriction | Optional — limits which channels accept commands |
@@ -246,6 +332,21 @@ spawn bot workspace-list    List registered workspaces
 spawn bot workspace-destroy Remove workspace and all its registrations
 ```
 
+### All `/spore` slash commands
+
+```
+/spore status [name]        Instance state, IP, URL, type, uptime
+/spore start [name]         Start a stopped instance
+/spore stop [name]          Stop a running instance
+/spore hibernate [name]     Hibernate — save RAM, pause billing
+/spore url [name]           Get instance URL or DNS name
+/spore list                 List registered instances and notification subscriptions
+/spore notify <name>        Subscribe to DM lifecycle notifications
+/spore unnotify <name>      Unsubscribe from DM lifecycle notifications
+/spore connect [duration]   Generate a one-time registration code
+/spore help                 Show available commands
+```
+
 ### Connect code TTL
 
 The lifetime of `/spore connect` codes has three levels:
@@ -257,3 +358,16 @@ The lifetime of `/spore connect` codes has three levels:
 | Per-code | `/spore connect 4h` | Inherits workspace |
 
 Workspace admins can only lower the platform default, not raise it. Users can only request shorter than the workspace maximum.
+
+### Notification delivery
+
+Lifecycle notifications are sent by the spored agent running on each instance. They are fire-and-forget — a slow or unavailable network never delays lifecycle actions (termination, idle stop, etc.). Delivery requires:
+
+- Instance launched with `--slack-workspace <workspace-id>`
+- At least one of: a channel webhook (Pattern A), a registered user (Pattern B), or a notify subscription (Pattern C) for the instance
+
+---
+
+## Self-Hosting
+
+See the [spore-bot Self-Hosting Guide](../spore-bot-self-hosting.md) for deploying the Lambda, DynamoDB tables, and IAM roles in your own AWS account.

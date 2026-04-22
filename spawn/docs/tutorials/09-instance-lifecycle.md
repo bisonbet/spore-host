@@ -345,7 +345,57 @@ spored agent updated. No restart required.
 
 The extension is applied live via the spored agent's API. The instance does not stop or restart.
 
-## Step 7: Long-Running Servers
+## Step 7: Slack Notifications for Lifecycle Events
+
+If your workspace has spore-bot installed (see the [spore-bot guide](../../../docs/user-guide/spore-bot.md)), you can receive a Slack DM or channel message at every lifecycle transition — without needing to poll `spawn status` or stay connected to the instance.
+
+Add `--slack-workspace` to any launch command:
+
+```bash
+spawn launch \
+  --name nightly-analysis \
+  --instance-type c6a.xlarge \
+  --ttl 6h \
+  --on-complete terminate \
+  --user-data @process.sh \
+  --slack-workspace T00000000
+```
+
+When the job completes and `/tmp/SPAWN_COMPLETE` is created, you'll receive:
+
+```
+✅ *nightly-analysis* has completed
+  AWS Instance ID: `i-0a1b2c3d4e5f67890`  Region: us-east-1
+```
+
+spored also sends warnings before lifecycle actions fire:
+
+```
+⏱️ *nightly-analysis* terminates in 10 minutes
+💤 *nightly-analysis* will stop in 10 minutes — no activity detected
+⚠️ *nightly-analysis* received a Spot interruption notice — action: terminate
+```
+
+### Who receives notifications
+
+Three delivery patterns work independently or together:
+
+| Pattern | Setup | Who receives it |
+|---------|-------|----------------|
+| **A — Channel** | Connect workspace via "Add to Slack", pick a channel | Whole workspace → one channel |
+| **B — Registered user** | `spawn bot register` for each person | Each registered user → DM |
+| **C — Self-service** | User types `/spore notify nightly-analysis` | That user → DM |
+
+Pattern C requires no admin involvement — any workspace member can subscribe to notifications for any registered instance:
+
+```
+/spore notify nightly-analysis
+→ 🔔 You'll receive DMs when *nightly-analysis* changes state.
+```
+
+To unsubscribe: `/spore unnotify nightly-analysis`
+
+## Step 8: Long-Running Servers
 
 Not every instance is a batch job. If you are running a development environment, a database, or a web server, a wall-clock TTL would terminate the instance in the middle of active work. Use `--no-timeout` for these cases.
 
@@ -410,6 +460,7 @@ spawn list --show-costs
 - `--ttl` sets an absolute wall-clock deadline; `--idle-timeout` terminates after N minutes of low CPU; the two combine naturally as hard limit + early exit.
 - Creating `/tmp/SPAWN_COMPLETE` inside a job script signals spored to apply the `--on-complete` action immediately, making actual job duration — not estimated duration — control the cost.
 - `spawn status <name>` shows TTL remaining, idle timer state, accrued cost, and agent health; `spawn extend <name> <duration>` pushes the deadline out without interrupting the instance.
+- `--slack-workspace` enables proactive Slack notifications at every lifecycle transition; users subscribe via `/spore notify <name>` without admin involvement.
 - `--no-timeout` is for persistent servers and development environments — not batch jobs.
 
 ## Next Steps
