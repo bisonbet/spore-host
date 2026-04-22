@@ -127,6 +127,10 @@ Resources:
 
   # S3 Buckets
 
+  # trivy:ignore:AVD-AWS-0132
+  # trivy:ignore:AVD-AWS-0125
+  # KMSKeyArn is required at deploy time — Trivy cannot resolve required parameters
+  # with no default. Encryption always uses the provided CMK via !Ref KMSKeyArn.
   BinariesBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -157,6 +161,8 @@ Resources:
         - Key: spawn:resource-type
           Value: 'binaries-bucket'
 
+  # trivy:ignore:AVD-AWS-0132
+  # trivy:ignore:AVD-AWS-0125
   SchedulesBucket:
     Type: AWS::S3::Bucket
     Properties:
