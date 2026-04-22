@@ -3000,21 +3000,14 @@ async function loadWatchHistory() {
 
     if (params.get('bot') === 'connected') {
         const workspaceName = params.get('workspace_name') || params.get('workspace') || 'your workspace';
-        // nosemgrep: javascript.browser.security.raw-html-concat.raw-html-concat
-        statusEl.innerHTML =
-            '<div style="padding:0.75rem 1rem;background:rgba(34,197,94,0.12);border:1px solid #22c55e;border-radius:6px;color:#22c55e;font-size:0.9rem;">' +
-            '✅ <strong>Slack connected</strong> — spore-bot is now installed in <strong>' + escapeHtml(decodeURIComponent(workspaceName)) + '</strong>.<br>' +
-            '<span style="color:var(--text-muted);font-size:0.85rem;">Next: run <code>spawn bot register</code> to grant access to your collaborators.</span>' +
-            '</div>';
+        const safeWorkspace = escapeHtml(decodeURIComponent(workspaceName));
+        statusEl.innerHTML = `<div style="padding:0.75rem 1rem;background:rgba(34,197,94,0.12);border:1px solid #22c55e;border-radius:6px;color:#22c55e;font-size:0.9rem;">✅ <strong>Slack connected</strong> — spore-bot is now installed in <strong>${safeWorkspace}</strong>.<br><span style="color:var(--text-muted);font-size:0.85rem;">Next: run <code>spawn bot register</code> to grant access to your collaborators.</span></div>`;
         // Switch to settings tab to show the success message
         if (typeof switchDashboardTab === 'function') switchDashboardTab('settings');
         // Clean up URL
         window.history.replaceState({}, '', window.location.pathname);
     } else if (params.get('error')) {
-        statusEl.innerHTML =
-            '<div style="padding:0.75rem 1rem;background:rgba(239,68,68,0.12);border:1px solid #ef4444;border-radius:6px;color:#ef4444;font-size:0.9rem;">' +
-            '❌ Slack connection was cancelled or failed. <a href="#" onclick="document.getElementById(\'slack-oauth-status\').innerHTML=\'\'" style="color:inherit;">Dismiss</a>' +
-            '</div>';
+        statusEl.innerHTML = '<div style="padding:0.75rem 1rem;background:rgba(239,68,68,0.12);border:1px solid #ef4444;border-radius:6px;color:#ef4444;font-size:0.9rem;">❌ Slack connection was cancelled or failed. <a href="#" onclick="document.getElementById(\'slack-oauth-status\').innerHTML=\'\'" style="color:inherit;">Dismiss</a></div>';
         if (typeof switchDashboardTab === 'function') switchDashboardTab('settings');
         window.history.replaceState({}, '', window.location.pathname);
     }
