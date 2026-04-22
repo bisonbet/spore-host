@@ -110,6 +110,7 @@ Resources:
 
   # SNS Topic
 
+  # trivy:ignore:AVD-AWS-0136 -- lagotto uses AWS-managed SNS key (alias/aws/sns); CMK not required for this tool
   LagottoCapacityAlertsTopic:
     Type: AWS::SNS::Topic
     Properties:
