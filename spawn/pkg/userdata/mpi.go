@@ -3,7 +3,7 @@ package userdata
 import (
 	"bytes"
 	"fmt"
-	"text/template"
+	"text/template" // nosemgrep: use-of-text-template -- renders shell/cloud-init scripts, not HTML
 
 	"github.com/scttfrdmn/spore-host/spawn/pkg/security"
 )

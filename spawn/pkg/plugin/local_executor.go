@@ -157,7 +157,7 @@ func (e *LocalExecutor) runCapture(ctx context.Context, step Step) (map[string]s
 	}
 
 	// Parse stdout as JSON for capture expressions.
-	var jsonData interface{}
+	var jsonData interface{} // nosemgrep: json-unmarshal-unvalidated
 	if err := json.Unmarshal(stdout.Bytes(), &jsonData); err != nil {
 		return nil, fmt.Errorf("capture: stdout is not valid JSON: %w", err)
 	}

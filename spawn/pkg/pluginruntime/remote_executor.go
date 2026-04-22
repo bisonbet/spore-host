@@ -83,7 +83,7 @@ func (e *RemoteExecutor) runCommand(ctx context.Context, step plugin.Step) error
 		script = "nohup sh -c " + shellQuote(step.Run) + " </dev/null >/dev/null 2>&1 &"
 	}
 
-	cmd := exec.CommandContext(ctx, "sh", "-c", script)
+	cmd := exec.CommandContext(ctx, "sh", "-c", script) // nosemgrep: dangerous-exec-command -- plugin step script, intentional
 	// Initialize with a minimal safe environment to avoid inheriting parent credentials.
 	cmd.Env = []string{
 		"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",

@@ -102,11 +102,11 @@ Resources:
         - Key: Component
           Value: alerts
 
-  # trivy:ignore:AVD-AWS-0095
-  # trivy:ignore:AVD-AWS-0136
   # KMSKeyArn is a required deploy-time parameter — Trivy cannot resolve required
   # parameters with no default, so it treats KmsMasterKeyId as absent (AVD-AWS-0095)
   # or as not a CMK (AVD-AWS-0136). The actual deployment always uses a CMK.
+  # trivy:ignore:AVD-AWS-0095
+  # trivy:ignore:AVD-AWS-0136
   SweepAlertsTopic:
     Type: AWS::SNS::Topic
     Properties:
@@ -121,7 +121,7 @@ Resources:
         - Key: Component
           Value: alerts
 
-  # trivy:ignore:AVD-AWS-0095
+  # trivy:ignore:AVD-AWS-0095 -- KMSKeyArn required parameter, cannot be resolved by Trivy
   # trivy:ignore:AVD-AWS-0136
   ScheduleAlertsTopic:
     Type: AWS::SNS::Topic

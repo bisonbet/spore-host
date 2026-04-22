@@ -265,7 +265,7 @@ func (r *QueueRunner) executeJob(job *queue.JobConfig, attempt int) (*JobResult,
 	ctx, cancel := context.WithTimeout(r.ctx, timeout)
 	defer cancel()
 
-	// Setup command
+	// nosemgrep: dangerous-exec-command -- user-defined job command, intentional
 	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", job.Command)
 
 	// Set environment variables

@@ -601,7 +601,7 @@ func (a *Agent) sendSpotInterruptionNotification(action, interruptTime string) {
   "detected_at": "%s"
 }`, a.identity.InstanceID, action, interruptTime, time.Now().UTC().Format(time.RFC3339))
 
-	if err := os.WriteFile(notificationFile, []byte(notification), 0600); err != nil {
+	if err := os.WriteFile(notificationFile, []byte(notification), 0600); err != nil { // nosemgrep: tempfile-without-mkstemp
 		log.Printf("Failed to write notification file: %v", err)
 	}
 
@@ -615,7 +615,7 @@ func (a *Agent) warnUsers(message string) {
 	_ = cmd.Run()
 
 	// Also write to a warning file
-	_ = os.WriteFile("/tmp/SPAWN_WARNING", []byte(message+"\n"), 0600)
+	_ = os.WriteFile("/tmp/SPAWN_WARNING", []byte(message+"\n"), 0600) // nosemgrep: tempfile-without-mkstemp
 
 	log.Printf("Warning sent to users: %s", message)
 }

@@ -146,7 +146,7 @@ func (p *Platform) GetPublicKeyFingerprint() (string, error) {
 		return "", fmt.Errorf("failed to marshal public key to DER: %w", err)
 	}
 
-	// Calculate MD5 hash of DER-encoded key
+	// nosemgrep: use-of-md5 -- AWS SSH key fingerprint format requires MD5 (RFC 4716)
 	hash := md5.Sum(derBytes)
 
 	// Format as colon-separated hex pairs (AWS format)

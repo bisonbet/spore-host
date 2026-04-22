@@ -55,7 +55,7 @@ func CalculateBackoff(cfg *RetryConfig, attempt int) (time.Duration, error) {
 			jitter = 1
 		}
 
-		// Random value between -jitter and +jitter
+		// nosemgrep: use-of-math-random -- jitter for retry backoff, not security-sensitive
 		jitterFactor := 1.0 + (rand.Float64()*2-1)*jitter
 		delay = time.Duration(float64(exponential) * jitterFactor)
 

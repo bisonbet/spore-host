@@ -136,14 +136,15 @@ def fetch_github_user_info(access_token: str) -> Dict[str, Any]:
     request = urllib.request.Request(user_url, headers=headers)
 
     try:
-        with urllib.request.urlopen(request) as response:
+        ssl_context = ssl.create_default_context()
+        with urllib.request.urlopen(request, context=ssl_context) as response:
             user_data = json.loads(response.read().decode('utf-8'))
 
         # Get user emails
         emails_url = 'https://api.github.com/user/emails'
         email_request = urllib.request.Request(emails_url, headers=headers)
 
-        with urllib.request.urlopen(email_request) as response:
+        with urllib.request.urlopen(email_request, context=ssl_context) as response:
             emails_data = json.loads(response.read().decode('utf-8'))
 
         # Find primary verified email

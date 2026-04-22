@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"text/template"
+	"text/template" // nosemgrep: use-of-text-template -- renders shell scripts, not HTML
 )
 
 // ErrMissingKey is returned when a {{ pushed.key }} reference cannot be
