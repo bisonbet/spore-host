@@ -27,7 +27,7 @@ const (
 	slackAuthorizeURL  = "https://slack.com/oauth/v2/authorize"
 	slackAccessURL     = "https://slack.com/api/oauth.v2.access"
 	slackExchangeURL   = "https://slack.com/api/oauth.v2.exchange"
-	slackOAuthScopes   = "commands,chat:write,users:read,users:read.email"
+	slackOAuthScopes   = "commands,chat:write,users:read,users:read.email,incoming-webhook"
 	pkceStateMaxAge    = 10 * time.Minute
 )
 
