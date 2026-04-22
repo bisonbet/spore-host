@@ -9,24 +9,14 @@ Parameters:
     AllowedPattern: '^[a-z][a-z0-9-]*$'
     ConstraintDescription: 'Must start with a letter and contain only lowercase letters, numbers, and hyphens'
 
-  EnableEncryption:
-    Type: String
-    Default: 'true'
-    AllowedValues:
-      - 'true'
-      - 'false'
-    Description: 'Enable encryption for S3 buckets and DynamoDB tables'
-
   KMSKeyArn:
     Type: String
-    Default: ''
-    Description: 'Optional: Custom KMS key ARN for encryption (leave empty for AWS-managed keys)'
-
-Conditions:
-  UseEncryption: !Equals [!Ref EnableEncryption, 'true']
-  UseCustomKMS: !And
-    - !Condition UseEncryption
-    - !Not [!Equals [!Ref KMSKeyArn, '']]
+    Description: >
+      Customer-managed KMS key ARN for encryption of all S3 buckets and DynamoDB tables.
+      Create a key with: aws kms create-key --description "spawn-self-hosted"
+      Encryption is always enabled; this parameter controls whether the key is
+      AWS-managed (alias/aws/s3, alias/aws/dynamodb) or customer-managed.
+      Leave the ARN as your CMK ARN for full key lifecycle control.
 
 Resources:
   # DynamoDB Tables
@@ -42,12 +32,10 @@ Resources:
       KeySchema:
         - AttributeName: schedule_id
           KeyType: HASH
-      SSESpecification: !If
-        - UseEncryption
-        - SSEEnabled: true
-          SSEType: !If [UseCustomKMS, 'KMS', 'KMS']
-          KMSMasterKeyId: !If [UseCustomKMS, !Ref KMSKeyArn, !Ref AWS::NoValue]
-        - !Ref AWS::NoValue
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: !Ref KMSKeyArn
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
       Tags:
@@ -69,12 +57,10 @@ Resources:
       KeySchema:
         - AttributeName: sweep_id
           KeyType: HASH
-      SSESpecification: !If
-        - UseEncryption
-        - SSEEnabled: true
-          SSEType: !If [UseCustomKMS, 'KMS', 'KMS']
-          KMSMasterKeyId: !If [UseCustomKMS, !Ref KMSKeyArn, !Ref AWS::NoValue]
-        - !Ref AWS::NoValue
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: !Ref KMSKeyArn
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
       Tags:
@@ -96,12 +82,10 @@ Resources:
       KeySchema:
         - AttributeName: alert_id
           KeyType: HASH
-      SSESpecification: !If
-        - UseEncryption
-        - SSEEnabled: true
-          SSEType: !If [UseCustomKMS, 'KMS', 'KMS']
-          KMSMasterKeyId: !If [UseCustomKMS, !Ref KMSKeyArn, !Ref AWS::NoValue]
-        - !Ref AWS::NoValue
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: !Ref KMSKeyArn
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
       Tags:
@@ -127,12 +111,10 @@ Resources:
           KeyType: HASH
         - AttributeName: timestamp
           KeyType: RANGE
-      SSESpecification: !If
-        - UseEncryption
-        - SSEEnabled: true
-          SSEType: !If [UseCustomKMS, 'KMS', 'KMS']
-          KMSMasterKeyId: !If [UseCustomKMS, !Ref KMSKeyArn, !Ref AWS::NoValue]
-        - !Ref AWS::NoValue
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: !Ref KMSKeyArn
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
       Tags:
@@ -153,7 +135,7 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: 'aws:kms'
-              KMSMasterKeyID: !If [UseCustomKMS, !Ref KMSKeyArn, 'alias/aws/s3']
+              KMSMasterKeyID: !Ref KMSKeyArn
             BucketKeyEnabled: true
       VersioningConfiguration:
         Status: Enabled
@@ -183,7 +165,7 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: 'aws:kms'
-              KMSMasterKeyID: !If [UseCustomKMS, !Ref KMSKeyArn, 'alias/aws/s3']
+              KMSMasterKeyID: !Ref KMSKeyArn
             BucketKeyEnabled: true
       LifecycleConfiguration:
         Rules:
