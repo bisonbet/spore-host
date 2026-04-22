@@ -312,7 +312,7 @@ func UploadQueueConfig(t *testing.T, ctx context.Context, queueConfig, s3Bucket,
 	_, err := client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(s3Bucket),
 		Key:    aws.String(s3Key),
-		Body:   aws.ReadSeekCloser(bytes.NewReader([]byte(queueConfig))),
+		Body:   bytes.NewReader([]byte(queueConfig)),
 	})
 	if err != nil {
 		t.Fatalf("failed to upload queue config: %v", err)
@@ -376,7 +376,7 @@ func UploadParamFile(t *testing.T, ctx context.Context, content, bucket, key str
 	_, err := client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
-		Body:   aws.ReadSeekCloser(bytes.NewReader([]byte(content))),
+		Body:   bytes.NewReader([]byte(content)),
 	})
 	if err != nil {
 		t.Fatalf("failed to upload parameter file: %v", err)
