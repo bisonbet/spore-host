@@ -87,14 +87,20 @@ func (n *Notifier) Notify(ctx context.Context, eventType, detail string) {
 }
 
 func (n *Notifier) send(ctx context.Context, eventType, detail string) error {
-	// Get instance identity document + signature from IMDS
-	identityDoc, err := n.imdsClient.GetInstanceIdentityDocument(ctx, &imds.GetInstanceIdentityDocumentInput{})
+	// Get the raw instance identity document bytes from IMDS.
+	// Must use GetDynamicData (not GetInstanceIdentityDocument) to preserve
+	// the exact bytes that AWS signed — re-marshalling a parsed struct breaks
+	// the PKCS#7 signature verification on the Lambda side.
+	docResp, err := n.imdsClient.GetDynamicData(ctx, &imds.GetDynamicDataInput{
+		Path: "instance-identity/document",
+	})
 	if err != nil {
 		return fmt.Errorf("get identity doc: %w", err)
 	}
-	identityDocJSON, err := json.Marshal(identityDoc)
+	defer docResp.Content.Close()
+	identityDocBytes, err := io.ReadAll(docResp.Content)
 	if err != nil {
-		return fmt.Errorf("marshal identity doc: %w", err)
+		return fmt.Errorf("read identity doc: %w", err)
 	}
 
 	sigResp, err := n.imdsClient.GetDynamicData(ctx, &imds.GetDynamicDataInput{
@@ -110,7 +116,7 @@ func (n *Notifier) send(ctx context.Context, eventType, detail string) error {
 	}
 
 	nr := notifyRequest{
-		InstanceIdentityDocument:  base64.StdEncoding.EncodeToString(identityDocJSON),
+		InstanceIdentityDocument:  base64.StdEncoding.EncodeToString(identityDocBytes),
 		InstanceIdentitySignature: strings.TrimSpace(string(sigBytes)),
 		Platform:                  n.platform,
 		WorkspaceID:               n.workspaceID,
