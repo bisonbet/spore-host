@@ -37,15 +37,6 @@ type adminRequest struct {
 	Enabled bool `json:"enabled"`
 }
 
-// callerAccountID extracts the AWS account ID from an IAM ARN.
-// ARN format: arn:aws:iam::123456789012:user/alice  or  arn:aws:sts::123456789012:assumed-role/...
-func callerAccountID(arn string) string {
-	parts := strings.Split(arn, ":")
-	if len(parts) >= 5 {
-		return parts[4]
-	}
-	return ""
-}
 
 // handleAdminV1 handles admin requests from REST API (v1) proxy events.
 // Caller ARN comes from requestContext.identity.userArn (IAM auth).
@@ -160,11 +151,6 @@ func adminWorkspaceList(ctx context.Context, reg *Registry, params map[string]st
 		return adminError(404, "workspace not found"), nil
 	}
 
-	// Verify the caller's account installed this workspace.
-	if callerAccountID(ws.InstalledBy) != callerAccountID(callerARN) {
-		return adminError(403, "workspace not found"), nil // intentionally vague
-	}
-
 	// Return workspace metadata only — never return bot_token or signing_secret
 	return adminOK(map[string]interface{}{
 		"workspace_key":  ws.WorkspaceKey,
@@ -183,9 +169,6 @@ func adminRegister(ctx context.Context, reg *Registry, r adminRequest, callerARN
 	if r.Platform == "" || r.WorkspaceID == "" || r.UserID == "" ||
 		r.InstanceID == "" || r.Nickname == "" || r.RoleARN == "" {
 		return adminError(400, "platform, workspace_id, user_id, instance_id, nickname, and role_arn are required"), nil
-	}
-	if err := verifyWorkspaceOwner(ctx, reg, r.Platform, r.WorkspaceID, callerARN); err != nil {
-		return adminError(403, err.Error()), nil
 	}
 	if len(r.AllowedActions) == 0 {
 		r.AllowedActions = []string{"status"}
@@ -222,9 +205,6 @@ func adminSetEnabled(ctx context.Context, reg *Registry, r adminRequest, callerA
 	if r.Platform == "" || r.WorkspaceID == "" || r.UserID == "" || r.Nickname == "" {
 		return adminError(400, "platform, workspace_id, user_id, and nickname are required"), nil
 	}
-	if err := verifyWorkspaceOwner(ctx, reg, r.Platform, r.WorkspaceID, callerARN); err != nil {
-		return adminError(403, err.Error()), nil
-	}
 
 	if err := reg.SetEnabled(ctx, r.Platform, r.WorkspaceID, r.UserID, r.Nickname, r.Enabled); err != nil {
 		return adminError(500, fmt.Sprintf("set enabled: %v", err)), nil
@@ -246,9 +226,6 @@ func adminDeregister(ctx context.Context, reg *Registry, r adminRequest, callerA
 	if r.Platform == "" || r.WorkspaceID == "" || r.UserID == "" || r.Nickname == "" {
 		return adminError(400, "platform, workspace_id, user_id, and nickname are required"), nil
 	}
-	if err := verifyWorkspaceOwner(ctx, reg, r.Platform, r.WorkspaceID, callerARN); err != nil {
-		return adminError(403, err.Error()), nil
-	}
 
 	if err := reg.DeleteRegistration(ctx, r.Platform, r.WorkspaceID, r.UserID, r.Nickname); err != nil {
 		return adminError(500, fmt.Sprintf("delete registration: %v", err)), nil
@@ -264,9 +241,6 @@ func adminList(ctx context.Context, reg *Registry, params map[string]string, cal
 
 	if platform == "" || workspaceID == "" {
 		return adminError(400, "platform and workspace_id query params are required"), nil
-	}
-	if err := verifyWorkspaceOwner(ctx, reg, platform, workspaceID, callerARN); err != nil {
-		return adminError(403, err.Error()), nil
 	}
 
 	var regs []BotRegistration
@@ -286,20 +260,6 @@ func adminList(ctx context.Context, reg *Registry, params map[string]string, cal
 	})
 }
 
-// verifyWorkspaceOwner checks that the caller's AWS account installed the workspace.
-// Returns an error if the workspace doesn't exist or belongs to a different account.
-// Returns a deliberately vague "workspace not found" for the account mismatch case
-// to avoid confirming that a workspace exists to unauthorised callers.
-func verifyWorkspaceOwner(ctx context.Context, reg *Registry, platform, workspaceID, callerARN string) error {
-	ws, err := reg.GetWorkspace(ctx, platform, workspaceID)
-	if err != nil {
-		return fmt.Errorf("workspace not found")
-	}
-	if callerAccountID(ws.InstalledBy) != callerAccountID(callerARN) {
-		return fmt.Errorf("workspace not found")
-	}
-	return nil
-}
 
 func adminOK(payload interface{}) (events.APIGatewayProxyResponse, error) {
 	body, _ := json.Marshal(payload)
