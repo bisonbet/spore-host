@@ -29,7 +29,9 @@ type Agent struct {
 	notifier         *Notifier // Slack lifecycle notifications (nil if not configured)
 	startTime        time.Time
 	lastActivityTime time.Time
-	preStopDone      bool // guards against running pre-stop hook more than once
+	preStopDone      bool  // guards against running pre-stop hook more than once
+	prevCPUIdle      int64 // /proc/stat idle jiffies at last getCPUUsage call
+	prevCPUTotal     int64 // /proc/stat total jiffies at last getCPUUsage call
 }
 
 func NewAgent(ctx context.Context, prov provider.Provider) (*Agent, error) {
@@ -338,37 +340,48 @@ func (a *Agent) isIdle() bool {
 }
 
 func (a *Agent) getCPUUsage() float64 {
-	// Read /proc/stat
-	data, err := os.ReadFile("/proc/stat")
+	idle, total, err := readProcStatCPU()
 	if err != nil {
 		return 100.0 // Assume active if can't read
 	}
 
+	// Delta CPU usage since last call — avoids cumulative-since-boot bias
+	// that makes a freshly-booted instance look busy for its entire uptime.
+	prevIdle, prevTotal := a.prevCPUIdle, a.prevCPUTotal
+	a.prevCPUIdle, a.prevCPUTotal = idle, total
+
+	if prevTotal == 0 {
+		return 100.0 // First call; no delta available; assume active
+	}
+	deltaIdle := idle - prevIdle
+	deltaTotal := total - prevTotal
+	if deltaTotal == 0 {
+		return 0.0
+	}
+	return 100.0 - (float64(deltaIdle)/float64(deltaTotal))*100.0
+}
+
+func readProcStatCPU() (idle, total int64, err error) {
+	data, err := os.ReadFile("/proc/stat")
+	if err != nil {
+		return 0, 0, err
+	}
 	lines := strings.Split(string(data), "\n")
 	if len(lines) == 0 {
-		return 100.0
+		return 0, 0, fmt.Errorf("empty /proc/stat")
 	}
-
-	// Parse first line: cpu  user nice system idle ...
 	fields := strings.Fields(lines[0])
 	if len(fields) < 5 || fields[0] != "cpu" {
-		return 100.0
+		return 0, 0, fmt.Errorf("unexpected /proc/stat format")
 	}
-
-	// Simple idle check - if idle column is very high, system is idle
-	idle, _ := strconv.ParseFloat(fields[4], 64)
-	total := 0.0
-	for i := 1; i < len(fields); i++ {
-		val, _ := strconv.ParseFloat(fields[i], 64)
-		total += val
+	// fields: cpu user nice system idle iowait irq softirq ...
+	idleVal, _ := strconv.ParseInt(fields[4], 10, 64)
+	var totalVal int64
+	for _, f := range fields[1:] {
+		v, _ := strconv.ParseInt(f, 10, 64)
+		totalVal += v
 	}
-
-	if total == 0 {
-		return 0
-	}
-
-	// Return usage percentage
-	return 100.0 - (idle/total)*100.0
+	return idleVal, totalVal, nil
 }
 
 func (a *Agent) getNetworkBytes() int64 {
