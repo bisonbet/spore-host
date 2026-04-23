@@ -179,7 +179,7 @@ func formatSlackStatus(s InstanceStatus) string {
 	if s.LaunchTime != "" {
 		if t, err := time.Parse(time.RFC3339, s.LaunchTime); err == nil {
 			fields = append(fields, field("Launched",
-				fmt.Sprintf("%s (%s ago)", t.UTC().Format("2 Jan 15:04 UTC"), formatDuration(time.Since(t)))))
+				fmt.Sprintf("%s (%s ago)", t.UTC().Format("2 Jan 15:04 UTC"), formatHMS(time.Since(t)))))
 		}
 	}
 	if s.TTL != "" {
