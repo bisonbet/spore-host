@@ -216,8 +216,15 @@ func adminRegister(ctx context.Context, reg *Registry, r adminRequest, callerARN
 }
 
 func adminSetEnabled(ctx context.Context, reg *Registry, r adminRequest, callerARN string) (events.APIGatewayProxyResponse, error) {
+	if r.UserID == "" && r.UserEmail != "" {
+		resolved, err := resolveSlackEmail(ctx, reg, r.Platform, r.WorkspaceID, r.UserEmail)
+		if err != nil {
+			return adminError(400, fmt.Sprintf("email resolution: %v", err)), nil
+		}
+		r.UserID = resolved
+	}
 	if r.Platform == "" || r.WorkspaceID == "" || r.UserID == "" || r.Nickname == "" {
-		return adminError(400, "platform, workspace_id, user_id, and nickname are required"), nil
+		return adminError(400, "platform, workspace_id, user_id (or user_email), and nickname are required"), nil
 	}
 
 	if err := reg.SetEnabled(ctx, r.Platform, r.WorkspaceID, r.UserID, r.Nickname, r.Enabled); err != nil {
@@ -237,8 +244,15 @@ func adminSetEnabled(ctx context.Context, reg *Registry, r adminRequest, callerA
 }
 
 func adminDeregister(ctx context.Context, reg *Registry, r adminRequest, callerARN string) (events.APIGatewayProxyResponse, error) {
+	if r.UserID == "" && r.UserEmail != "" {
+		resolved, err := resolveSlackEmail(ctx, reg, r.Platform, r.WorkspaceID, r.UserEmail)
+		if err != nil {
+			return adminError(400, fmt.Sprintf("email resolution: %v", err)), nil
+		}
+		r.UserID = resolved
+	}
 	if r.Platform == "" || r.WorkspaceID == "" || r.UserID == "" || r.Nickname == "" {
-		return adminError(400, "platform, workspace_id, user_id, and nickname are required"), nil
+		return adminError(400, "platform, workspace_id, user_id (or user_email), and nickname are required"), nil
 	}
 
 	if err := reg.DeleteRegistration(ctx, r.Platform, r.WorkspaceID, r.UserID, r.Nickname); err != nil {
