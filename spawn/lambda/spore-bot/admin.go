@@ -37,6 +37,16 @@ type adminRequest struct {
 	Enabled bool `json:"enabled"`
 }
 
+// callerAccountID extracts the AWS account ID from an IAM ARN.
+// ARN format: arn:aws:iam::123456789012:user/alice  or  arn:aws:sts::123456789012:assumed-role/...
+func callerAccountID(arn string) string {
+	parts := strings.Split(arn, ":")
+	if len(parts) >= 5 {
+		return parts[4]
+	}
+	return ""
+}
+
 // handleAdmin routes /admin/* requests. callerARN is extracted from the
 // API Gateway request context (populated by AWS when AuthType: AWS_IAM).
 func handleAdmin(ctx context.Context, reg *Registry, request events.APIGatewayV2HTTPRequest) (events.APIGatewayProxyResponse, error) {
@@ -73,11 +83,11 @@ func handleAdmin(ctx context.Context, reg *Registry, request events.APIGatewayV2
 	case path == "/admin/register" && method == "POST":
 		return adminRegister(ctx, reg, body, callerARN)
 	case path == "/admin/set-enabled" && method == "POST":
-		return adminSetEnabled(ctx, reg, body)
+		return adminSetEnabled(ctx, reg, body, callerARN)
 	case path == "/admin/deregister" && method == "POST":
-		return adminDeregister(ctx, reg, body)
+		return adminDeregister(ctx, reg, body, callerARN)
 	case path == "/admin/list" && method == "GET":
-		return adminList(ctx, reg, request.QueryStringParameters)
+		return adminList(ctx, reg, request.QueryStringParameters, callerARN)
 	default:
 		return adminError(404, fmt.Sprintf("unknown admin route: %s %s", method, path)), nil
 	}
@@ -122,6 +132,11 @@ func adminWorkspaceList(ctx context.Context, reg *Registry, params map[string]st
 		return adminError(404, "workspace not found"), nil
 	}
 
+	// Verify the caller's account installed this workspace.
+	if callerAccountID(ws.InstalledBy) != callerAccountID(callerARN) {
+		return adminError(403, "workspace not found"), nil // intentionally vague
+	}
+
 	// Return workspace metadata only — never return bot_token or signing_secret
 	return adminOK(map[string]interface{}{
 		"workspace_key":  ws.WorkspaceKey,
@@ -140,6 +155,9 @@ func adminRegister(ctx context.Context, reg *Registry, r adminRequest, callerARN
 	if r.Platform == "" || r.WorkspaceID == "" || r.UserID == "" ||
 		r.InstanceID == "" || r.Nickname == "" || r.RoleARN == "" {
 		return adminError(400, "platform, workspace_id, user_id, instance_id, nickname, and role_arn are required"), nil
+	}
+	if err := verifyWorkspaceOwner(ctx, reg, r.Platform, r.WorkspaceID, callerARN); err != nil {
+		return adminError(403, err.Error()), nil
 	}
 	if len(r.AllowedActions) == 0 {
 		r.AllowedActions = []string{"status"}
@@ -172,9 +190,12 @@ func adminRegister(ctx context.Context, reg *Registry, r adminRequest, callerARN
 	})
 }
 
-func adminSetEnabled(ctx context.Context, reg *Registry, r adminRequest) (events.APIGatewayProxyResponse, error) {
+func adminSetEnabled(ctx context.Context, reg *Registry, r adminRequest, callerARN string) (events.APIGatewayProxyResponse, error) {
 	if r.Platform == "" || r.WorkspaceID == "" || r.UserID == "" || r.Nickname == "" {
 		return adminError(400, "platform, workspace_id, user_id, and nickname are required"), nil
+	}
+	if err := verifyWorkspaceOwner(ctx, reg, r.Platform, r.WorkspaceID, callerARN); err != nil {
+		return adminError(403, err.Error()), nil
 	}
 
 	if err := reg.SetEnabled(ctx, r.Platform, r.WorkspaceID, r.UserID, r.Nickname, r.Enabled); err != nil {
@@ -193,9 +214,12 @@ func adminSetEnabled(ctx context.Context, reg *Registry, r adminRequest) (events
 	})
 }
 
-func adminDeregister(ctx context.Context, reg *Registry, r adminRequest) (events.APIGatewayProxyResponse, error) {
+func adminDeregister(ctx context.Context, reg *Registry, r adminRequest, callerARN string) (events.APIGatewayProxyResponse, error) {
 	if r.Platform == "" || r.WorkspaceID == "" || r.UserID == "" || r.Nickname == "" {
 		return adminError(400, "platform, workspace_id, user_id, and nickname are required"), nil
+	}
+	if err := verifyWorkspaceOwner(ctx, reg, r.Platform, r.WorkspaceID, callerARN); err != nil {
+		return adminError(403, err.Error()), nil
 	}
 
 	if err := reg.DeleteRegistration(ctx, r.Platform, r.WorkspaceID, r.UserID, r.Nickname); err != nil {
@@ -205,13 +229,16 @@ func adminDeregister(ctx context.Context, reg *Registry, r adminRequest) (events
 	return adminOK(map[string]string{"deleted": userKey(r.Platform, r.WorkspaceID, r.UserID) + "#" + r.Nickname})
 }
 
-func adminList(ctx context.Context, reg *Registry, params map[string]string) (events.APIGatewayProxyResponse, error) {
+func adminList(ctx context.Context, reg *Registry, params map[string]string, callerARN string) (events.APIGatewayProxyResponse, error) {
 	platform := params["platform"]
 	workspaceID := params["workspace_id"]
 	userID := params["user_id"]
 
 	if platform == "" || workspaceID == "" {
 		return adminError(400, "platform and workspace_id query params are required"), nil
+	}
+	if err := verifyWorkspaceOwner(ctx, reg, platform, workspaceID, callerARN); err != nil {
+		return adminError(403, err.Error()), nil
 	}
 
 	var regs []BotRegistration
@@ -229,6 +256,21 @@ func adminList(ctx context.Context, reg *Registry, params map[string]string) (ev
 		"registrations": regs,
 		"count":         len(regs),
 	})
+}
+
+// verifyWorkspaceOwner checks that the caller's AWS account installed the workspace.
+// Returns an error if the workspace doesn't exist or belongs to a different account.
+// Returns a deliberately vague "workspace not found" for the account mismatch case
+// to avoid confirming that a workspace exists to unauthorised callers.
+func verifyWorkspaceOwner(ctx context.Context, reg *Registry, platform, workspaceID, callerARN string) error {
+	ws, err := reg.GetWorkspace(ctx, platform, workspaceID)
+	if err != nil {
+		return fmt.Errorf("workspace not found")
+	}
+	if callerAccountID(ws.InstalledBy) != callerAccountID(callerARN) {
+		return fmt.Errorf("workspace not found")
+	}
+	return nil
 }
 
 func adminOK(payload interface{}) (events.APIGatewayProxyResponse, error) {
