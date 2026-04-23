@@ -97,13 +97,19 @@ func (n *Notifier) send(ctx context.Context, eventType, detail string) error {
 		return fmt.Errorf("get pkcs7: %w", err)
 	}
 	defer pkcs7Resp.Content.Close()
-	pkcs7Bytes, err := io.ReadAll(pkcs7Resp.Content)
+	pkcs7Raw, err := io.ReadAll(pkcs7Resp.Content)
 	if err != nil {
 		return fmt.Errorf("read pkcs7: %w", err)
 	}
 
+	// IMDS returns base64-encoded DER; decode to get raw DER before re-encoding for transport.
+	pkcs7DER, decErr := base64.StdEncoding.DecodeString(strings.TrimSpace(string(pkcs7Raw)))
+	if decErr != nil {
+		pkcs7DER = pkcs7Raw // fallback: use as-is if not base64
+	}
+
 	nr := notifyRequest{
-		PKCS7:    base64.StdEncoding.EncodeToString(pkcs7Bytes),
+		PKCS7:    base64.StdEncoding.EncodeToString(pkcs7DER),
 		Platform:                  n.platform,
 		WorkspaceID:               n.workspaceID,
 		EventType:                 eventType,
