@@ -10,6 +10,10 @@ import (
 	"strings"
 	"time"
 
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/scttfrdmn/spore-host/pkg/i18n"
 	"github.com/scttfrdmn/spore-host/spawn/pkg/dns"
 	"github.com/scttfrdmn/spore-host/spawn/pkg/plugin"
@@ -28,10 +32,11 @@ type Agent struct {
 	pluginRuntime    *pluginruntime.Runtime
 	notifier         *Notifier // Slack lifecycle notifications (nil if not configured)
 	startTime        time.Time
-	lastActivityTime time.Time
-	preStopDone      bool  // guards against running pre-stop hook more than once
-	prevCPUIdle      int64 // /proc/stat idle jiffies at last getCPUUsage call
-	prevCPUTotal     int64 // /proc/stat total jiffies at last getCPUUsage call
+	lastActivityTime    time.Time
+	preStopDone         bool  // guards against running pre-stop hook more than once
+	prevCPUIdle         int64 // /proc/stat idle jiffies at last getCPUUsage call
+	prevCPUTotal        int64 // /proc/stat total jiffies at last getCPUUsage call
+	lastSessionTagWrite time.Time // throttle spawn:logged-in-count tag writes
 }
 
 func NewAgent(ctx context.Context, prov provider.Provider) (*Agent, error) {
@@ -199,8 +204,8 @@ func (a *Agent) Monitor(ctx context.Context) {
 }
 
 func (a *Agent) checkAndAct(ctx context.Context) {
-	// 0. Spot interruption is handled by the dedicated goroutine in Monitor.
-	// Skip here to avoid duplicate processing on the slow path.
+	// 0. Keep spawn:logged-in-count tag current (throttled to 1/min).
+	a.writeSessionCountTag(ctx, countActiveSessions())
 
 	// 1. Check for completion signal (HIGH PRIORITY)
 	if a.config.OnComplete != "" {
@@ -287,7 +292,48 @@ func (a *Agent) checkAndAct(ctx context.Context) {
 	}
 }
 
+// countActiveSessions returns the number of active login sessions from `who`.
+func countActiveSessions() int {
+	out, err := exec.Command("who").Output()
+	if err != nil {
+		return 0
+	}
+	count := 0
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if strings.TrimSpace(line) != "" {
+			count++
+		}
+	}
+	return count
+}
+
+// writeSessionCountTag updates the spawn:logged-in-count EC2 tag, throttled to once per minute.
+func (a *Agent) writeSessionCountTag(ctx context.Context, count int) {
+	if time.Since(a.lastSessionTagWrite) < time.Minute {
+		return
+	}
+	a.lastSessionTagWrite = time.Now()
+	cfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(a.identity.Region))
+	if err != nil {
+		return
+	}
+	client := ec2.NewFromConfig(cfg)
+	_, _ = client.CreateTags(ctx, &ec2.CreateTagsInput{
+		Resources: []string{a.identity.InstanceID},
+		Tags: []ec2types.Tag{
+			{Key: aws.String("spawn:logged-in-count"), Value: aws.String(strconv.Itoa(count))},
+		},
+	})
+}
+
 func (a *Agent) isIdle() bool {
+	// Active SSH/terminal sessions reset the idle timer — don't auto-terminate
+	// an instance while someone is working on it.
+	if sessions := countActiveSessions(); sessions > 0 {
+		log.Printf("Not idle: %d active session(s)", sessions)
+		return false
+	}
+
 	// Check CPU usage
 	cpuUsage := a.getCPUUsage()
 	if cpuUsage >= a.config.IdleCPUPercent {

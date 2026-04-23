@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -347,9 +348,9 @@ func cmdEC2Op(ctx context.Context, cfg aws.Config, action *BotAction, op string)
 	case "start":
 		return startInstance(ctx, ec2Client, reg, sc)
 	case "stop":
-		return stopInstance(ctx, ec2Client, reg, false)
+		return stopInstance(ctx, ec2Client, reg, false, action.Arg == "force", sc)
 	case "hibernate":
-		return stopInstance(ctx, ec2Client, reg, true)
+		return stopInstance(ctx, ec2Client, reg, true, action.Arg == "force", sc)
 	case "url":
 		return getURL(ctx, ec2Client, reg, sc)
 	case "extend":
@@ -407,6 +408,7 @@ func getStatus(ctx context.Context, client *ec2.Client, reg *BotRegistration) (s
 	displayName := reg.Nickname
 	var dnsShort, accountBase36, ttl, onComplete, idleTimeout string
 	var hibernateOnIdle bool
+	var loggedInCount int
 	for _, tag := range inst.Tags {
 		if tag.Key == nil || tag.Value == nil {
 			continue
@@ -426,6 +428,8 @@ func getStatus(ctx context.Context, client *ec2.Client, reg *BotRegistration) (s
 			idleTimeout = *tag.Value
 		case reg.TagPrefix + ":hibernate-on-idle":
 			hibernateOnIdle = *tag.Value == "true"
+		case reg.TagPrefix + ":logged-in-count":
+			loggedInCount, _ = strconv.Atoi(*tag.Value)
 		case "Name":
 			if displayName == reg.Nickname {
 				displayName = *tag.Value
@@ -461,6 +465,7 @@ func getStatus(ctx context.Context, client *ec2.Client, reg *BotRegistration) (s
 		OnComplete:      onComplete,
 		IdleTimeout:     idleTimeout,
 		HibernateOnIdle: hibernateOnIdle,
+		LoggedInCount:   loggedInCount,
 	}), nil
 }
 
@@ -492,7 +497,20 @@ func startInstance(ctx context.Context, client *ec2.Client, reg *BotRegistration
 		reg.Nickname, slashCmd, reg.Nickname), nil
 }
 
-func stopInstance(ctx context.Context, client *ec2.Client, reg *BotRegistration, hibernate bool) (string, error) {
+func stopInstance(ctx context.Context, client *ec2.Client, reg *BotRegistration, hibernate bool, force bool, slashCmd string) (string, error) {
+	// Check for active sessions unless force is specified.
+	if !force {
+		if sessions := getLoggedInCount(ctx, client, reg); sessions > 0 {
+			action := "stop"
+			if hibernate {
+				action = "hibernate"
+			}
+			return fmt.Sprintf("⚠️ *%s* has %d active session(s).\n"+
+				"Use `%s %s %s force` to proceed anyway, or ask logged-in users to log out first.",
+				reg.Nickname, sessions, slashCmd, action, reg.Nickname), nil
+		}
+	}
+
 	input := &ec2.StopInstancesInput{
 		InstanceIds: []string{reg.InstanceID},
 	}
@@ -516,6 +534,23 @@ func stopInstance(ctx context.Context, client *ec2.Client, reg *BotRegistration,
 		return fmt.Sprintf("💤 Hibernating *%s* (`%s`)... RAM state saved, billing paused.", reg.Nickname, reg.InstanceID), nil
 	}
 	return fmt.Sprintf("⏹️ Stopping *%s* (`%s`)...", reg.Nickname, reg.InstanceID), nil
+}
+
+// getLoggedInCount reads the spawn:logged-in-count EC2 tag written by spored.
+func getLoggedInCount(ctx context.Context, client *ec2.Client, reg *BotRegistration) int {
+	out, err := client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+		InstanceIds: []string{reg.InstanceID},
+	})
+	if err != nil || len(out.Reservations) == 0 || len(out.Reservations[0].Instances) == 0 {
+		return 0
+	}
+	for _, tag := range out.Reservations[0].Instances[0].Tags {
+		if tag.Key != nil && *tag.Key == reg.TagPrefix+":logged-in-count" && tag.Value != nil {
+			n, _ := strconv.Atoi(*tag.Value)
+			return n
+		}
+	}
+	return 0
 }
 
 func getURL(ctx context.Context, client *ec2.Client, reg *BotRegistration, slashCmd string) (string, error) {

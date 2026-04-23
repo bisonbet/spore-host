@@ -131,6 +131,7 @@ type InstanceStatus struct {
 	OnComplete      string // "terminate" | "stop"
 	IdleTimeout     string // "1h"
 	HibernateOnIdle bool   // idle action: hibernate instead of stop
+	LoggedInCount   int    // active SSH/terminal sessions (from spawn:logged-in-count tag)
 }
 
 // formatSlackStatus returns a Slack Block Kit JSON array for a status card.
@@ -211,6 +212,9 @@ func formatSlackStatus(s InstanceStatus) string {
 		fields = append(fields, field("Idle Timeout", fmt.Sprintf("after %s idle → %s", s.IdleTimeout, idleAction)))
 	} else {
 		fields = append(fields, field("Idle Timeout", "None"))
+	}
+	if s.LoggedInCount > 0 {
+		fields = append(fields, field("Active Sessions", fmt.Sprintf("%d user(s) logged in", s.LoggedInCount)))
 	}
 	fields = append(fields, field("Instance ID", "`"+s.InstanceID+"`"))
 
