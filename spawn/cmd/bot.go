@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,12 +18,21 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamodbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
+	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/scttfrdmn/spore-host/spawn/pkg/tagprefix"
 	"github.com/spf13/cobra"
 )
 
-const defaultBotRegistryTable = "spore-bot-registry"
+const (
+	defaultBotRegistryTable = "spore-bot-registry"
+	// botCrossAccountRoleName is created automatically in the caller's AWS account
+	// when registering an instance without an explicit --role-arn.
+	botCrossAccountRoleName = "SpawnBotCrossAccount"
+	// botLambdaRoleARN is the spore-bot Lambda execution role trusted by the cross-account role.
+	botLambdaRoleARN = "arn:aws:iam::966362334030:role/prism-bot-PrismBotFunctionRole-U2vZFZXgWBeM"
+)
 
 var (
 	botPlatform        string
@@ -145,6 +155,18 @@ func runBotRegister(cmd *cobra.Command, args []string) error {
 	}
 	registeredBy := *identity.Arn
 
+	// Auto-create cross-account role if --role-arn not provided
+	roleARN := botRoleARN
+	if roleARN == "" {
+		fmt.Printf("No --role-arn provided — ensuring %s role exists in account %s...\n",
+			botCrossAccountRoleName, *identity.Account)
+		roleARN, err = ensureCrossAccountRole(ctx, cfg)
+		if err != nil {
+			return fmt.Errorf("create cross-account role: %w", err)
+		}
+		fmt.Printf("  ✓ Role: %s\n", roleARN)
+	}
+
 	// Build registry key
 	userKey := strings.Join([]string{botPlatform, workspaceID, userID}, "#")
 
@@ -153,7 +175,7 @@ func runBotRegister(cmd *cobra.Command, args []string) error {
 		Nickname:       botNickname,
 		InstanceID:     botInstance,
 		AWSAccountID:   *identity.Account,
-		RoleARN:        botRoleARN,
+		RoleARN:        roleARN,
 		TagPrefix:      tagpfx,
 		AllowedActions: botAllow,
 		RegisteredBy:   registeredBy,
@@ -187,6 +209,73 @@ func runBotRegister(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  Allowed actions: %s\n", strings.Join(reg.AllowedActions, ", "))
 	fmt.Printf("  Tag prefix: %s\n", reg.TagPrefix)
 	return nil
+}
+
+// ensureCrossAccountRole creates the SpawnBotCrossAccount IAM role in the caller's
+// AWS account if it doesn't already exist, and returns its ARN.
+// The role trusts the spore-bot Lambda execution role to assume it, allowing the
+// bot to call ec2:Describe/Start/Stop on instances in this account.
+func ensureCrossAccountRole(ctx context.Context, cfg aws.Config) (string, error) {
+	client := iam.NewFromConfig(cfg)
+
+	// Check if role already exists
+	existing, err := client.GetRole(ctx, &iam.GetRoleInput{
+		RoleName: aws.String(botCrossAccountRoleName),
+	})
+	if err == nil {
+		return *existing.Role.Arn, nil
+	}
+
+	var notFound *iamtypes.NoSuchEntityException
+	if !errors.As(err, &notFound) {
+		return "", fmt.Errorf("get role: %w", err)
+	}
+
+	// Create the role
+	trustPolicy := fmt.Sprintf(`{
+		"Version": "2012-10-17",
+		"Statement": [{
+			"Effect": "Allow",
+			"Principal": {"AWS": %q},
+			"Action": "sts:AssumeRole",
+			"Condition": {"StringEquals": {"sts:ExternalId": "spawn-bot"}}
+		}]
+	}`, botLambdaRoleARN)
+
+	created, err := client.CreateRole(ctx, &iam.CreateRoleInput{
+		RoleName:                 aws.String(botCrossAccountRoleName),
+		AssumeRolePolicyDocument: aws.String(trustPolicy),
+		Description:              aws.String("Allows spore-bot Lambda to control EC2 instances in this account via Slack/Teams commands"),
+	})
+	if err != nil {
+		return "", fmt.Errorf("create role: %w", err)
+	}
+
+	// Attach inline permission policy
+	permPolicy := `{
+		"Version": "2012-10-17",
+		"Statement": [{
+			"Effect": "Allow",
+			"Action": [
+				"ec2:DescribeInstances",
+				"ec2:DescribeTags",
+				"ec2:StartInstances",
+				"ec2:StopInstances"
+			],
+			"Resource": "*"
+		}]
+	}`
+
+	_, err = client.PutRolePolicy(ctx, &iam.PutRolePolicyInput{
+		RoleName:       aws.String(botCrossAccountRoleName),
+		PolicyName:     aws.String("SpawnBotEC2Control"),
+		PolicyDocument: aws.String(permPolicy),
+	})
+	if err != nil {
+		return "", fmt.Errorf("attach role policy: %w", err)
+	}
+
+	return *created.Role.Arn, nil
 }
 
 // ── deregister ────────────────────────────────────────────────────────────────
