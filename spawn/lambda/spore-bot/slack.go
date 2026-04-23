@@ -106,16 +106,18 @@ func postSlackResponse(responseURL, text string, inChannel bool) error {
 
 // InstanceStatus holds all display data for a status card.
 type InstanceStatus struct {
-	Nickname     string // user-facing name
-	InstanceID   string // i-...
-	State        string // running, stopped, stopping, hibernated, pending
-	InstanceType string // t3.small, g7e.xlarge, etc.
-	AZ           string // us-east-1a
-	IP           string // public IP
-	DNSName      string // spore-bot-test.5k0zfnmq.spore.host
-	LaunchTime   string // RFC3339
-	TTL          string // "4h"
-	IdleTimeout  string // "1h"
+	Nickname        string // user-facing name
+	InstanceID      string // i-...
+	State           string // running, stopped, stopping, hibernated, pending
+	InstanceType    string // t3.small, g7e.xlarge, etc.
+	AZ              string // us-east-1a
+	IP              string // public IP
+	DNSName         string // spore-bot-test.5k0zfnmq.spore.host
+	LaunchTime      string // RFC3339
+	TTL             string // "4h"
+	OnComplete      string // "terminate" | "stop"
+	IdleTimeout     string // "1h"
+	HibernateOnIdle bool   // idle action: hibernate instead of stop
 }
 
 // formatSlackStatus formats a rich status card for Slack.
@@ -189,8 +191,14 @@ func formatSlackStatus(s InstanceStatus) string {
 			lines = append(lines, fmt.Sprintf("  *Auto-terminate:*     after %s from launch", s.TTL))
 		}
 	}
+	idleAction := "stop"
+	if s.HibernateOnIdle {
+		idleAction = "hibernate"
+	}
 	if s.IdleTimeout != "" {
-		lines = append(lines, fmt.Sprintf("  *Idle timeout:*       after %s idle", s.IdleTimeout))
+		lines = append(lines, fmt.Sprintf("  *Idle timeout:*       after %s idle → %s", s.IdleTimeout, idleAction))
+	} else {
+		lines = append(lines, "  *Idle timeout:*       None")
 	}
 	lines = append(lines, fmt.Sprintf("  *AWS Instance ID:*    `%s`", s.InstanceID))
 

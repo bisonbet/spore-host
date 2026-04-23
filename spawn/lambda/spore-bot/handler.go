@@ -46,8 +46,8 @@ func handleWebhook(ctx context.Context, cfg aws.Config, reg *Registry, request e
 		return jsonResp(200, `{"ok":true}`), nil
 	}
 
-	// Parse command and nickname from the text
-	command, nickname := parseCommandText(sc.Text)
+	// Parse command, nickname, and optional arg from the text
+	command, nickname, arg := parseCommandText(sc.Text)
 	if command == "" {
 		command = "help"
 	}
@@ -60,6 +60,7 @@ func handleWebhook(ctx context.Context, cfg aws.Config, reg *Registry, request e
 		ResponseURL:  sc.ResponseURL,
 		Command:      command,
 		Nickname:     nickname,
+		Arg:          arg,
 		SlashCommand: sc.Command, // e.g. "/spore" or "/prism" — used in help text
 	}
 
@@ -173,15 +174,18 @@ func handleAsyncAction(ctx context.Context, cfg aws.Config, reg *Registry, paylo
 	return nil
 }
 
-// parseCommandText splits "stop rstudio" into ("stop", "rstudio").
-func parseCommandText(text string) (command, nickname string) {
+// parseCommandText splits "extend rstudio 2h" into ("extend", "rstudio", "2h").
+func parseCommandText(text string) (command, nickname, arg string) {
 	parts := strings.Fields(strings.ToLower(strings.TrimSpace(text)))
 	if len(parts) == 0 {
-		return "help", ""
+		return "help", "", ""
 	}
 	command = parts[0]
 	if len(parts) > 1 {
 		nickname = parts[1]
+	}
+	if len(parts) > 2 {
+		arg = parts[2]
 	}
 	return
 }
@@ -205,6 +209,16 @@ func ackMessage(command, nickname string) string {
 		return "📋 Fetching your instances..."
 	case "connect":
 		return "🔑 Generating your connect code — check your DMs..."
+	case "extend":
+		if nickname != "" {
+			return "⏱️ Extending TTL for *" + nickname + "*..."
+		}
+		return "⏱️ Extending TTL..."
+	case "idle":
+		if nickname != "" {
+			return "💤 Updating idle timeout for *" + nickname + "*..."
+		}
+		return "💤 Updating idle timeout..."
 	case "notify":
 		if nickname != "" {
 			return "🔔 Subscribing to notifications for *" + nickname + "*..."

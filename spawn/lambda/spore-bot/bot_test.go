@@ -146,7 +146,7 @@ func TestParseCommandText(t *testing.T) {
 		{"unknown", "unknown", ""}, // unknown command passes through, handler rejects
 	}
 	for _, tt := range tests {
-		cmd, nick := parseCommandText(tt.input)
+		cmd, nick, _ := parseCommandText(tt.input)
 		if cmd != tt.wantCmd {
 			t.Errorf("parseCommandText(%q) command = %q, want %q", tt.input, cmd, tt.wantCmd)
 		}

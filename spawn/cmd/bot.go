@@ -281,7 +281,9 @@ func ensureCrossAccountRole(ctx context.Context, cfg aws.Config) (string, error)
 				"ec2:DescribeInstances",
 				"ec2:DescribeTags",
 				"ec2:StartInstances",
-				"ec2:StopInstances"
+				"ec2:StopInstances",
+				"ec2:CreateTags",
+				"ec2:DeleteTags"
 			],
 			"Resource": "*"
 		}]

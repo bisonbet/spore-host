@@ -20,8 +20,9 @@ type BotAction struct {
 	WorkspaceID  string           `json:"workspace_id"`
 	UserID       string           `json:"user_id"`
 	ResponseURL  string           `json:"response_url"`
-	Command      string           `json:"command"`       // "status","start","stop","hibernate","url","list","help","connect"
+	Command      string           `json:"command"`       // "status","start","stop","hibernate","url","list","help","connect","extend","idle"
 	Nickname     string           `json:"nickname"`      // may be empty (single-instance case)
+	Arg          string           `json:"arg,omitempty"` // optional third word, e.g. duration for extend/idle
 	SlashCommand string           `json:"slash_command"` // e.g. "/spore" or "/prism" — from Slack payload
 	Registration *BotRegistration `json:"registration"`
 }
@@ -63,6 +64,10 @@ func executeAction(ctx context.Context, cfg aws.Config, reg *Registry, action *B
 		result, err = cmdEC2Op(ctx, cfg, action, "hibernate")
 	case "url":
 		result, err = cmdEC2Op(ctx, cfg, action, "url")
+	case "extend":
+		result, err = cmdEC2Op(ctx, cfg, action, "extend")
+	case "idle":
+		result, err = cmdEC2Op(ctx, cfg, action, "idle")
 	default:
 		result = fmt.Sprintf("Unknown command: `%s`. Try `%s help`.", action.Command, action.slashCmd())
 		auditResult = AuditResultDenied
@@ -290,6 +295,10 @@ func cmdEC2Op(ctx context.Context, cfg aws.Config, action *BotAction, op string)
 		return stopInstance(ctx, ec2Client, reg, true)
 	case "url":
 		return getURL(ctx, ec2Client, reg, sc)
+	case "extend":
+		return extendTTL(ctx, ec2Client, reg, action.Arg, sc)
+	case "idle":
+		return setIdleTimeout(ctx, ec2Client, reg, action.Arg, sc)
 	}
 	return "", fmt.Errorf("unknown op: %s", op)
 }
@@ -339,7 +348,8 @@ func getStatus(ctx context.Context, client *ec2.Client, reg *BotRegistration) (s
 
 	// Collect useful tags
 	displayName := reg.Nickname
-	var dnsShort, accountBase36, ttl, idleTimeout string
+	var dnsShort, accountBase36, ttl, onComplete, idleTimeout string
+	var hibernateOnIdle bool
 	for _, tag := range inst.Tags {
 		if tag.Key == nil || tag.Value == nil {
 			continue
@@ -353,8 +363,12 @@ func getStatus(ctx context.Context, client *ec2.Client, reg *BotRegistration) (s
 			accountBase36 = *tag.Value
 		case reg.TagPrefix + ":ttl":
 			ttl = *tag.Value
+		case reg.TagPrefix + ":on-complete":
+			onComplete = *tag.Value
 		case reg.TagPrefix + ":idle-timeout":
 			idleTimeout = *tag.Value
+		case reg.TagPrefix + ":hibernate-on-idle":
+			hibernateOnIdle = *tag.Value == "true"
 		case "Name":
 			if displayName == reg.Nickname {
 				displayName = *tag.Value
@@ -378,16 +392,18 @@ func getStatus(ctx context.Context, client *ec2.Client, reg *BotRegistration) (s
 	}
 
 	return formatSlackStatus(InstanceStatus{
-		Nickname:     displayName,
-		InstanceID:   reg.InstanceID,
-		State:        state,
-		InstanceType: string(inst.InstanceType),
-		AZ:           az,
-		IP:           ip,
-		DNSName:      dnsName,
-		LaunchTime:   launchTime,
-		TTL:          ttl,
-		IdleTimeout:  idleTimeout,
+		Nickname:        displayName,
+		InstanceID:      reg.InstanceID,
+		State:           state,
+		InstanceType:    string(inst.InstanceType),
+		AZ:              az,
+		IP:              ip,
+		DNSName:         dnsName,
+		LaunchTime:      launchTime,
+		TTL:             ttl,
+		OnComplete:      onComplete,
+		IdleTimeout:     idleTimeout,
+		HibernateOnIdle: hibernateOnIdle,
 	}), nil
 }
 
@@ -550,6 +566,8 @@ func helpText(slashCmd string) string {
 • *%s stop [name]* — stop a running instance
 • *%s hibernate [name]* — hibernate (saves RAM, pauses compute billing)
 • *%s url [name]* — get the instance URL
+• *%s extend <name> <duration>* — extend TTL (e.g. 2h, 30m)
+• *%s idle <name> <duration|off>* — set idle timeout (e.g. 1h, or "off")
 • *%s list* — show your instances and notification subscriptions
 • *%s notify <name>* — subscribe to DM notifications for an instance
 • *%s unnotify <name>* — stop DM notifications for an instance
@@ -557,7 +575,7 @@ func helpText(slashCmd string) string {
 • *%s help* — this message
 
 _[name] is optional if you have only one instance. Use the nickname, instance ID, or DNS name._`,
-		c, c, c, c, c, c, c, c, c, c)
+		c, c, c, c, c, c, c, c, c, c, c, c)
 }
 
 func postResponse(platform, responseURL, text string) error {
