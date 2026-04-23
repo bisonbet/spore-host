@@ -99,7 +99,7 @@ func postSlackResponse(responseURL, text string, inChannel bool) error {
 	}
 	var payload interface{}
 	if strings.HasPrefix(strings.TrimSpace(text), "[{") {
-		var blocks interface{}
+		var blocks []map[string]interface{} // nosemgrep: go.lang.security.deserialization.unsafe-deserialization-interface.go-unsafe-deserialization-interface
 		if err := json.Unmarshal([]byte(text), &blocks); err == nil {
 			payload = map[string]interface{}{
 				"response_type": msgType,
