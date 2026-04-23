@@ -47,47 +47,75 @@ func callerAccountID(arn string) string {
 	return ""
 }
 
-// handleAdmin routes /admin/* requests. callerARN is extracted from the
-// API Gateway request context (populated by AWS when AuthType: AWS_IAM).
-func handleAdmin(ctx context.Context, reg *Registry, request events.APIGatewayV2HTTPRequest) (events.APIGatewayProxyResponse, error) {
-	callerARN := request.RequestContext.Authorizer.IAM.UserARN
+// handleAdminV1 handles admin requests from REST API (v1) proxy events.
+// Caller ARN comes from requestContext.identity.userArn (IAM auth).
+func handleAdminV1(ctx context.Context, reg *Registry, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	return handleAdmin(ctx, reg,
+		req.Path,
+		req.HTTPMethod,
+		req.Body,
+		req.Headers,
+		req.QueryStringParameters,
+		req.RequestContext.Identity.UserArn,
+	)
+}
+
+// handleAdminV2 handles admin requests from HTTP API (v2) proxy events.
+// Caller ARN comes from requestContext.authorizer.iam.userArn (IAM auth).
+func handleAdminV2(ctx context.Context, reg *Registry, req events.APIGatewayV2HTTPRequest) (events.APIGatewayProxyResponse, error) {
+	return handleAdmin(ctx, reg,
+		req.RawPath,
+		req.RequestContext.HTTP.Method,
+		req.Body,
+		req.Headers,
+		req.QueryStringParameters,
+		req.RequestContext.Authorizer.IAM.UserARN,
+	)
+}
+
+// handleAdmin routes /admin/* requests. callerARN is populated by API Gateway
+// from the verified IAM identity — REST API v1 puts it in identity.userArn,
+// HTTP API v2 puts it in authorizer.iam.userArn.
+func handleAdmin(ctx context.Context, reg *Registry, path, method, body string, headers, queryParams map[string]string, callerARN string) (events.APIGatewayProxyResponse, error) {
 	if callerARN == "" {
 		return adminError(403, "IAM identity required"), nil
 	}
 
-	path := strings.TrimRight(request.RawPath, "/")
-	method := request.RequestContext.HTTP.Method
+	path = strings.TrimRight(path, "/")
 
-	var body adminRequest
-	if request.Body != "" {
-		if err := json.Unmarshal([]byte(request.Body), &body); err != nil {
+	var r adminRequest
+	if body != "" {
+		if err := json.Unmarshal([]byte(body), &r); err != nil {
 			return adminError(400, "invalid request body"), nil
 		}
 	}
 
 	// Populate tag prefix from header if not in body (prism sends X-Prism-Tag-Prefix)
-	if body.TagPrefix == "" {
-		if tp := request.Headers["x-prism-tag-prefix"]; tp != "" {
-			body.TagPrefix = tp
+	if r.TagPrefix == "" {
+		for k, v := range headers {
+			if strings.ToLower(k) == "x-prism-tag-prefix" {
+				r.TagPrefix = v
+				break
+			}
 		}
 	}
-	if body.TagPrefix == "" {
-		body.TagPrefix = "spawn"
+	if r.TagPrefix == "" {
+		r.TagPrefix = "spawn"
 	}
 
 	switch {
 	case path == "/admin/workspace-add" && method == "POST":
-		return adminWorkspaceAdd(ctx, reg, body, callerARN)
+		return adminWorkspaceAdd(ctx, reg, r, callerARN)
 	case path == "/admin/workspace-list" && method == "GET":
-		return adminWorkspaceList(ctx, reg, request.QueryStringParameters, callerARN)
+		return adminWorkspaceList(ctx, reg, queryParams, callerARN)
 	case path == "/admin/register" && method == "POST":
-		return adminRegister(ctx, reg, body, callerARN)
+		return adminRegister(ctx, reg, r, callerARN)
 	case path == "/admin/set-enabled" && method == "POST":
-		return adminSetEnabled(ctx, reg, body, callerARN)
+		return adminSetEnabled(ctx, reg, r, callerARN)
 	case path == "/admin/deregister" && method == "POST":
-		return adminDeregister(ctx, reg, body, callerARN)
+		return adminDeregister(ctx, reg, r, callerARN)
 	case path == "/admin/list" && method == "GET":
-		return adminList(ctx, reg, request.QueryStringParameters, callerARN)
+		return adminList(ctx, reg, queryParams, callerARN)
 	default:
 		return adminError(404, fmt.Sprintf("unknown admin route: %s %s", method, path)), nil
 	}

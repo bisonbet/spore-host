@@ -45,14 +45,19 @@ func init() {
 // handler routes between webhook (Phase 1), admin API, and async action (Phase 2).
 // Supports Lambda Function URL events, API Gateway v2 HTTP API, and API Gateway v1 proxy events.
 func handler(ctx context.Context, rawEvent json.RawMessage) (interface{}, error) {
-	// API Gateway v2 HTTP API — used for /admin/* routes with AWS_IAM auth.
-	// Identified by requestContext.accountId being present (not present in Function URL events).
-	var apigwV2Req events.APIGatewayV2HTTPRequest
-	if err := json.Unmarshal(rawEvent, &apigwV2Req); err == nil && apigwV2Req.RequestContext.AccountID != "" {
-		if strings.HasPrefix(apigwV2Req.RawPath, "/admin") {
-			return handleAdmin(ctx, reg, apigwV2Req)
+	// API Gateway v1 REST API — used for /admin/* routes with AWS_IAM auth.
+	// Identified by requestContext.resourceId being present (set by REST API, not Function URL).
+	// Handles cross-account callers via Principal:"*" resource policy on the REST API.
+	var restReq events.APIGatewayProxyRequest
+	if err := json.Unmarshal(rawEvent, &restReq); err == nil && restReq.RequestContext.ResourceID != "" {
+		if strings.HasPrefix(restReq.Path, "/admin") {
+			return handleAdminV1(ctx, reg, restReq)
 		}
-		// Fall through to Function URL / v1 handling for non-admin paths
+		// Non-admin paths from REST API (unlikely but handle gracefully)
+		if restReq.Path == "/notify" && restReq.HTTPMethod == "POST" {
+			return handleNotify(ctx, cfg, reg, restReq)
+		}
+		return handleWebhook(ctx, cfg, reg, restReq)
 	}
 
 	// Lambda Function URL event — used for /slack, /teams, /notify (no IAM auth; HMAC verified per-platform).
@@ -65,9 +70,12 @@ func handler(ctx context.Context, rawEvent json.RawMessage) (interface{}, error)
 		return handleWebhook(ctx, cfg, reg, apiReq)
 	}
 
-	// API Gateway v1 proxy event (kept for backwards compatibility).
+	// API Gateway v1 proxy event without resourceId (older deployments).
 	var apiReq events.APIGatewayProxyRequest
 	if err := json.Unmarshal(rawEvent, &apiReq); err == nil && apiReq.HTTPMethod != "" {
+		if strings.HasPrefix(apiReq.Path, "/admin") {
+			return handleAdminV1(ctx, reg, apiReq)
+		}
 		if apiReq.Path == "/notify" && apiReq.HTTPMethod == "POST" {
 			return handleNotify(ctx, cfg, reg, apiReq)
 		}
