@@ -183,8 +183,12 @@ func formatSlackStatus(s InstanceStatus) string {
 						terminateAt.UTC().Format("2 Jan 15:04 UTC"),
 						formatHMS(remaining)))
 				} else {
-					lines = append(lines, fmt.Sprintf("  *TTL (auto-terminate):*     %s (terminating...)",
-						terminateAt.UTC().Format("2 Jan 15:04 UTC")))
+					label := "terminating..."
+					if s.State == "terminated" || s.State == "shutting-down" {
+						label = "expired"
+					}
+					lines = append(lines, fmt.Sprintf("  *TTL (auto-terminate):*     %s (%s)",
+						terminateAt.UTC().Format("2 Jan 15:04 UTC"), label))
 				}
 			}
 		} else {
