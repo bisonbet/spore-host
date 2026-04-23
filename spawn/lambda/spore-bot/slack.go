@@ -172,7 +172,22 @@ func formatSlackStatus(s InstanceStatus) string {
 		}
 	}
 	if s.TTL != "" {
-		lines = append(lines, fmt.Sprintf("  *Auto-terminate:*     after %s from launch", s.TTL))
+		if ttlDur, err := time.ParseDuration(s.TTL); err == nil && s.LaunchTime != "" {
+			if launched, err := time.Parse(time.RFC3339, s.LaunchTime); err == nil {
+				terminateAt := launched.Add(ttlDur)
+				remaining := time.Until(terminateAt)
+				if remaining > 0 {
+					lines = append(lines, fmt.Sprintf("  *Auto-terminate:*     %s (%s remaining)",
+						terminateAt.UTC().Format("2 Jan 15:04 UTC"),
+						formatHMS(remaining)))
+				} else {
+					lines = append(lines, fmt.Sprintf("  *Auto-terminate:*     %s (terminating...)",
+						terminateAt.UTC().Format("2 Jan 15:04 UTC")))
+				}
+			}
+		} else {
+			lines = append(lines, fmt.Sprintf("  *Auto-terminate:*     after %s from launch", s.TTL))
+		}
 	}
 	if s.IdleTimeout != "" {
 		lines = append(lines, fmt.Sprintf("  *Idle timeout:*       after %s idle", s.IdleTimeout))
@@ -180,6 +195,18 @@ func formatSlackStatus(s InstanceStatus) string {
 	lines = append(lines, fmt.Sprintf("  *AWS Instance ID:*    `%s`", s.InstanceID))
 
 	return strings.Join(lines, "\n")
+}
+
+// formatHMS formats a duration as hh:mm:ss countdown.
+func formatHMS(d time.Duration) string {
+	d = d.Round(time.Second)
+	h := int(d.Hours())
+	m := int(d.Minutes()) % 60
+	s := int(d.Seconds()) % 60
+	if h > 0 {
+		return fmt.Sprintf("%d:%02d:%02d", h, m, s)
+	}
+	return fmt.Sprintf("%d:%02d", m, s)
 }
 
 // formatDuration formats a duration as "2h 15m" or "45m" etc.
