@@ -91,13 +91,26 @@ type SlackMessage struct {
 }
 
 // postSlackResponse sends a delayed response to Slack's response_url.
+// If text is a JSON blocks array (starts with "[{"), it is sent as Block Kit.
 func postSlackResponse(responseURL, text string, inChannel bool) error {
 	msgType := "ephemeral"
 	if inChannel {
 		msgType = "in_channel"
 	}
-	msg := SlackMessage{ResponseType: msgType, Text: text}
-	data, err := json.Marshal(msg)
+	var payload interface{}
+	if strings.HasPrefix(strings.TrimSpace(text), "[{") {
+		var blocks interface{}
+		if err := json.Unmarshal([]byte(text), &blocks); err == nil {
+			payload = map[string]interface{}{
+				"response_type": msgType,
+				"blocks":        blocks,
+			}
+		}
+	}
+	if payload == nil {
+		payload = SlackMessage{ResponseType: msgType, Text: text}
+	}
+	data, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshal response: %w", err)
 	}
@@ -120,57 +133,53 @@ type InstanceStatus struct {
 	HibernateOnIdle bool   // idle action: hibernate instead of stop
 }
 
-// formatSlackStatus formats a rich status card for Slack.
+// formatSlackStatus returns a Slack Block Kit JSON array for a status card.
+// Block Kit renders fields in a two-column grid, solving variable-width font alignment.
 func formatSlackStatus(s InstanceStatus) string {
 	icon := "🟡"
 	stateLabel := s.State
 	switch s.State {
 	case "running":
-		icon = "🟢"
-		stateLabel = "Running"
+		icon, stateLabel = "🟢", "Running"
 	case "stopped":
-		icon = "🔴"
-		stateLabel = "Stopped"
+		icon, stateLabel = "🔴", "Stopped"
 	case "hibernated":
-		icon = "💤"
-		stateLabel = "Hibernated (RAM saved)"
+		icon, stateLabel = "💤", "Hibernated (RAM saved)"
 	case "stopping":
-		icon = "🔴"
-		stateLabel = "Stopping..."
+		icon, stateLabel = "🔴", "Stopping..."
 	case "pending":
-		icon = "🟡"
-		stateLabel = "Starting..."
+		icon, stateLabel = "🟡", "Starting..."
 	case "shutting-down":
-		icon = "🔴"
-		stateLabel = "Shutting down..."
+		icon, stateLabel = "🔴", "Shutting down..."
 	case "terminated":
-		icon = "⚫"
-		stateLabel = "Terminated"
+		icon, stateLabel = "⚫", "Terminated"
 	}
-	// Hibernation is reported as "stopped" by EC2 but spored tags the instance
-	// — we don't distinguish here; user sees "stopped" which is accurate
 
-	lines := []string{
-		fmt.Sprintf("%s *%s* — %s", icon, s.Nickname, stateLabel),
-		"",
+	field := func(label, value string) map[string]interface{} {
+		return map[string]interface{}{
+			"type": "mrkdwn",
+			"text": fmt.Sprintf("*%s*\n%s", label, value),
+		}
 	}
+
+	var fields []interface{}
 
 	if s.InstanceType != "" {
-		lines = append(lines, fmt.Sprintf("  *AWS Instance Type:*  %s", s.InstanceType))
+		fields = append(fields, field("Instance Type", s.InstanceType))
 	}
 	if s.AZ != "" {
-		lines = append(lines, fmt.Sprintf("  *AWS Region:*         %s", s.AZ))
+		fields = append(fields, field("Region", s.AZ))
 	}
 	if s.IP != "" {
-		lines = append(lines, fmt.Sprintf("  *IP Address:*         `%s`", s.IP))
+		fields = append(fields, field("IP Address", "`"+s.IP+"`"))
 	}
 	if s.DNSName != "" {
-		lines = append(lines, fmt.Sprintf("  *URL:*                https://%s", s.DNSName))
+		fields = append(fields, field("URL", "https://"+s.DNSName))
 	}
 	if s.LaunchTime != "" {
 		if t, err := time.Parse(time.RFC3339, s.LaunchTime); err == nil {
-			elapsed := formatDuration(time.Since(t))
-			lines = append(lines, fmt.Sprintf("  *Launched:*           %s (%s ago)", t.UTC().Format("2 Jan 15:04 UTC"), elapsed))
+			fields = append(fields, field("Launched",
+				fmt.Sprintf("%s (%s ago)", t.UTC().Format("2 Jan 15:04 UTC"), formatDuration(time.Since(t)))))
 		}
 	}
 	if s.TTL != "" {
@@ -178,21 +187,20 @@ func formatSlackStatus(s InstanceStatus) string {
 			if launched, err := time.Parse(time.RFC3339, s.LaunchTime); err == nil {
 				terminateAt := launched.Add(ttlDur)
 				remaining := time.Until(terminateAt)
+				var val string
 				if remaining > 0 {
-					lines = append(lines, fmt.Sprintf("  *TTL (auto-terminate):*     %s (%s remaining)",
-						terminateAt.UTC().Format("2 Jan 15:04 UTC"),
-						formatHMS(remaining)))
+					val = fmt.Sprintf("%s (%s remaining)", terminateAt.UTC().Format("2 Jan 15:04 UTC"), formatHMS(remaining))
 				} else {
 					label := "terminating..."
 					if s.State == "terminated" || s.State == "shutting-down" {
 						label = "expired"
 					}
-					lines = append(lines, fmt.Sprintf("  *TTL (auto-terminate):*     %s (%s)",
-						terminateAt.UTC().Format("2 Jan 15:04 UTC"), label))
+					val = fmt.Sprintf("%s (%s)", terminateAt.UTC().Format("2 Jan 15:04 UTC"), label)
 				}
+				fields = append(fields, field("TTL", val))
 			}
 		} else {
-			lines = append(lines, fmt.Sprintf("  *TTL (auto-terminate):*     after %s from launch", s.TTL))
+			fields = append(fields, field("TTL", "after "+s.TTL+" from launch"))
 		}
 	}
 	idleAction := "stop"
@@ -200,13 +208,32 @@ func formatSlackStatus(s InstanceStatus) string {
 		idleAction = "hibernate"
 	}
 	if s.IdleTimeout != "" {
-		lines = append(lines, fmt.Sprintf("  *Idle timeout:*       after %s idle → %s", s.IdleTimeout, idleAction))
+		fields = append(fields, field("Idle Timeout", fmt.Sprintf("after %s idle → %s", s.IdleTimeout, idleAction)))
 	} else {
-		lines = append(lines, "  *Idle timeout:*       None")
+		fields = append(fields, field("Idle Timeout", "None"))
 	}
-	lines = append(lines, fmt.Sprintf("  *AWS Instance ID:*    `%s`", s.InstanceID))
+	fields = append(fields, field("Instance ID", "`"+s.InstanceID+"`"))
 
-	return strings.Join(lines, "\n")
+	blocks := []interface{}{
+		map[string]interface{}{
+			"type": "section",
+			"text": map[string]interface{}{
+				"type": "mrkdwn",
+				"text": fmt.Sprintf("%s *%s* — %s", icon, s.Nickname, stateLabel),
+			},
+		},
+		map[string]interface{}{
+			"type":   "section",
+			"fields": fields,
+		},
+	}
+
+	data, err := json.Marshal(blocks)
+	if err != nil {
+		// Fallback to plain text on marshal failure
+		return fmt.Sprintf("%s *%s* — %s\n`%s`", icon, s.Nickname, stateLabel, s.InstanceID)
+	}
+	return string(data)
 }
 
 // formatHMS formats a duration as hh:mm:ss countdown.

@@ -388,13 +388,13 @@ func TestFormatSlackStatus_RichCard(t *testing.T) {
 	})
 	for _, want := range []string{
 		"🟢", "spore-bot-test", "Running",
-		"AWS Instance Type", "t3.small",
-		"AWS Region", "us-east-1f",
+		"Instance Type", "t3.small",
+		"Region", "us-east-1f",
 		"IP Address", "98.92.241.152",
 		"URL", "https://spore-bot-test.5k0zfnmq.spore.host",
-		"TTL (auto-terminate)", "4h",
-		"Idle timeout", "1h",
-		"AWS Instance ID", "i-038954d0b2e861273",
+		"TTL", "4h",
+		"Idle Timeout", "1h",
+		"Instance ID", "i-038954d0b2e861273",
 	} {
 		if !strings.Contains(result, want) {
 			t.Errorf("expected %q in status card\nGot:\n%s", want, result)
