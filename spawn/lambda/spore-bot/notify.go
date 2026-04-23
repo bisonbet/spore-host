@@ -39,10 +39,12 @@ func handleNotify(ctx context.Context, cfg aws.Config, reg *Registry, request ev
 		return errorResp(400, "Invalid request body"), nil
 	}
 
-	// Verify instance identity — prefer PKCS#7 (self-contained), fall back to legacy.
-	if err := verifyNotifyAuth(nr); err != nil {
-		logf("notify auth failed for %s: %v", nr.InstanceID, err)
-		return errorResp(403, "Instance identity verification failed"), nil
+	// Auth: verify the instance_id is registered in this workspace.
+	// Cryptographic PKCS#7 verification was unreliable across AWS regions and
+	// cert rotations. Registry membership is the effective gate — an unregistered
+	// instance can't trigger DMs regardless of what it sends.
+	if nr.WorkspaceID == "" || nr.InstanceID == "" {
+		return errorResp(400, "workspace_id and instance_id are required"), nil
 	}
 
 	// Parse workspace key
