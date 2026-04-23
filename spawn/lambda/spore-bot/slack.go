@@ -179,16 +179,16 @@ func formatSlackStatus(s InstanceStatus) string {
 				terminateAt := launched.Add(ttlDur)
 				remaining := time.Until(terminateAt)
 				if remaining > 0 {
-					lines = append(lines, fmt.Sprintf("  *Auto-terminate:*     %s (%s remaining)",
+					lines = append(lines, fmt.Sprintf("  *TTL (auto-terminate):*     %s (%s remaining)",
 						terminateAt.UTC().Format("2 Jan 15:04 UTC"),
 						formatHMS(remaining)))
 				} else {
-					lines = append(lines, fmt.Sprintf("  *Auto-terminate:*     %s (terminating...)",
+					lines = append(lines, fmt.Sprintf("  *TTL (auto-terminate):*     %s (terminating...)",
 						terminateAt.UTC().Format("2 Jan 15:04 UTC")))
 				}
 			}
 		} else {
-			lines = append(lines, fmt.Sprintf("  *Auto-terminate:*     after %s from launch", s.TTL))
+			lines = append(lines, fmt.Sprintf("  *TTL (auto-terminate):*     after %s from launch", s.TTL))
 		}
 	}
 	idleAction := "stop"
