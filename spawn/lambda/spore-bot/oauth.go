@@ -100,12 +100,17 @@ func handleOAuthCallback(ctx context.Context, reg *Registry, platform string, re
 		InstalledBy:   token.AuthedUser.ID,
 		InstalledAt:   time.Now().UTC().Format(time.RFC3339),
 	}
+	// Slack signals rotation by returning refresh_token + expires_in.
 	if token.RefreshToken != "" {
 		ws.RefreshToken = token.RefreshToken
 		ws.TokenRotation = true
 		if token.ExpiresIn > 0 {
 			ws.TokenExpiresAt = time.Now().Add(time.Duration(token.ExpiresIn) * time.Second).Unix()
 		}
+	} else if token.ExpiresIn > 0 {
+		// Token has an expiry but no explicit refresh token in this response.
+		ws.TokenRotation = true
+		ws.TokenExpiresAt = time.Now().Add(time.Duration(token.ExpiresIn) * time.Second).Unix()
 	}
 	if token.IncomingWebhook.URL != "" {
 		ws.IncomingWebhookURL = token.IncomingWebhook.URL

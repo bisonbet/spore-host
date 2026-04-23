@@ -253,8 +253,10 @@ func storeSlackWorkspace(ctx context.Context, cfg aws.Config, tableName string, 
 		ws["incoming_webhook_url"] = token.IncomingWebhook.URL
 		ws["incoming_webhook_channel"] = token.IncomingWebhook.Channel
 	}
-	if token.TokenRotationEnabled && token.RefreshToken != "" {
+	// Slack signals rotation by returning refresh_token + expires_in, not token_rotation_enabled.
+	if token.RefreshToken != "" {
 		ws["refresh_token"] = token.RefreshToken
+		ws["token_rotation"] = true
 		if token.ExpiresIn > 0 {
 			ws["token_expires_at"] = time.Now().Add(time.Duration(token.ExpiresIn) * time.Second).Unix()
 		}
