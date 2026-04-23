@@ -190,6 +190,54 @@ Resources:
       Principal: '*'
       FunctionUrlAuthType: NONE
 
+  # ── Admin API (AWS_IAM auth) ─────────────────────────────────────────────────
+  # Separate API Gateway HTTP API for /admin/* routes used by the prism CLI and
+  # spawn CLI. SigV4-signed requests only — AWS verifies the caller's IAM identity
+  # before the Lambda sees the request.
+
+  SporeBotAdminApi:
+    Type: AWS::ApiGatewayV2::Api
+    Condition: DeployLambda
+    Properties:
+      Name: !Sub '${AWS::StackName}-admin'
+      ProtocolType: HTTP
+      Description: 'spore-bot admin API — workspace and registration management (IAM auth)'
+
+  SporeBotAdminApiDefaultStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Condition: DeployLambda
+    Properties:
+      ApiId: !Ref SporeBotAdminApi
+      StageName: '$default'
+      AutoDeploy: true
+
+  SporeBotAdminApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Condition: DeployLambda
+    Properties:
+      ApiId: !Ref SporeBotAdminApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt SporeBotFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  SporeBotAdminApiRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Condition: DeployLambda
+    Properties:
+      ApiId: !Ref SporeBotAdminApi
+      RouteKey: '$default'
+      AuthorizationType: AWS_IAM
+      Target: !Sub 'integrations/${SporeBotAdminApiIntegration}'
+
+  SporeBotAdminApiPermission:
+    Type: AWS::Lambda::Permission
+    Condition: DeployLambda
+    Properties:
+      FunctionName: !Ref SporeBotFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${SporeBotAdminApi}/*/*'
+
 Outputs:
   BotRegistryTableName:
     Value: !Ref BotRegistryTable
@@ -209,6 +257,13 @@ Outputs:
   LambdaFunctionUrl:
     Condition: DeployLambda
     Value: !GetAtt SporeBotFunctionUrl.FunctionUrl
-    Description: 'Use this as the Slack slash command Request URL (append /slack)'
+    Description: 'Slack slash command Request URL — append /slack or /teams'
     Export:
       Name: !Sub '${AWS::StackName}-function-url'
+
+  AdminApiUrl:
+    Condition: DeployLambda
+    Value: !Sub 'https://${SporeBotAdminApi}.execute-api.${AWS::Region}.amazonaws.com'
+    Description: 'Admin API URL (AWS_IAM auth) — used by prism CLI and spawn bot commands'
+    Export:
+      Name: !Sub '${AWS::StackName}-admin-api-url'

@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -41,22 +42,30 @@ func init() {
 	functionName = os.Getenv("AWS_LAMBDA_FUNCTION_NAME")
 }
 
-// handler routes between webhook (Phase 1) and async action (Phase 2).
-// Supports both Lambda Function URL events and API Gateway proxy events.
+// handler routes between webhook (Phase 1), admin API, and async action (Phase 2).
+// Supports Lambda Function URL events, API Gateway v2 HTTP API, and API Gateway v1 proxy events.
 func handler(ctx context.Context, rawEvent json.RawMessage) (interface{}, error) {
-	// Try Lambda Function URL event first (deployed with Function URL, not API Gateway).
-	// Lambda Function URLs use requestContext.http.method instead of httpMethod.
+	// API Gateway v2 HTTP API — used for /admin/* routes with AWS_IAM auth.
+	// Identified by requestContext.accountId being present (not present in Function URL events).
+	var apigwV2Req events.APIGatewayV2HTTPRequest
+	if err := json.Unmarshal(rawEvent, &apigwV2Req); err == nil && apigwV2Req.RequestContext.AccountID != "" {
+		if strings.HasPrefix(apigwV2Req.RawPath, "/admin") {
+			return handleAdmin(ctx, reg, apigwV2Req)
+		}
+		// Fall through to Function URL / v1 handling for non-admin paths
+	}
+
+	// Lambda Function URL event — used for /slack, /teams, /notify (no IAM auth; HMAC verified per-platform).
 	var fnURLReq events.LambdaFunctionURLRequest
 	if err := json.Unmarshal(rawEvent, &fnURLReq); err == nil && fnURLReq.RequestContext.HTTP.Method != "" {
 		apiReq := funcURLToAPIGW(fnURLReq)
-		// /notify is a pre-auth route — authenticated via instance identity, not user credentials
 		if apiReq.Path == "/notify" && apiReq.HTTPMethod == "POST" {
 			return handleNotify(ctx, cfg, reg, apiReq)
 		}
 		return handleWebhook(ctx, cfg, reg, apiReq)
 	}
 
-	// Try API Gateway proxy event (deployed behind API Gateway).
+	// API Gateway v1 proxy event (kept for backwards compatibility).
 	var apiReq events.APIGatewayProxyRequest
 	if err := json.Unmarshal(rawEvent, &apiReq); err == nil && apiReq.HTTPMethod != "" {
 		if apiReq.Path == "/notify" && apiReq.HTTPMethod == "POST" {
