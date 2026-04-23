@@ -107,6 +107,23 @@ func (r *Registry) GetWorkspaceForApp(ctx context.Context, platform, workspaceID
 	return r.getWorkspaceByKey(ctx, workspaceKey(platform, workspaceID))
 }
 
+// GetWorkspaceForSlash looks up a workspace for an incoming slash command.
+// Slack does not send X-Slack-App-ID in slash command webhooks, so we use
+// the slash command name (/spore, /prism) as a discriminator when multiple
+// apps share a workspace. Lookup order:
+//  1. {platform}#{workspace}#{command}  e.g. slack#T0AU2S6FU86#/spore
+//  2. {platform}#{workspace}#{appID}    when appID is known (OAuth webhooks)
+//  3. {platform}#{workspace}            legacy fallback
+func (r *Registry) GetWorkspaceForSlash(ctx context.Context, platform, workspaceID, command, appID string) (*WorkspaceConfig, error) {
+	if command != "" {
+		ws, err := r.getWorkspaceByKey(ctx, workspaceKey(platform, workspaceID, command))
+		if err == nil {
+			return ws, nil
+		}
+	}
+	return r.GetWorkspaceForApp(ctx, platform, workspaceID, appID)
+}
+
 func (r *Registry) getWorkspaceByKey(ctx context.Context, key string) (*WorkspaceConfig, error) {
 	result, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(r.workspacesTable),

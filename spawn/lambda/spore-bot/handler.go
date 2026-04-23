@@ -94,12 +94,15 @@ func handleSlackWebhook(ctx context.Context, reg *Registry, request events.APIGa
 		return nil, fmt.Errorf("parse command: %w", err)
 	}
 
-	// X-Slack-App-ID scopes the lookup when multiple apps share a workspace.
+	// Slack does not include X-Slack-App-ID in slash command webhooks.
+	// Use the slash command name (/spore, /prism) as discriminator when multiple
+	// apps share a workspace, falling back to the legacy key.
 	appID := request.Headers["X-Slack-App-ID"]
 	if appID == "" {
 		appID = request.Headers["x-slack-app-id"]
 	}
-	ws, err := reg.GetWorkspaceForApp(ctx, "slack", sc.WorkspaceID, appID)
+	logf("slack webhook: team=%s command=%s app_id=%q", sc.WorkspaceID, sc.Command, appID)
+	ws, err := reg.GetWorkspaceForSlash(ctx, "slack", sc.WorkspaceID, sc.Command, appID)
 	if err != nil {
 		return nil, fmt.Errorf("workspace not found: %w", err)
 	}
