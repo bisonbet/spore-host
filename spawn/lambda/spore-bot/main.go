@@ -55,12 +55,21 @@ func handler(ctx context.Context, rawEvent json.RawMessage) (interface{}, error)
 		}
 	}
 
-	// Lambda Function URL event — used for /slack, /teams, /notify (no IAM auth; HMAC verified per-platform).
+	// Lambda Function URL event — used for /slack, /teams, /notify, and /{platform}/oauth routes.
 	var fnURLReq events.LambdaFunctionURLRequest
 	if err := json.Unmarshal(rawEvent, &fnURLReq); err == nil && fnURLReq.RequestContext.HTTP.Method != "" {
 		apiReq := funcURLToAPIGW(fnURLReq)
 		if apiReq.Path == "/notify" && apiReq.HTTPMethod == "POST" {
 			return handleNotify(ctx, cfg, reg, apiReq)
+		}
+		// /{platform}/oauth and /{platform}/oauth/callback — pre-auth OAuth flow
+		if platform, ok := oauthPlatform(apiReq.Path); ok {
+			if strings.HasSuffix(apiReq.Path, "/oauth/callback") && apiReq.HTTPMethod == "GET" {
+				return handleOAuthCallback(ctx, reg, platform, apiReq)
+			}
+			if strings.HasSuffix(apiReq.Path, "/oauth") && apiReq.HTTPMethod == "GET" {
+				return handleOAuthRedirect(platform, apiReq)
+			}
 		}
 		return handleWebhook(ctx, cfg, reg, apiReq)
 	}
