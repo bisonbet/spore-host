@@ -477,7 +477,7 @@ func (r *Registry) RedeemConnectCode(ctx context.Context, code string) (*Connect
 // Called by /spore list when EC2 reports the instance as terminated.
 func (r *Registry) MarkTerminated(ctx context.Context, reg *BotRegistration) error {
 	now := time.Now().UTC()
-	expiry := now.Add(7 * 24 * time.Hour).Unix()
+	expiry := now.Add(24 * time.Hour).Unix()
 	_, err := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: &r.registryTable,
 		Key: map[string]dynamodbtypes.AttributeValue{

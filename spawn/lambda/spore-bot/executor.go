@@ -302,20 +302,13 @@ func isTerminatedInEC2(ctx context.Context, reg *BotRegistration) bool {
 
 // formatTerminatedEntry formats a recently-terminated instance line for /spore list.
 func formatTerminatedEntry(r *BotRegistration) string {
-	ago := ""
-	expiry := ""
+	when := ""
 	if r.TerminatedAt != "" {
 		if t, err := time.Parse(time.RFC3339, r.TerminatedAt); err == nil {
-			ago = " — terminated " + formatDuration(time.Since(t)) + " ago"
+			when = " — terminated at " + t.UTC().Format("2 Jan 15:04 UTC")
 		}
 	}
-	if r.TTL > 0 {
-		remaining := time.Until(time.Unix(r.TTL, 0))
-		if remaining > 0 {
-			expiry = fmt.Sprintf(" _(auto-removing in %s)_", formatDuration(remaining))
-		}
-	}
-	return fmt.Sprintf("• ⚫ *%s* — `%s`%s%s", r.Nickname, r.InstanceID, ago, expiry)
+	return fmt.Sprintf("• ⚫ *%s* — `%s`%s", r.Nickname, r.InstanceID, when)
 }
 
 func cmdEC2Op(ctx context.Context, cfg aws.Config, action *BotAction, op string) (string, error) {

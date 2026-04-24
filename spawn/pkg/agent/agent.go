@@ -34,11 +34,12 @@ type Agent struct {
 	startTime        time.Time
 	lastActivityTime    time.Time
 	preStopDone         bool  // guards against running pre-stop hook more than once
-	prevCPUIdle         int64 // /proc/stat idle jiffies at last getCPUUsage call
-	prevCPUTotal        int64 // /proc/stat total jiffies at last getCPUUsage call
+	prevCPUIdle         int64      // /proc/stat idle jiffies at last getCPUUsage call
+	prevCPUTotal        int64      // /proc/stat total jiffies at last getCPUUsage call
 	lastSessionTagWrite time.Time  // throttle spawn:logged-in-count tag writes
 	prevNetRx           int64      // /proc/net/dev RX bytes at last getNetworkBytes call
 	prevNetTx           int64      // /proc/net/dev TX bytes at last getNetworkBytes call
+	idleWarned          bool       // send idle_warning notification only once
 }
 
 func NewAgent(ctx context.Context, prov provider.Provider) (*Agent, error) {
@@ -278,9 +279,10 @@ func (a *Agent) checkAndAct(ctx context.Context) {
 				return
 			}
 
-			// Warn at 5 minutes before idle timeout
+			// Warn once when 5 minutes remain before idle timeout
 			remaining := a.config.IdleTimeout - idleTime
-			if remaining > 0 && remaining <= 5*time.Minute {
+			if remaining > 0 && remaining <= 5*time.Minute && !a.idleWarned {
+				a.idleWarned = true
 				a.warnUsers(i18n.Tf("spawn.agent.idle_warning", map[string]interface{}{
 					"IdleDuration": idleTime.Round(time.Minute),
 					"Remaining":    remaining.Round(time.Minute),
@@ -288,8 +290,9 @@ func (a *Agent) checkAndAct(ctx context.Context) {
 				a.notifier.Notify(ctx, "idle_warning", remaining.Round(time.Minute).String())
 			}
 		} else {
-			// Activity detected, reset timer
+			// Activity detected — reset idle timer and re-arm the warning
 			a.lastActivityTime = time.Now()
+			a.idleWarned = false
 		}
 	}
 }
