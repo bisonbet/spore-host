@@ -57,6 +57,13 @@ func NewNotifier(cfg *provider.Config, identity *provider.Identity) *Notifier {
 	if name == "" {
 		name = identity.InstanceID
 	}
+	// Build full FQDN for the URL field in notifications.
+	// spawn:dns-name = "notify-dm-test", spawn:account-base36 = "5k0zfnmq"
+	// → fqdn = "notify-dm-test.5k0zfnmq.spore.host"
+	fqdn := cfg.DNSName
+	if fqdn != "" && cfg.AccountBase36 != "" {
+		fqdn = cfg.DNSName + "." + cfg.AccountBase36 + ".spore.host"
+	}
 	return &Notifier{
 		notifyURL:    strings.TrimRight(cfg.NotifyURL, "/"),
 		workspaceID:  cfg.SlackWorkspaceID,
@@ -64,7 +71,7 @@ func NewNotifier(cfg *provider.Config, identity *provider.Identity) *Notifier {
 		instanceID:   identity.InstanceID,
 		instanceName: name,
 		region:       identity.Region,
-		dnsName:      cfg.DNSName,
+		dnsName:      fqdn,
 		imdsClient:   imds.NewFromConfig(awsconfig.Config{}), // default IMDS via link-local
 		httpClient:   &http.Client{Timeout: 5 * time.Second},
 	}

@@ -360,6 +360,8 @@ func loadConfigFromEC2Tags(ctx context.Context, client *ec2.Client, instanceID s
 			}
 		case tagprefix.Tag("dns-name"):
 			config.DNSName = *tag.Value
+		case tagprefix.Tag("account-base36"):
+			config.AccountBase36 = *tag.Value
 		case tagprefix.Tag("notify-url"):
 			config.NotifyURL = *tag.Value
 		case tagprefix.Tag("slack-workspace-id"):
