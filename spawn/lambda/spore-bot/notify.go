@@ -66,9 +66,9 @@ func handleNotify(ctx context.Context, cfg aws.Config, reg *Registry, request ev
 
 	for i := range workspaces {
 		ws := &workspaces[i]
-		// Pattern A: post to channel via incoming webhook (fire-and-forget ok, errors logged)
+		// Pattern A: post to channel via incoming webhook — synchronous so Lambda stays alive
 		if ws.IncomingWebhookURL != "" {
-			go postIncomingWebhook(ws.IncomingWebhookURL, msg)
+			postIncomingWebhook(ws.IncomingWebhookURL, msg)
 		}
 		// Pattern B: DM each registered user — synchronous so context isn't cancelled
 		sendUserDMs(slackCtx, cfg, reg, ws, nr.InstanceID, msg)
