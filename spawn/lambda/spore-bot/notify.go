@@ -197,9 +197,13 @@ func formatNotification(nr NotifyRequest) string {
 	case "ttl_expired":
 		icon, verb = "🔴", fmt.Sprintf("*%s* has terminated — scheduled end time reached", name)
 	case "idle_warning":
-		icon, verb = "💤", fmt.Sprintf("*%s* will stop in %s — no activity detected", name, nr.Detail)
-	case "idle_stopped":
-		icon, verb = "🔴", fmt.Sprintf("*%s* has stopped — idle timeout reached", name)
+		icon, verb = "💤", fmt.Sprintf("*%s* will terminate in %s — no activity detected", name, nr.Detail)
+	case "idle_terminated":
+		icon, verb = "🔴", fmt.Sprintf("*%s* has terminated — idle timeout reached", name)
+	case "idle_hibernated":
+		icon, verb = "💤", fmt.Sprintf("*%s* has hibernated — idle timeout reached", name)
+	case "idle_stopped": // legacy
+		icon, verb = "🔴", fmt.Sprintf("*%s* has terminated — idle timeout reached", name)
 	case "completion":
 		icon, verb = "✅", fmt.Sprintf("*%s* has completed", name)
 	case "spot_interrupt":

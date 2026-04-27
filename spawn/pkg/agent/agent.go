@@ -271,11 +271,13 @@ func (a *Agent) checkAndAct(ctx context.Context) {
 
 			if idleTime >= a.config.IdleTimeout {
 				log.Printf("Idle timeout reached (%v)", idleTime)
-				a.notifier.Notify(ctx, "idle_stopped", "")
 
+				// Send event name that reflects the actual action
 				if a.config.HibernateOnIdle {
+					a.notifier.Notify(ctx, "idle_hibernated", "")
 					a.hibernate(ctx)
 				} else {
+					a.notifier.Notify(ctx, "idle_terminated", "")
 					a.terminate(ctx, "Idle timeout")
 				}
 				return
