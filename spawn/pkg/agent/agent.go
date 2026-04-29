@@ -380,12 +380,11 @@ func (a *Agent) isIdle() bool {
 		log.Printf("Not idle: %d active session(s)", sessions)
 		return false
 	}
-	// Active connections on monitored ports (e.g. RStudio:8787, Jupyter:8888)
-	// reset the idle timer — browser-based users don't appear in `who`.
-	if conns := countActivePortConnections(a.config.ActivePorts); conns > 0 {
-		log.Printf("Not idle: %d active connection(s) on monitored port(s)", conns)
-		return false
-	}
+	// Note: we intentionally do NOT check active port connections here.
+	// An open browser tab maintains an ESTABLISHED TCP connection even when
+	// the user is idle or away — treating it as "active" would permanently
+	// block idle termination for abandoned tabs. The existing CPU and network
+	// delta checks correctly distinguish real activity from idle keep-alives.
 
 	// Check CPU usage
 	cpuUsage := a.getCPUUsage()
