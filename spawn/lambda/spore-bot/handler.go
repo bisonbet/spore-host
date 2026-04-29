@@ -142,6 +142,14 @@ func handleTeamsWebhook(ctx context.Context, reg *Registry, request events.APIGa
 		return nil, fmt.Errorf("signature verification failed: %w", err)
 	}
 
+	// Store conversation reference for proactive messaging (DMs, notifications).
+	// Fire-and-forget — doesn't block the response.
+	var activity TeamsActivity
+	if jsonErr := json.Unmarshal([]byte(request.Body), &activity); jsonErr == nil {
+		userKey := "teams#" + sc.WorkspaceID + "#" + sc.UserID
+		go storeTeamsConversationRef(context.Background(), reg, userKey, activity)
+	}
+
 	return sc, nil
 }
 

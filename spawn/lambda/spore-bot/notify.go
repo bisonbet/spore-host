@@ -79,8 +79,14 @@ func handleNotify(ctx context.Context, cfg aws.Config, reg *Registry, request ev
 		if ws.IncomingWebhookURL != "" {
 			postIncomingWebhook(ws.IncomingWebhookURL, msg)
 		}
-		// Pattern B: DM each registered user — synchronous so context isn't cancelled
+		// Pattern B: DM each registered Slack user
 		sendUserDMs(slackCtx, cfg, reg, ws, nr.InstanceID, msg)
+	}
+
+	// Teams DMs via Bot Framework proactive messaging
+	if nr.Platform == "slack" || nr.Platform == "" {
+		// Also check for Teams registrations for the same instance
+		sendTeamsDMs(slackCtx, reg, nil, nr.InstanceID, msg)
 	}
 
 	return jsonOK(), nil
