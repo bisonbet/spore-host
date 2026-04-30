@@ -64,6 +64,25 @@ builds:
       - -X github.com/scttfrdmn/spore-host/lagotto/cmd.Version={{.Version}}
     mod_timestamp: '{{ .CommitTimestamp }}'
 
+  # spore-host-mcp - MCP server for AI assistants
+  - id: spore-host-mcp
+    dir: mcp
+    main: .
+    binary: spore-host-mcp
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
   # spored - Daemon (Linux only)
   - id: spored
     dir: spawn
@@ -101,6 +120,13 @@ archives:
     ids:
       - lagotto
     name_template: 'lagotto_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    files:
+      - LICENSE*
+
+  - id: spore-host-mcp-archive
+    ids:
+      - spore-host-mcp
+    name_template: 'spore-host-mcp_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
     files:
       - LICENSE*
 
@@ -204,6 +230,26 @@ nfpms:
     rpm:
       summary: "Watch for EC2 instance capacity across regions"
 
+  - id: spore-host-mcp-pkg
+    package_name: spore-host-mcp
+    ids:
+      - spore-host-mcp
+    vendor: spore.host
+    homepage: https://spore.host
+    maintainer: "spore.host <hello@spore.host>"
+    description: "MCP server for AI assistants — manage EC2 instances and discover capacity"
+    license: Apache-2.0
+    formats:
+      - deb
+      - rpm
+    file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    contents:
+      - src: LICENSE
+        dst: /usr/share/doc/spore-host-mcp/copyright
+        type: doc
+    rpm:
+      summary: "MCP server for AI assistants — manage EC2 instances and discover capacity"
+
   - id: spored-pkg
     package_name: spored
     ids:
@@ -283,6 +329,21 @@ brews:
     install: |
       bin.install "lagotto"
 
+  - name: spore-host-mcp
+    ids:
+      - spore-host-mcp-archive
+    repository:
+      owner: scttfrdmn
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: https://github.com/scttfrdmn/spore-host
+    description: "MCP server for AI assistants — manage EC2 instances and discover capacity"
+    license: Apache-2.0
+    install: |
+      bin.install "spore-host-mcp"
+
 # Scoop Bucket
 scoops:
   - name: truffle
@@ -328,6 +389,19 @@ scoops:
     depends:
       - scttfrdmn/truffle
 
+  - name: spore-host-mcp
+    ids:
+      - spore-host-mcp-archive
+    repository:
+      owner: scttfrdmn
+      name: scoop-bucket
+      branch: main
+      token: "{{ .Env.SCOOP_BUCKET_GITHUB_TOKEN }}"
+    directory: bucket
+    homepage: https://github.com/scttfrdmn/spore-host
+    description: "MCP server for AI assistants — manage EC2 instances and discover capacity"
+    license: Apache-2.0
+
 # GitHub Release
 release:
   github:
@@ -351,6 +425,7 @@ release:
     ```bash
     brew install scttfrdmn/tap/truffle
     brew install scttfrdmn/tap/spawn
+    brew install scttfrdmn/tap/spore-host-mcp
     ```
 
     **Scoop (Windows):**
@@ -358,6 +433,7 @@ release:
     scoop bucket add scttfrdmn https://github.com/scttfrdmn/scoop-bucket
     scoop install truffle
     scoop install spawn
+    scoop install spore-host-mcp
     ```
 
     **Debian/Ubuntu (.deb):**

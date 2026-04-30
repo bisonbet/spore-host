@@ -19,10 +19,13 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+// Version is injected at build time via -ldflags.
+var Version = "dev"
+
 func main() {
 	s := server.NewMCPServer(
 		"spore-host-mcp",
-		"0.1.0",
+		Version,
 		server.WithToolCapabilities(true),
 	)
 
