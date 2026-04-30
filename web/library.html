@@ -27,7 +27,7 @@
         <a href="/#tools">Tools</a>
         <a href="/#install">Install</a>
         <a href="library.html" aria-current="page">For Developers</a>
-        <a href="https://github.com/scttfrdmn/spore-host" target="_blank" rel="noopener" aria-label="GitHub (opens in new tab)">GitHub</a>
+        <a href="https://github.com/spore-host/spore-host" target="_blank" rel="noopener" aria-label="GitHub (opens in new tab)">GitHub</a>
         <a href="/dashboard.html" class="btn-outline btn nav-cta">Dashboard</a>
         <button class="theme-btn" id="theme-toggle" aria-label="Toggle colour theme">🌙</button>
       </div>
@@ -63,9 +63,9 @@
             <h3>truffle — capacity search</h3>
             <p>Search instance types, fetch Spot prices, check service quotas.</p>
 <pre><code>import (
-    truffleaws "github.com/scttfrdmn/spore-host/truffle/pkg/aws"
-    "github.com/scttfrdmn/spore-host/truffle/pkg/find"
-    "github.com/scttfrdmn/spore-host/truffle/pkg/quotas"
+    truffleaws "github.com/spore-host/spore-host/truffle/pkg/aws"
+    "github.com/spore-host/spore-host/truffle/pkg/find"
+    "github.com/spore-host/spore-host/truffle/pkg/quotas"
 )
 
 // Natural language search
@@ -93,7 +93,7 @@ ok, msg := qc.CanLaunch("p4d.24xlarge", 96, info, false)</code></pre>
           <div class="dev-block">
             <h3>spawn — instance management</h3>
             <p>List, launch, stop, terminate, and update instances programmatically.</p>
-<pre><code>import spawnclient "github.com/scttfrdmn/spore-host/spawn/pkg/aws"
+<pre><code>import spawnclient "github.com/spore-host/spore-host/spawn/pkg/aws"
 
 client, _ := spawnclient.NewClient(ctx)
 
@@ -165,7 +165,7 @@ client.UpdateInstanceTags(ctx, result.Region, result.InstanceID,
               <li><code>spawn_terminate</code> — terminate permanently</li>
               <li><code>spawn_extend</code> — extend TTL</li>
             </ul>
-            <a href="https://github.com/scttfrdmn/spore-host/tree/main/mcp" target="_blank" rel="noopener" class="tool-link tool-mcp" style="color:var(--mcp); font-weight:600; font-size:0.875rem; margin-top:1rem; display:inline-block">MCP server source →</a>
+            <a href="https://github.com/spore-host/spore-host/tree/main/mcp" target="_blank" rel="noopener" class="tool-link tool-mcp" style="color:var(--mcp); font-weight:600; font-size:0.875rem; margin-top:1rem; display:inline-block">MCP server source →</a>
           </div>
         </div>
       </div>
@@ -195,10 +195,10 @@ client.UpdateInstanceTags(ctx, result.Region, result.InstanceID,
           <div class="dev-block">
             <h3>Python SDK — early access</h3>
             <p>Install from the repository while PyPI publication is pending.</p>
-<pre><code>pip install "git+https://github.com/scttfrdmn/spore-host.git#subdirectory=sdk/python"
+<pre><code>pip install "git+https://github.com/spore-host/spore-host.git#subdirectory=sdk/python"
 
 # or, with notebook extras
-pip install "spore-host[jupyter] @ git+https://github.com/scttfrdmn/spore-host.git#subdirectory=sdk/python"</code></pre>
+pip install "spore-host[jupyter] @ git+https://github.com/spore-host/spore-host.git#subdirectory=sdk/python"</code></pre>
 
             <h3 style="margin-top:1.5rem">Usage — Jupyter / marimo / scripts</h3>
 <pre><code>import spore
@@ -220,8 +220,8 @@ inst.wait("terminated",     # block until done
     on_status=lambda i: print(i.state))</code></pre>
             <div style="margin-top:1rem;display:flex;gap:0.75rem;flex-wrap:wrap">
               <a href="https://docs.spore.host/guides/python-sdk" target="_blank" rel="noopener" class="btn btn-outline">Full Python SDK docs →</a>
-              <a href="https://github.com/scttfrdmn/spore-host/blob/main/sdk/python/examples/jupyter_example.ipynb" target="_blank" rel="noopener" class="btn btn-outline">Jupyter example →</a>
-              <a href="https://github.com/scttfrdmn/spore-host/blob/main/sdk/python/examples/marimo_example.py" target="_blank" rel="noopener" class="btn btn-outline">marimo example →</a>
+              <a href="https://github.com/spore-host/python-sdk/blob/main/examples/jupyter_example.ipynb" target="_blank" rel="noopener" class="btn btn-outline">Jupyter example →</a>
+              <a href="https://github.com/spore-host/python-sdk/blob/main/examples/marimo_example.py" target="_blank" rel="noopener" class="btn btn-outline">marimo example →</a>
             </div>
           </div>
 
@@ -235,7 +235,7 @@ POST /v1/instances          # launch
 GET  /v1/instances          # list
 POST /v1/instances/{id}/stop
 POST /v1/instances/{id}/terminate</code></pre>
-            <a href="https://github.com/scttfrdmn/spore-host/issues/252" target="_blank" rel="noopener" style="font-size:0.85rem; color:var(--spawn);">Track issue #252 →</a>
+            <a href="https://github.com/spore-host/spore-host/issues/252" target="_blank" rel="noopener" style="font-size:0.85rem; color:var(--spawn);">Track issue #252 →</a>
           </div>
 
         </div>
@@ -251,17 +251,17 @@ POST /v1/instances/{id}/terminate</code></pre>
         <div class="footer-tagline">Ephemeral compute for research.</div>
       </div>
       <nav class="footer-links" aria-label="Footer navigation">
-        <a href="https://github.com/scttfrdmn/spore-host" target="_blank" rel="noopener">GitHub</a>
-        <a href="https://github.com/scttfrdmn/spore-host/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/spore-host/spore-host" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/spore-host/spore-host/releases" target="_blank" rel="noopener">Releases</a>
         <a href="library.html">For Developers</a>
-        <a href="https://github.com/scttfrdmn/spore-host/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/spore-host/spore-host/issues" target="_blank" rel="noopener">Issues</a>
         <a href="/privacy.html">Privacy</a>
         <a href="/terms.html">Terms</a>
       </nav>
     </div>
     <div class="footer-bottom">
       <span>© 2026 Scott Friedman. Made with care</span>
-      <span><a href="https://github.com/scttfrdmn/spore-host/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a></span>
+      <span><a href="https://github.com/spore-host/spore-host/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a></span>
     </div>
   </footer>
 
