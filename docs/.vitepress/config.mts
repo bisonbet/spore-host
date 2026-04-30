@@ -49,6 +49,7 @@ export default defineConfig({
           items: [
             { text: 'Installation', link: '/guides/installation' },
             { text: 'Your First Instance', link: '/guides/first-instance' },
+            { text: 'Python SDK', link: '/guides/python-sdk' },
           ]
         },
         {

@@ -192,21 +192,37 @@ client.UpdateInstanceTags(ctx, result.Region, result.InstanceID,
 
         <div class="dev-grid">
 
-          <div class="coming-soon-card">
-            <span class="badge">Coming soon</span>
-            <h3>Python SDK</h3>
-            <p>A <span class="inline-code">pip install spore-host</span> package for use in Jupyter notebooks, training scripts, and data pipelines. Designed for researchers who live in Python.</p>
-<pre style="margin-top:0.75rem"><code>import spore
+          <div class="dev-block">
+            <h3>Python SDK — early access</h3>
+            <p>Install from the repository while PyPI publication is pending.</p>
+<pre><code>pip install "git+https://github.com/scttfrdmn/spore-host.git#subdirectory=sdk/python"
 
-# Find and launch from a notebook
-results = spore.truffle.find("nvidia a100", region="us-east-1")
-instance = spore.spawn.launch(
-    instance_type=results[0].instance_type,
-    ttl="8h",
-    on_complete="terminate",
-)
-instance.wait()  # blocks until SPAWN_COMPLETE</code></pre>
-            <a href="https://github.com/scttfrdmn/spore-host/issues/253" target="_blank" rel="noopener" style="font-size:0.85rem; color:var(--spawn);">Track issue #253 →</a>
+# or, with notebook extras
+pip install "spore-host[jupyter] @ git+https://github.com/scttfrdmn/spore-host.git#subdirectory=sdk/python"</code></pre>
+
+            <h3 style="margin-top:1.5rem">Usage — Jupyter / marimo / scripts</h3>
+<pre><code>import spore
+
+# Find instances
+results = spore.truffle.find("amd epyc genoa", region="us-east-1")
+for r in results:
+    print(r.instance_type, f"${r.on_demand_price:.4f}/hr")
+
+# Spot prices
+prices = spore.truffle.spot("c8a.2xlarge", region="us-east-1")
+cheapest = min(prices, key=lambda p: p.spot_price)
+
+# Manage running instances
+instances = spore.spawn.list()
+inst = spore.spawn.status("sim-run-42")
+inst.extend("2h")           # push TTL deadline forward
+inst.wait("terminated",     # block until done
+    on_status=lambda i: print(i.state))</code></pre>
+            <div style="margin-top:1rem;display:flex;gap:0.75rem;flex-wrap:wrap">
+              <a href="https://docs.spore.host/guides/python-sdk" target="_blank" rel="noopener" class="btn btn-outline">Full Python SDK docs →</a>
+              <a href="https://github.com/scttfrdmn/spore-host/blob/main/sdk/python/examples/jupyter_example.ipynb" target="_blank" rel="noopener" class="btn btn-outline">Jupyter example →</a>
+              <a href="https://github.com/scttfrdmn/spore-host/blob/main/sdk/python/examples/marimo_example.py" target="_blank" rel="noopener" class="btn btn-outline">marimo example →</a>
+            </div>
           </div>
 
           <div class="coming-soon-card">

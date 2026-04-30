@@ -308,6 +308,13 @@ brews:
       system "#{bin}/spawn", "version"
     install: |
       bin.install "spawn"
+    post_install: |
+      system "#{bin}/spawn", "_register-install"
+    caveats: |
+      spore.host has registered this installation. Run `spawn _unregister-install` before removing manually.
+    def uninstall
+      system "#{bin}/spawn", "_unregister-install"
+    end
 
   - name: lagotto
     ids:
@@ -373,6 +380,8 @@ scoops:
     license: Apache-2.0
     depends:
       - scttfrdmn/truffle
+    post_install: "spawn _register-install"
+    pre_uninstall: "spawn _unregister-install"
 
   - name: lagotto
     ids:
