@@ -379,7 +379,7 @@ func handleStatus() {
 					formatDuration(stoppedTime))
 			}
 		}
-		fmt.Printf("  Total cost:       $%.2f\n", displayTotal)
+		fmt.Printf("  Cumulative cost:  $%.2f\n", displayTotal)
 
 		elapsedHours := elapsed.Hours()
 		if elapsedHours > 0 && ebsCostKnown {
