@@ -218,9 +218,14 @@ func postTeamsProactive(ctx context.Context, serviceURL, conversationID, text st
 	endpoint := strings.TrimRight(serviceURL, "/") +
 		"/v3/conversations/" + conversationID + "/activities"
 
+	botID := os.Getenv("TEAMS_APP_ID")
 	msg := map[string]interface{}{
 		"type": "message",
 		"text": text,
+		"from": map[string]string{
+			"id":   botID,
+			"name": "spore-bot",
+		},
 	}
 	data, _ := json.Marshal(msg)
 
