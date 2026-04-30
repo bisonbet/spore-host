@@ -101,6 +101,10 @@ func parseTeamsActivity(body string) (*SlashCommand, string, error) {
 		}
 	}
 
+	logf("teams activity: channel=%s tenant=%s conv=%s serviceURL=%s text=%q",
+		activity.ChannelID, activity.ChannelData.Tenant.ID,
+		activity.Conversation.ID, activity.ServiceURL, text)
+
 	// Encode serviceURL|conversationID so Phase 2 can send proactive responses
 	responseURL := activity.ServiceURL
 	if activity.Conversation.ID != "" {
@@ -161,10 +165,11 @@ func getTeamsBotToken(ctx context.Context) (string, error) {
 	if appID == "" || appSecret == "" {
 		return "", fmt.Errorf("TEAMS_APP_ID or TEAMS_APP_SECRET not configured")
 	}
+	// Single-tenant apps must use their own tenant ID.
+	// Multi-tenant apps can use botframework.com.
 	if tenantID == "" {
-		tenantID = "botframework.com" // works for multi-tenant; single-tenant needs tenant ID
+		tenantID = "botframework.com"
 	}
-
 	tokenURL := fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", tenantID)
 	vals := url.Values{
 		"grant_type":    {"client_credentials"},
@@ -217,6 +222,7 @@ func postTeamsProactive(ctx context.Context, serviceURL, conversationID, text st
 
 	endpoint := strings.TrimRight(serviceURL, "/") +
 		"/v3/conversations/" + conversationID + "/activities"
+	logf("teams proactive: endpoint=%s token_len=%d", endpoint, len(token))
 
 	botID := os.Getenv("TEAMS_APP_ID")
 	msg := map[string]interface{}{
