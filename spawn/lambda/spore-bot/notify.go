@@ -85,9 +85,11 @@ func handleNotify(ctx context.Context, cfg aws.Config, reg *Registry, request ev
 
 	// Teams DMs via Bot Framework proactive messaging
 	if nr.Platform == "slack" || nr.Platform == "" {
-		// Also check for Teams registrations for the same instance
 		sendTeamsDMs(slackCtx, reg, nil, nr.InstanceID, msg)
 	}
+
+	// SMS notifications for users who have registered a phone number
+	go sendUserSMS(context.Background(), reg, nr)
 
 	return jsonOK(), nil
 }
@@ -231,6 +233,93 @@ func formatNotification(nr NotifyRequest) string {
 		msg += fmt.Sprintf("  Region: %s", nr.Region)
 	}
 	return msg
+}
+
+// sendUserSMS sends SMS notifications to users who have registered a phone number
+// for the instance. It looks up registrations via the instance_id-index GSI, then
+// for each user checks if a _phone record exists in the registry.
+func sendUserSMS(ctx context.Context, reg *Registry, nr NotifyRequest) {
+	project := strings.TrimPrefix(nr.Command, "/")
+	if project == "" {
+		project = "spore"
+	}
+	if twilioProjectNumber(project) == "" {
+		return // Twilio not configured — skip silently
+	}
+	fromNumber := twilioProjectNumber(project)
+	if fromNumber == "" {
+		return
+	}
+
+	// Query instance registrations
+	result, err := reg.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(reg.registryTable),
+		IndexName:              aws.String("instance_id-index"),
+		KeyConditionExpression: aws.String("instance_id = :iid"),
+		ExpressionAttributeValues: map[string]dynamodbtypes.AttributeValue{
+			":iid": &dynamodbtypes.AttributeValueMemberS{Value: nr.InstanceID},
+		},
+	})
+	if err != nil || len(result.Items) == 0 {
+		return
+	}
+
+	// Build the SMS message once
+	extra := map[string]string{
+		"remaining":     "5 minutes",
+		"idle_duration": "25m",
+		"cost":          "$0.00",
+	}
+	if nr.Detail != "" {
+		extra["remaining"] = nr.Detail
+		extra["idle_duration"] = nr.Detail
+	}
+	msgText, options := twilioMessage(nr.InstanceName, nr.EventType, extra)
+
+	smsCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	seen := map[string]bool{}
+	for _, item := range result.Items {
+		ukAttr, ok := item["user_key"].(*dynamodbtypes.AttributeValueMemberS)
+		if !ok {
+			continue
+		}
+		userKey := ukAttr.Value
+		if seen[userKey] {
+			continue
+		}
+		seen[userKey] = true
+
+		// Look up _phone record for this user
+		phoneResult, err := reg.client.GetItem(smsCtx, &dynamodb.GetItemInput{
+			TableName: aws.String(reg.registryTable),
+			Key: map[string]dynamodbtypes.AttributeValue{
+				"user_key": &dynamodbtypes.AttributeValueMemberS{Value: userKey},
+				"nickname": &dynamodbtypes.AttributeValueMemberS{Value: "_phone"},
+			},
+		})
+		if err != nil || phoneResult.Item == nil {
+			continue
+		}
+		phoneAttr, ok := phoneResult.Item["phone"].(*dynamodbtypes.AttributeValueMemberS)
+		if !ok || phoneAttr.Value == "" {
+			continue
+		}
+		toPhone := phoneAttr.Value
+
+		// Store pending notification so the reply can be matched
+		if len(options) > 0 {
+			_ = twilioStorePending(smsCtx, fromNumber, toPhone, project, nr.InstanceID, nr.Region, nr.EventType, options)
+		}
+
+		// Send the SMS
+		go func(phone string) {
+			if err := twilioSend(smsCtx, project, phone, msgText); err != nil {
+				logf("SMS to %s failed: %v", phone, err)
+			}
+		}(toPhone)
+	}
 }
 
 func jsonOK() events.APIGatewayProxyResponse {

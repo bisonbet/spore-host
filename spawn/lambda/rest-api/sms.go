@@ -6,7 +6,6 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -20,149 +19,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamodbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	spawnclient "github.com/scttfrdmn/spore-host/spawn/pkg/aws"
+	"github.com/scttfrdmn/spore-host/spawn/pkg/sms"
 )
 
-const pendingTable = "spore-sms-pending"
-
-// PendingNotification tracks a sent SMS we're waiting for a reply on.
-type PendingNotification struct {
-	// Key: twilioNumber#userPhone — uniquely scopes replies to one project+user pair
-	TwilioNumber string            // the Twilio number that sent the message (identifies the project)
-	UserPhone    string            // the user's phone number
-	Project      string            // "spore", "prism", etc.
-	InstanceID   string
-	Region       string
-	EventType    string
-	Options      map[string]string // "1" -> "extend:1h", etc.
-	ExpiresAt    int64
-}
-
-// pendingKey returns the DynamoDB key for a (twilioNumber, userPhone) pair.
-// This ensures replies to +SPORE number only resolve spore.host pending state,
-// and replies to +PRISM number only resolve prism pending state.
-func pendingKey(twilioNumber, userPhone string) string {
-	return twilioNumber + "#" + userPhone
-}
-
-// projectNumber returns the Twilio phone number for a project.
-// Looks up TWILIO_NUMBER_{PROJECT} (e.g. TWILIO_NUMBER_SPORE, TWILIO_NUMBER_PRISM).
-func projectNumber(project string) string {
-	return os.Getenv("TWILIO_NUMBER_" + strings.ToUpper(project))
-}
-
-// SendSMS sends an outbound SMS from the project's dedicated Twilio number.
-// The from number identifies the sending application to the recipient.
-func SendSMS(ctx context.Context, project, toPhone, message string) error {
-	accountSID := os.Getenv("TWILIO_ACCOUNT_SID")
-	authToken := os.Getenv("TWILIO_AUTH_TOKEN")
-	fromNumber := projectNumber(project)
-
-	if accountSID == "" || authToken == "" || fromNumber == "" {
-		return fmt.Errorf("Twilio not configured for project %q (need TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_NUMBER_%s)", project, strings.ToUpper(project))
-	}
-
-	apiURL := fmt.Sprintf("https://api.twilio.com/2010-04-01/Accounts/%s/Messages.json", accountSID)
-	body := url.Values{
-		"To":   {toPhone},
-		"From": {fromNumber},
-		"Body": {message},
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, strings.NewReader(body.Encode()))
-	if err != nil {
-		return fmt.Errorf("build request: %w", err)
-	}
-	req.SetBasicAuth(accountSID, authToken)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("twilio request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 300 {
-		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("twilio %d: %s", resp.StatusCode, string(b))
-	}
-	return nil
-}
-
-// StorePending saves a pending notification keyed by (twilioNumber, userPhone).
-func StorePending(ctx context.Context, n PendingNotification) error {
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion("us-east-1"))
-	if err != nil {
-		return err
-	}
-	client := dynamodb.NewFromConfig(cfg)
-
-	expires := time.Now().Add(15 * time.Minute).Unix()
-	_, err = client.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(pendingTable),
-		Item: map[string]dynamodbtypes.AttributeValue{
-			"pending_key": &dynamodbtypes.AttributeValueMemberS{Value: pendingKey(n.TwilioNumber, n.UserPhone)},
-			"project":     &dynamodbtypes.AttributeValueMemberS{Value: n.Project},
-			"instance_id": &dynamodbtypes.AttributeValueMemberS{Value: n.InstanceID},
-			"region":      &dynamodbtypes.AttributeValueMemberS{Value: n.Region},
-			"event_type":  &dynamodbtypes.AttributeValueMemberS{Value: n.EventType},
-			"options":     &dynamodbtypes.AttributeValueMemberS{Value: encodeOptions(n.Options)},
-			"ttl":         &dynamodbtypes.AttributeValueMemberN{Value: fmt.Sprintf("%d", expires)},
-		},
-	})
-	return err
-}
-
-// BuildSMSMessage formats the outbound SMS for an event type with a numbered menu.
-func BuildSMSMessage(instanceName, eventType string, extraInfo map[string]string) (string, map[string]string) {
-	options := map[string]string{}
-	var msg strings.Builder
-
-	switch eventType {
-	case "ttl_warning":
-		remaining := extraInfo["remaining"]
-		fmt.Fprintf(&msg, "%s terminates in %s.\n\n1 · Extend 1h\n2 · Extend 2h\n4 · Extend 4h\n0 · Dismiss", instanceName, remaining)
-		options["1"] = "extend:1h"
-		options["2"] = "extend:2h"
-		options["4"] = "extend:4h"
-		options["0"] = "dismiss"
-
-	case "idle_warning":
-		idle := extraInfo["idle_duration"]
-		remaining := extraInfo["remaining"]
-		fmt.Fprintf(&msg, "%s idle %s, stops in %s.\n\n1 · Keep running\n0 · Dismiss", instanceName, idle, remaining)
-		options["1"] = "keep"
-		options["0"] = "dismiss"
-
-	case "idle_stopped", "idle_hibernated":
-		verb := "stopped"
-		if eventType == "idle_hibernated" {
-			verb = "hibernated"
-		}
-		fmt.Fprintf(&msg, "%s %s (idle). Cost so far: %s\n\n1 · Wake instance\n0 · Dismiss", instanceName, verb, extraInfo["cost"])
-		options["1"] = "start"
-		options["0"] = "dismiss"
-
-	case "ttl_expired":
-		fmt.Fprintf(&msg, "%s terminated (TTL). Cumulative cost: %s", instanceName, extraInfo["cost"])
-
-	case "completion":
-		fmt.Fprintf(&msg, "%s job done. Cost: %s\n\n1 · Get status\n0 · Dismiss", instanceName, extraInfo["cost"])
-		options["1"] = "status"
-		options["0"] = "dismiss"
-
-	case "spot_interrupt":
-		fmt.Fprintf(&msg, "%s Spot interruption — ~2 min remaining.", instanceName)
-
-	default:
-		fmt.Fprintf(&msg, "%s: %s", instanceName, eventType)
-	}
-
-	return msg.String(), options
-}
-
 // handleSMSIncoming processes a Twilio webhook for an inbound SMS reply.
-// The `To` field in the Twilio payload tells us which project's number was texted,
-// scoping the reply lookup to that project's pending notifications only.
+// The To field identifies the project; the From field identifies the user.
 func handleSMSIncoming(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
 	authToken := os.Getenv("TWILIO_AUTH_TOKEN")
 	skipSig := os.Getenv("SKIP_TWILIO_SIGNATURE") == "true"
@@ -170,10 +31,9 @@ func handleSMSIncoming(ctx context.Context, req events.APIGatewayV2HTTPRequest) 
 		return errResp(http.StatusForbidden, "invalid Twilio signature"), nil
 	}
 
-	// Lambda Function URLs base64-encode POST bodies — decode if needed
 	rawBody := req.Body
 	if req.IsBase64Encoded {
-		if decoded, decErr := base64.StdEncoding.DecodeString(rawBody); decErr == nil {
+		if decoded, err := base64.StdEncoding.DecodeString(rawBody); err == nil {
 			rawBody = string(decoded)
 		}
 	}
@@ -182,15 +42,15 @@ func handleSMSIncoming(ctx context.Context, req events.APIGatewayV2HTTPRequest) 
 		return errResp(http.StatusBadRequest, "invalid body"), nil
 	}
 
-	to   := params.Get("To")                      // which Twilio number (= which project)
-	from := params.Get("From")                    // user's phone
+	to   := params.Get("To")
+	from := params.Get("From")
 	body := strings.TrimSpace(params.Get("Body"))
 
 	if to == "" || from == "" || body == "" {
 		return twilioResp("")
 	}
 
-	pending, err := fetchPending(ctx, pendingKey(to, from))
+	pending, err := fetchPending(ctx, sms.PendingKey(to, from))
 	if err != nil || pending == nil {
 		return twilioResp("No pending notification. Use the spore.host CLI or Slack bot to manage your instances.")
 	}
@@ -201,7 +61,7 @@ func handleSMSIncoming(ctx context.Context, req events.APIGatewayV2HTTPRequest) 
 	}
 
 	if action == "dismiss" {
-		clearPending(ctx, pendingKey(to, from))
+		clearPending(ctx, sms.PendingKey(to, from))
 		return twilioResp("Dismissed.")
 	}
 
@@ -210,11 +70,11 @@ func handleSMSIncoming(ctx context.Context, req events.APIGatewayV2HTTPRequest) 
 		return twilioResp(fmt.Sprintf("Error: %v", err))
 	}
 
-	clearPending(ctx, pendingKey(to, from))
+	clearPending(ctx, sms.PendingKey(to, from))
 	return twilioResp(reply)
 }
 
-func executeAction(ctx context.Context, p *PendingNotification, action string) (string, error) {
+func executeAction(ctx context.Context, p *sms.PendingNotification, action string) (string, error) {
 	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(p.Region))
 	if err != nil {
 		return "", fmt.Errorf("AWS config: %w", err)
@@ -340,11 +200,10 @@ func validateTwilioSignature(req events.APIGatewayV2HTTPRequest, authToken strin
 	return hmac.Equal([]byte(expected), []byte(req.Headers["x-twilio-signature"]))
 }
 
-func fetchPending(ctx context.Context, key string) (*PendingNotification, error) {
+func fetchPending(ctx context.Context, key string) (*sms.PendingNotification, error) {
 	cfg, _ := config.LoadDefaultConfig(ctx, config.WithRegion("us-east-1"))
-	client := dynamodb.NewFromConfig(cfg)
-	out, err := client.GetItem(ctx, &dynamodb.GetItemInput{
-		TableName: aws.String(pendingTable),
+	out, err := dynamodb.NewFromConfig(cfg).GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(sms.PendingTable),
 		Key: map[string]dynamodbtypes.AttributeValue{
 			"pending_key": &dynamodbtypes.AttributeValueMemberS{Value: key},
 		},
@@ -363,7 +222,7 @@ func fetchPending(ctx context.Context, key string) (*PendingNotification, error)
 	if len(parts) == 2 {
 		twilioNum, userPhone = parts[0], parts[1]
 	}
-	return &PendingNotification{
+	return &sms.PendingNotification{
 		TwilioNumber: twilioNum,
 		UserPhone:    userPhone,
 		Project:      get("project"),
@@ -376,26 +235,12 @@ func fetchPending(ctx context.Context, key string) (*PendingNotification, error)
 
 func clearPending(ctx context.Context, key string) {
 	cfg, _ := config.LoadDefaultConfig(ctx, config.WithRegion("us-east-1"))
-	client := dynamodb.NewFromConfig(cfg)
-	_, _ = client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
-		TableName: aws.String(pendingTable),
+	_, _ = dynamodb.NewFromConfig(cfg).DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String(sms.PendingTable),
 		Key: map[string]dynamodbtypes.AttributeValue{
 			"pending_key": &dynamodbtypes.AttributeValueMemberS{Value: key},
 		},
 	})
-}
-
-func encodeOptions(opts map[string]string) string {
-	keys := make([]string, 0, len(opts))
-	for k := range opts {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	parts := make([]string, 0, len(keys))
-	for _, k := range keys {
-		parts = append(parts, k+"="+opts[k])
-	}
-	return strings.Join(parts, ",")
 }
 
 func decodeOptions(s string) map[string]string {
