@@ -334,6 +334,10 @@ func buildTags(config LaunchConfig, accountID string, userARN string) []types.Ta
 		tags = append(tags, types.Tag{Key: aws.String("Name"), Value: aws.String(config.Name)})
 	}
 
+	// Record the absolute launch time once — survives stop/wake cycles.
+	launchTime := time.Now().UTC().Format(time.RFC3339)
+	tags = append(tags, types.Tag{Key: aws.String("spawn:launch-time"), Value: aws.String(launchTime)})
+
 	if config.TTL != "" {
 		tags = append(tags, types.Tag{Key: aws.String("spawn:ttl"), Value: aws.String(config.TTL)})
 		// Compute the absolute deadline once at launch; spored uses this across stop/wake cycles

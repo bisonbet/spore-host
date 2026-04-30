@@ -245,7 +245,7 @@ func handleStatus() {
 
 	// Get identity
 	identity := ag.GetIdentity()
-	instanceID, region, accountID := identity.InstanceID, identity.Region, identity.AccountID
+	instanceID, region := identity.InstanceID, identity.Region
 
 	// Get uptime
 	uptime := ag.GetUptime()
@@ -281,155 +281,122 @@ func handleStatus() {
 	// Calculate start time
 	startTime := time.Now().Add(-uptime)
 
-	// Print status
-	fmt.Println("┌─────────────────────────────────────────────────────────┐")
-	fmt.Printf("│ spored v%s - Instance %s\n", Version, instanceID)
-	fmt.Printf("│ Region: %s  |  Account: %s\n", region, accountID)
-	fmt.Printf("│ Started: %s\n", startTime.Format("2006-01-02 15:04:05 MST"))
-	fmt.Printf("│ Uptime: %s\n", formatDuration(uptime))
-	fmt.Println("└─────────────────────────────────────────────────────────┘")
+	// ── Identity ──────────────────────────────────────────────────────────────
+	fmt.Printf("\n  %s  (%s)\n", identity.Name, instanceID)
+	fmt.Printf("  %s\n\n", strings.Repeat("─", 46))
+
+	// Use original launch time from tag if available; fall back to startTime
+	launchTime := startTime
+	if !config.LaunchTime.IsZero() {
+		launchTime = config.LaunchTime
+	}
+	elapsed := time.Since(launchTime)
+	computeSecs := ag.TotalComputeSeconds()
+	computeTime := time.Duration(computeSecs) * time.Second
+	stoppedTime := elapsed - computeTime
+	if stoppedTime < 0 {
+		stoppedTime = 0
+	}
+
+	// Use absolute deadline for TTL if available
+	var terminateAt time.Time
+	if !config.TTLDeadline.IsZero() {
+		terminateAt = config.TTLDeadline
+		ttlRemaining = time.Until(terminateAt)
+		if ttlRemaining < 0 {
+			ttlRemaining = 0
+		}
+	} else if config.TTL > 0 {
+		terminateAt = launchTime.Add(config.TTL)
+	}
+
+	// ── Lifecycle ─────────────────────────────────────────────────────────────
+	fmt.Printf("  Started:          %s\n", launchTime.UTC().Format("2006-01-02 15:04 UTC"))
+	fmt.Printf("  Elapsed:          %s", formatDuration(elapsed))
+	if computeTime > 0 && stoppedTime > 0 {
+		fmt.Printf("  (%s compute · %s stopped)", formatDuration(computeTime), formatDuration(stoppedTime))
+	}
 	fmt.Println()
 
-	// Configuration section
-	fmt.Println("Configuration:")
-	if config.TTL > 0 {
-		terminateTime := startTime.Add(config.TTL)
-		fmt.Printf("  TTL:              %s (started: %s)\n", formatDuration(config.TTL), startTime.Format("15:04:05 MST"))
-		fmt.Printf("                    → Terminates: %s (%s remaining)\n", terminateTime.Format("15:04:05 MST"), formatDuration(ttlRemaining))
+	if !terminateAt.IsZero() {
+		fmt.Printf("  TTL:              %s remaining  (terminates %s)\n",
+			formatDuration(ttlRemaining), terminateAt.UTC().Format("2006-01-02 15:04 UTC"))
 	} else {
-		fmt.Println("  TTL:              disabled")
-	}
-
-	if config.PreStop != "" {
-		timeout := config.PreStopTimeout
-		if timeout == 0 {
-			timeout = 5 * time.Minute
-		}
-		fmt.Printf("  Pre-Stop Hook:    %s\n", config.PreStop)
-		fmt.Printf("  Pre-Stop Timeout: %s\n", formatDuration(timeout))
-	} else {
-		fmt.Println("  Pre-Stop Hook:    disabled")
-	}
-
-	if config.CostLimit > 0 && config.PricePerHour > 0 {
-		accumulated := config.PricePerHour * uptime.Hours()
-		remaining := config.CostLimit - accumulated
-		pct := (accumulated / config.CostLimit) * 100
-		fmt.Printf("  Cost Limit:       $%.2f (spent: $%.4f, %.0f%% used, $%.4f remaining)\n",
-			config.CostLimit, accumulated, pct, remaining)
-	} else if config.CostLimit > 0 {
-		fmt.Printf("  Cost Limit:       $%.2f (price data unavailable)\n", config.CostLimit)
-	} else {
-		fmt.Println("  Cost Limit:       disabled")
+		fmt.Println("  TTL:              none — instance will not auto-terminate")
 	}
 
 	if config.IdleTimeout > 0 {
-		status := "active"
 		if isIdle {
-			status = fmt.Sprintf("idle (%s)", formatDuration(idleTime))
+			idleAction := "stops"
+			if config.HibernateOnIdle {
+				idleAction = "hibernates"
+			}
+			remaining := config.IdleTimeout - idleTime
+			if remaining < 0 {
+				remaining = 0
+			}
+			fmt.Printf("  Idle timeout:     %s  (%s for %s — %s in %s)\n",
+				formatDuration(config.IdleTimeout), idleAction, formatDuration(idleTime),
+				idleAction, formatDuration(remaining))
+		} else {
+			fmt.Printf("  Idle timeout:     %s  (currently active)\n", formatDuration(config.IdleTimeout))
 		}
-		fmt.Printf("  Idle Timeout:     %s (currently %s)\n", formatDuration(config.IdleTimeout), status)
-	} else {
-		fmt.Println("  Idle Timeout:     disabled")
 	}
 
 	if config.OnComplete != "" {
-		fmt.Printf("  On Complete:      %s\n", config.OnComplete)
-		fileStatus := "not present"
+		fileStatus := "watching"
 		if completionFileExists {
-			fileStatus = "✓ PRESENT"
+			fileStatus = "✓ file present — acting on next check"
 		}
-		fmt.Printf("  Completion File:  %s (%s)\n", config.CompletionFile, fileStatus)
-		fmt.Printf("  Completion Delay: %s\n", formatDuration(config.CompletionDelay))
-	} else {
-		fmt.Println("  On Complete:      disabled")
+		fmt.Printf("  On complete:      %s (%s)\n", config.OnComplete, fileStatus)
 	}
 
-	if config.HibernateOnIdle {
-		fmt.Println("  Hibernate:        enabled")
-	} else {
-		fmt.Println("  Hibernate:        disabled")
-	}
+	// ── Cost ──────────────────────────────────────────────────────────────────
+	if config.PricePerHour > 0 {
+		fmt.Println()
+		computeCost := config.PricePerHour * computeTime.Hours()
+		// EBS cost approximation: ~$0.08/GB/month for gp3, assume 30GB root = ~$0.003/hr
+		const ebsHourlyCost = 0.003
+		ebsCost := ebsHourlyCost * stoppedTime.Hours()
+		totalCost := computeCost + ebsCost
+		elapsedHours := elapsed.Hours()
 
-	fmt.Println()
-
-	// Monitoring section
-	fmt.Println("Monitoring Status:")
-	fmt.Printf("  CPU (5min avg):   %.1f%% (threshold: %.0f%%)\n", cpuUsage, config.IdleCPUPercent)
-	fmt.Printf("  Network:          %s/min (threshold: 10KB/min)\n", formatBytes(networkBytes))
-	if isIdle {
-		fmt.Printf("  Idle Time:        %s", formatDuration(idleTime))
-		if config.IdleTimeout > 0 {
-			fmt.Printf(" (trigger at: %s)", formatDuration(config.IdleTimeout))
+		fmt.Printf("  Total cost:       $%.2f", totalCost)
+		if stoppedTime > 0 {
+			fmt.Printf("  ($%.2f compute + $%.3f storage while stopped)", computeCost, ebsCost)
 		}
 		fmt.Println()
-	} else {
-		fmt.Println("  Idle Time:        0s (currently active)")
+
+		if elapsedHours > 0 {
+			effectiveRate := totalCost / elapsedHours
+			savingsPct := (1 - effectiveRate/config.PricePerHour) * 100
+			if savingsPct > 0 {
+				fmt.Printf("  Effective rate:   $%.3f/hr  (%.0f%% savings vs always-running)\n",
+					effectiveRate, savingsPct)
+			} else {
+				fmt.Printf("  Effective rate:   $%.3f/hr\n", effectiveRate)
+			}
+		}
+
+		if config.CostLimit > 0 {
+			remaining := config.CostLimit - totalCost
+			pct := (totalCost / config.CostLimit) * 100
+			fmt.Printf("  Cost limit:       $%.2f  ($%.4f used, %.0f%% — $%.4f remaining)\n",
+				config.CostLimit, totalCost, pct, remaining)
+		}
+
+		fmt.Printf("  On-demand rate:   $%.4f/hr  (%s)\n",
+			config.PricePerHour, region)
 	}
 
-	// UX detection
-	hasTerminals := ag.HasActiveTerminals()
-	hasUsers := ag.HasLoggedInUsers()
-	hasActivity := ag.HasRecentUserActivity()
-
-	if hasTerminals {
-		fmt.Println("  Terminals:        ✓ Active sessions detected")
-	} else {
-		fmt.Println("  Terminals:        - No active sessions")
-	}
-
-	if hasUsers {
-		fmt.Println("  Users:            ✓ Logged in")
-	} else {
-		fmt.Println("  Users:            - None logged in")
-	}
-
-	if hasActivity {
-		fmt.Println("  Recent Activity:  ✓ Detected (last 5 min)")
-	} else {
-		fmt.Println("  Recent Activity:  - None (last 5 min)")
-	}
-
+	// ── Live metrics (brief) ──────────────────────────────────────────────────
 	fmt.Println()
-	fmt.Println("Priority Order:     Spot → Completion → TTL → Idle")
+	fmt.Printf("  CPU:              %.1f%%\n", cpuUsage)
+	fmt.Printf("  Network:          %s/min\n", formatBytes(networkBytes))
+	if config.PreStop != "" {
+		fmt.Printf("  Pre-stop hook:    %s\n", config.PreStop)
+	}
 	fmt.Println()
-
-	// Checks section
-	fmt.Println("Checks:")
-	fmt.Println("  ✓ Spot interruption    - No warning")
-
-	if config.OnComplete != "" {
-		if completionFileExists {
-			fmt.Println("  ⚠ Completion signal    - File present (will terminate on next check)")
-		} else {
-			fmt.Println("  ✓ Completion signal    - File not present")
-		}
-	} else {
-		fmt.Println("  - Completion signal    - Disabled")
-	}
-
-	if config.TTL > 0 {
-		if ttlRemaining > 0 {
-			fmt.Printf("  ✓ TTL expiration       - %s remaining\n", formatDuration(ttlRemaining))
-		} else {
-			fmt.Println("  ⚠ TTL expiration       - Expired (will terminate on next check)")
-		}
-	} else {
-		fmt.Println("  - TTL expiration       - Disabled")
-	}
-
-	if config.IdleTimeout > 0 {
-		if isIdle && idleTime >= config.IdleTimeout {
-			fmt.Println("  ⚠ Idle timeout         - Threshold reached (will terminate on next check)")
-		} else if isIdle {
-			remaining := config.IdleTimeout - idleTime
-			fmt.Printf("  ✓ Idle timeout         - %s until trigger\n", formatDuration(remaining))
-		} else {
-			fmt.Println("  ✓ Idle timeout         - Currently active")
-		}
-	} else {
-		fmt.Println("  - Idle timeout         - Disabled")
-	}
 }
 
 func handleReload() {

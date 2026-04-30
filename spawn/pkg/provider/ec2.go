@@ -344,6 +344,14 @@ func loadConfigFromEC2Tags(ctx context.Context, client *ec2.Client, instanceID s
 			if t, err := time.Parse(time.RFC3339, *tag.Value); err == nil {
 				config.TTLDeadline = t
 			}
+		case tagprefix.Tag("launch-time"):
+			if t, err := time.Parse(time.RFC3339, *tag.Value); err == nil {
+				config.LaunchTime = t
+			}
+		case tagprefix.Tag("compute-seconds"):
+			if s, err := strconv.ParseInt(*tag.Value, 10, 64); err == nil {
+				config.ComputeSeconds = s
+			}
 		case tagprefix.Tag("idle-timeout"):
 			if duration, err := time.ParseDuration(*tag.Value); err == nil {
 				config.IdleTimeout = duration

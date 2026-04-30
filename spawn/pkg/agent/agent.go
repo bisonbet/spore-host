@@ -36,11 +36,13 @@ type Agent struct {
 	preStopDone         bool  // guards against running pre-stop hook more than once
 	prevCPUIdle         int64      // /proc/stat idle jiffies at last getCPUUsage call
 	prevCPUTotal        int64      // /proc/stat total jiffies at last getCPUUsage call
-	lastSessionTagWrite time.Time  // throttle spawn:logged-in-count tag writes
-	prevNetRx           int64      // /proc/net/dev RX bytes at last getNetworkBytes call
-	prevNetTx           int64      // /proc/net/dev TX bytes at last getNetworkBytes call
-	idleWarned          bool       // send idle_warning notification only once
-	ttlWarned           bool       // send ttl_warning notification only once
+	lastSessionTagWrite  time.Time  // throttle spawn:logged-in-count tag writes
+	lastComputeTagWrite  time.Time  // throttle spawn:compute-seconds tag writes
+	computeSecondsBase   int64      // compute-seconds already accumulated before this spored start
+	prevNetRx            int64      // /proc/net/dev RX bytes at last getNetworkBytes call
+	prevNetTx            int64      // /proc/net/dev TX bytes at last getNetworkBytes call
+	idleWarned           bool       // send idle_warning notification only once
+	ttlWarned            bool       // send ttl_warning notification only once
 }
 
 func NewAgent(ctx context.Context, prov provider.Provider) (*Agent, error) {
@@ -57,11 +59,12 @@ func NewAgent(ctx context.Context, prov provider.Provider) (*Agent, error) {
 	}
 
 	agent := &Agent{
-		provider:         prov,
-		identity:         identity,
-		config:           config,
-		startTime:        time.Now(),
-		lastActivityTime: time.Now(),
+		provider:           prov,
+		identity:           identity,
+		config:             config,
+		startTime:          time.Now(),
+		lastActivityTime:   time.Now(),
+		computeSecondsBase: config.ComputeSeconds, // carry over accumulated time from before this start
 	}
 
 	log.Printf("Agent initialized for instance %s in %s (account: %s, provider: %s)",
@@ -208,9 +211,11 @@ func (a *Agent) Monitor(ctx context.Context) {
 }
 
 func (a *Agent) checkAndAct(ctx context.Context) {
-	// 0. Keep spawn:logged-in-count tag current (throttled to 5/min).
-	// Combines SSH sessions + active port connections so the bot can warn before stopping.
+	// 0a. Keep spawn:logged-in-count tag current (throttled to 5/min).
 	a.writeSessionCountTag(ctx, countActiveSessions()+countActivePortConnections(a.config.ActivePorts))
+
+	// 0b. Keep spawn:compute-seconds tag current (throttled to 5/min).
+	a.writeComputeSecondsTag(ctx)
 
 	// 1. Check for completion signal (HIGH PRIORITY)
 	if a.config.OnComplete != "" {
@@ -393,6 +398,32 @@ func (a *Agent) writeSessionCountTag(ctx context.Context, count int) {
 			{Key: aws.String("spawn:logged-in-count"), Value: aws.String(strconv.Itoa(count))},
 		},
 	})
+}
+
+// writeComputeSecondsTag persists the total compute seconds (base + current uptime) to an EC2 tag,
+// throttled to once every 5 minutes. This survives stop/wake cycles so effective cost can be calculated.
+func (a *Agent) writeComputeSecondsTag(ctx context.Context) {
+	if time.Since(a.lastComputeTagWrite) < 5*time.Minute {
+		return
+	}
+	a.lastComputeTagWrite = time.Now()
+	total := a.computeSecondsBase + int64(time.Since(a.startTime).Seconds())
+	cfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(a.identity.Region))
+	if err != nil {
+		return
+	}
+	client := ec2.NewFromConfig(cfg)
+	_, _ = client.CreateTags(ctx, &ec2.CreateTagsInput{
+		Resources: []string{a.identity.InstanceID},
+		Tags: []ec2types.Tag{
+			{Key: aws.String("spawn:compute-seconds"), Value: aws.String(strconv.FormatInt(total, 10))},
+		},
+	})
+}
+
+// TotalComputeSeconds returns accumulated compute time across all start/stop cycles.
+func (a *Agent) TotalComputeSeconds() int64 {
+	return a.computeSecondsBase + int64(time.Since(a.startTime).Seconds())
 }
 
 func (a *Agent) isIdle() bool {

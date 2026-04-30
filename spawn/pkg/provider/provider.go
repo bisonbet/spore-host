@@ -29,6 +29,8 @@ type PluginDeclaration struct {
 type Config struct {
 	TTL             time.Duration
 	TTLDeadline     time.Time     // absolute deadline = launch_time + TTL; authoritative across stop/wake cycles
+	LaunchTime      time.Time     // original launch time; never resets on stop/wake
+	ComputeSeconds  int64         // accumulated compute seconds since launch (updated by spored)
 	IdleTimeout     time.Duration
 	HibernateOnIdle bool
 	CostLimit       float64
