@@ -80,6 +80,23 @@
       </div>
     </div>
 
+    <!-- ── Demo ── -->
+    <section id="demo-section">
+      <div class="container">
+        <p class="section-label">See it in action</p>
+        <h2 class="section-title">Find. Launch. Connect.</h2>
+        <p class="section-sub">A real workflow: discover available instances with truffle, launch one with spawn, then connect — which automatically wakes the instance if it stopped or hibernated.</p>
+
+        <div id="demo-wrapper">
+          <button id="demo-play-btn" class="demo-play-btn" onclick="loadDemo()" aria-label="Watch demo screencast">
+            <span class="demo-play-icon">▶</span>
+            Watch demo
+          </button>
+          <div id="demo-player" style="display:none;"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- ── Tools ── -->
     <section id="tools">
       <div class="container">
@@ -295,6 +312,38 @@ tar -xzf truffle_*_$(uname -s)_$(uname -m).tar.gz</code></pre>
     const open = navLinks.classList.toggle('open');
     hamburger.setAttribute('aria-expanded', open);
   });
+
+  // Lazy-load asciinema player on demand
+  function loadDemo() {
+    const btn = document.getElementById('demo-play-btn');
+    const player = document.getElementById('demo-player');
+    btn.disabled = true;
+    btn.textContent = 'Loading...';
+
+    const cdnBase = 'https://cdn.jsdelivr.net/npm/asciinema-player@3.14.0/dist/bundle';
+
+    // Inject CSS
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = cdnBase + '/asciinema-player.min.css';
+    document.head.appendChild(link);
+
+    // Inject JS then create player
+    const script = document.createElement('script');
+    script.src = cdnBase + '/asciinema-player.min.js';
+    script.onload = function() {
+      btn.style.display = 'none';
+      player.style.display = 'block';
+      AsciinemaPlayer.create('/assets/demo.cast', player, {
+        autoPlay: true,
+        loop: false,
+        speed: 1.0,
+        fit: 'width',
+        theme: 'monokai'
+      });
+    };
+    document.head.appendChild(script);
+  }
   </script>
 </body>
 </html>
