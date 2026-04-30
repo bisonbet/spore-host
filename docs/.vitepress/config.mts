@@ -5,6 +5,19 @@ export default defineConfig({
   description: 'Ephemeral compute for researchers and data scientists.',
   lang: 'en-US',
 
+  // Exclude legacy docs dirs and internal files from the build.
+  // These are kept in the repo as source material to incorporate into
+  // the new VitePress structure over time.
+  srcExclude: [
+    'user-guide/**',
+    'guide/**',
+    'features/**',
+    'research/**',
+    'AWS_ACCOUNT_STRUCTURE.md',
+    'DNSSEC_CONFIGURATION.md',
+    'gen/**',
+  ],
+
   head: [
     ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
     ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
@@ -68,6 +81,13 @@ export default defineConfig({
             { text: 'Job Arrays', link: '/guides/job-arrays' },
           ]
         },
+        {
+          text: 'Self-Hosting',
+          collapsed: true,
+          items: [
+            { text: 'Self-Hosting spore-bot', link: '/spore-bot-self-hosting' },
+          ]
+        },
       ],
       '/tools/': [
         {
@@ -114,8 +134,8 @@ export default defineConfig({
     },
 
     footer: {
-      message: 'Released under the Apache 2.0 License.',
-      copyright: 'spore.host',
+      message: 'Released under the <a href="https://github.com/scttfrdmn/spore-host/blob/main/LICENSE">Apache 2.0 License</a>.',
+      copyright: '© 2026 Scott Friedman',
     },
 
     search: {
