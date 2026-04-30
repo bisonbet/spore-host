@@ -65,20 +65,37 @@ func handleWebhook(ctx context.Context, cfg aws.Config, reg *Registry, request e
 		SlashCommand: sc.Command, // e.g. "/spore" or "/prism" — used in help text
 	}
 
-	// Invoke self async to execute the EC2 operation
-	if err := invokeAsync(ctx, action); err != nil {
-		logf("async invoke failed: %v", err)
-		// Fall back to synchronous execution for small ops
-		go executeAction(context.Background(), cfg, reg, action)
+	// Teams (Bot Framework): return response inline in HTTP 200 body.
+	// Phase 2 async is used only for EC2 operations.
+	if platform == "teams" {
+		botID := os.Getenv("TEAMS_APP_ID")
+		var teamsText string
+		selfContained := map[string]bool{"help": true, "list": true, "connect": true, "notify": true, "unnotify": true}
+		if selfContained[command] {
+			// No EC2 calls needed — execute inline and return result now
+			teamsText = helpText(action.slashCmd()) // default for help
+			if command != "help" {
+				go executeAction(context.Background(), cfg, reg, action) // list/notify handle their own output
+				teamsText = ackMessage(command, nickname)
+			}
+		} else {
+			// EC2 commands — ACK now, async handles the result
+			teamsText = ackMessage(command, nickname)
+			if err := invokeAsync(ctx, action); err != nil {
+				go executeAction(context.Background(), cfg, reg, action)
+			}
+		}
+		logf("teams inline response len=%d", len(teamsText))
+		resp := fmt.Sprintf(`{"type":"message","from":{"id":%q,"name":"spore-bot"},"text":%q}`, botID, teamsText)
+		return jsonResp(200, resp), nil
 	}
 
-	// ACK within 3-second window.
-	// Slack expects {"text": "..."}, Bot Framework expects {"type":"message","text":"..."}
-	ack := ackMessage(command, nickname)
-	if platform == "teams" {
-		return jsonResp(200, fmt.Sprintf(`{"type":"message","text":%q}`, ack)), nil
+	// Slack: invoke async, ACK within 3-second window
+	if err := invokeAsync(ctx, action); err != nil {
+		logf("async invoke failed: %v", err)
+		go executeAction(context.Background(), cfg, reg, action)
 	}
-	return jsonResp(200, fmt.Sprintf(`{"text":%q}`, ack)), nil
+	return jsonResp(200, fmt.Sprintf(`{"text":%q}`, ackMessage(command, nickname))), nil
 }
 
 // handleSlackWebhook verifies the Slack signature and parses the slash command.
