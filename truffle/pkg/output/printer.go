@@ -143,7 +143,7 @@ func (p *Printer) PrintTable(results []aws.InstanceTypeResult, includeAZs bool, 
 	})
 	if p.useColor {
 		cyan := color.New(color.FgCyan, color.Bold)
-		_, _ = cyan.Printf("\n%s %s\n\n", i18n.Emoji("mushroom"), summaryMsg)
+		_, _ = cyan.Printf("\n%s %s\n\n", i18n.Emoji("magnifying_glass_tilted"), summaryMsg)
 	} else {
 		fmt.Printf("\n%s\n\n", summaryMsg)
 	}

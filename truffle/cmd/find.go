@@ -254,7 +254,7 @@ func printFindTable(results []find.FindResult, printer *output.Printer) error {
 		fmt.Fprintln(os.Stderr)
 	}
 
-	return printer.PrintTable(baseResults, !findSkipAZs, false)
+	return printer.PrintTable(baseResults, !findSkipAZs, true) // show on-demand price by default
 }
 
 func convertToInstanceTypeResults(findResults []find.FindResult) []aws.InstanceTypeResult {
