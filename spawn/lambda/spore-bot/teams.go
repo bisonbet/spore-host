@@ -101,12 +101,18 @@ func parseTeamsActivity(body string) (*SlashCommand, string, error) {
 		}
 	}
 
+	// Encode serviceURL|conversationID so Phase 2 can send proactive responses
+	responseURL := activity.ServiceURL
+	if activity.Conversation.ID != "" {
+		responseURL = activity.ServiceURL + "|" + activity.Conversation.ID
+	}
+
 	sc := &SlashCommand{
 		Command:     cmd,
 		Text:        args,
 		UserID:      activity.From.ID,
 		WorkspaceID: activity.ChannelData.Tenant.ID,
-		ResponseURL: activity.ServiceURL,
+		ResponseURL: responseURL,
 		ChannelID:   activity.Conversation.ID,
 	}
 	return sc, activity.ServiceURL, nil
@@ -237,37 +243,29 @@ func postTeamsProactive(ctx context.Context, serviceURL, conversationID, text st
 	return nil
 }
 
-// postTeamsResponse sends a synchronous response to a Teams message.
-// Used for Phase 1 ACK — must complete within 5 seconds.
-func postTeamsResponse(serviceURL, text string) error {
+// postTeamsResponse sends a Phase 2 response to a Teams conversation.
+// serviceURL is the Bot Framework service URL, conversationID is from the activity.
+// For the response_url we encode both as "serviceURL|conversationID".
+func postTeamsResponse(responseURL, text string) error {
+	// responseURL is encoded as "serviceURL|conversationID" by parseTeamsActivity
+	parts := strings.SplitN(responseURL, "|", 2)
+	serviceURL := parts[0]
+	conversationID := ""
+	if len(parts) == 2 {
+		conversationID = parts[1]
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 
-	token, err := getTeamsBotToken(ctx)
-	if err != nil {
-		// Fall back to unauthenticated response (works for outgoing webhooks)
-		msg := map[string]interface{}{"type": "message", "text": text}
-		data, _ := json.Marshal(msg)
-		return httpPost(serviceURL, "application/json", data)
+	if conversationID != "" {
+		return postTeamsProactive(ctx, serviceURL, conversationID, text)
 	}
 
-	// Use Bot Framework authenticated endpoint
+	// Fallback: direct POST to serviceURL (outgoing webhook style)
 	msg := map[string]interface{}{"type": "message", "text": text}
 	data, _ := json.Marshal(msg)
-
-	req, err := http.NewRequestWithContext(ctx, "POST", serviceURL, bytes.NewReader(data))
-	if err != nil {
-		return fmt.Errorf("build request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("post: %w", err)
-	}
-	defer resp.Body.Close()
-	return nil
+	return httpPost(serviceURL, "application/json", data)
 }
 
 // sendTeamsDMs sends a DM notification to each registered Teams user for an instance.

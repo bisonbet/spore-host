@@ -72,8 +72,12 @@ func handleWebhook(ctx context.Context, cfg aws.Config, reg *Registry, request e
 		go executeAction(context.Background(), cfg, reg, action)
 	}
 
-	// ACK to Slack/Teams within the 3-second window
+	// ACK within 3-second window.
+	// Slack expects {"text": "..."}, Bot Framework expects {"type":"message","text":"..."}
 	ack := ackMessage(command, nickname)
+	if platform == "teams" {
+		return jsonResp(200, fmt.Sprintf(`{"type":"message","text":%q}`, ack)), nil
+	}
 	return jsonResp(200, fmt.Sprintf(`{"text":%q}`, ack)), nil
 }
 
