@@ -1,147 +1,117 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terms of Service - Spore</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="icon" type="image/png" href="assets/favicon.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms of Service — spore.host</title>
+  <meta name="description" content="spore.host terms of service. Free, open-source tool. You pay AWS. We provide no warranty.">
+  <script>(function(){var t=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);}());</script>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <style>
+    .prose { max-width: 720px; margin: 0 auto; line-height: 1.8; }
+    .prose h2 { font-size: 1.05rem; font-weight: 700; margin: 2rem 0 0.5rem; color: var(--spawn); }
+    .prose h3 { font-size: 0.95rem; font-weight: 700; margin: 1.5rem 0 0.4rem; }
+    .prose p, .prose ul { font-size: 0.9rem; color: var(--text-muted); margin-top: 0.4rem; }
+    .prose ul { margin-left: 1.5rem; }
+    .prose li { margin-bottom: 0.3rem; }
+    .prose a { color: var(--spawn); }
+    .prose strong { color: var(--text); font-weight: 600; }
+    .prose hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .tldr { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1.5rem; margin-top: 2rem; font-size: 0.875rem; color: var(--text-muted); }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <header class="hero" style="padding: 2rem 0;">
-            <h1>Terms of Service</h1>
-            <p class="tagline">Last updated: January 14, 2026</p>
-        </header>
-
-        <section style="max-width: 800px; margin: 0 auto; padding: 2rem 0;">
-            <div style="background: var(--bg-card); padding: 2rem; border-radius: 8px; line-height: 1.8;">
-                <h2 style="color: var(--accent-blue); margin-bottom: 1rem;">Agreement to Terms</h2>
-                <p>By using Spore (the "Service"), you agree to these Terms of Service. If you don't agree, please don't use the Service.</p>
-
-                <h2 style="color: var(--accent-blue); margin: 2rem 0 1rem 0;">What Spore Is</h2>
-                <p>Spore is an open-source command-line tool and web dashboard for launching and managing AWS EC2 instances. The Service:</p>
-                <ul style="margin-left: 2rem; margin-top: 0.5rem;">
-                    <li>Helps you launch EC2 instances with automatic termination (TTL)</li>
-                    <li>Provides a web dashboard to view your instances</li>
-                    <li>Uses your AWS account and credentials</li>
-                    <li>Is provided free of charge under the MIT License</li>
-                </ul>
-
-                <h2 style="color: var(--accent-blue); margin: 2rem 0 1rem 0;">Your Responsibilities</h2>
-
-                <h3 style="color: var(--text-primary); margin: 1.5rem 0 0.5rem 0;">AWS Account</h3>
-                <ul style="margin-left: 2rem; margin-top: 0.5rem;">
-                    <li>You must have a valid AWS account</li>
-                    <li>You are responsible for all AWS charges incurred</li>
-                    <li>You must comply with <a href="https://aws.amazon.com/service-terms/" target="_blank" style="color: var(--accent-blue);">AWS Service Terms</a></li>
-                    <li>You are responsible for managing your AWS credentials securely</li>
-                </ul>
-
-                <h3 style="color: var(--text-primary); margin: 1.5rem 0 0.5rem 0;">Costs</h3>
-                <p style="margin-top: 0.5rem;"><strong>⚠️ Important:</strong> AWS charges apply for all EC2 instances, storage, and data transfer. Spore helps manage TTL (time-to-live) to prevent runaway costs, but you are solely responsible for monitoring and paying AWS bills.</p>
-
-                <h3 style="color: var(--text-primary); margin: 1.5rem 0 0.5rem 0;">Lawful Use</h3>
-                <ul style="margin-left: 2rem; margin-top: 0.5rem;">
-                    <li>Don't use the Service for illegal activities</li>
-                    <li>Don't attempt to abuse, hack, or disrupt the Service</li>
-                    <li>Follow the AWS Acceptable Use Policy</li>
-                    <li>Respect rate limits and quotas</li>
-                </ul>
-
-                <h2 style="color: var(--accent-blue); margin: 2rem 0 1rem 0;">What We Provide</h2>
-
-                <h3 style="color: var(--text-primary); margin: 1.5rem 0 0.5rem 0;">Free Service</h3>
-                <p>Spore is free and open source. We don't charge fees for using the CLI or dashboard.</p>
-
-                <h3 style="color: var(--text-primary); margin: 1.5rem 0 0.5rem 0;">No Warranty</h3>
-                <p style="margin-top: 0.5rem;">The Service is provided "AS IS" without warranties of any kind. This means:</p>
-                <ul style="margin-left: 2rem; margin-top: 0.5rem;">
-                    <li>We don't guarantee uptime or availability</li>
-                    <li>We're not responsible for data loss or AWS charges</li>
-                    <li>Features may change or break without notice</li>
-                    <li>We may discontinue the Service at any time</li>
-                </ul>
-
-                <h2 style="color: var(--accent-blue); margin: 2rem 0 1rem 0;">Limitation of Liability</h2>
-                <p>To the maximum extent permitted by law:</p>
-                <ul style="margin-left: 2rem; margin-top: 0.5rem;">
-                    <li>We are not liable for any damages arising from your use of Spore</li>
-                    <li>This includes AWS charges, data loss, or service interruptions</li>
-                    <li>You use Spore at your own risk</li>
-                </ul>
-
-                <h2 style="color: var(--accent-blue); margin: 2rem 0 1rem 0;">Authentication</h2>
-                <p>The web dashboard uses OAuth authentication:</p>
-                <ul style="margin-left: 2rem; margin-top: 0.5rem;">
-                    <li>We don't store passwords</li>
-                    <li>OAuth providers (Google, Globus, GitHub) have their own terms</li>
-                    <li>You're responsible for securing your OAuth accounts</li>
-                    <li>We obtain temporary AWS credentials on your behalf</li>
-                </ul>
-
-                <h2 style="color: var(--accent-blue); margin: 2rem 0 1rem 0;">Open Source License</h2>
-                <p>Spore is licensed under the <a href="https://github.com/scttfrdmn/mycelium/blob/main/LICENSE" target="_blank" style="color: var(--accent-blue);">MIT License</a>. You are free to:</p>
-                <ul style="margin-left: 2rem; margin-top: 0.5rem;">
-                    <li>Use the software for any purpose</li>
-                    <li>Modify and distribute the source code</li>
-                    <li>Fork and create derivative works</li>
-                </ul>
-                <p style="margin-top: 0.5rem;">The MIT License text takes precedence over these Terms for software usage.</p>
-
-                <h2 style="color: var(--accent-blue); margin: 2rem 0 1rem 0;">Service Modifications</h2>
-                <ul style="margin-left: 2rem; margin-top: 0.5rem;">
-                    <li>We may modify, suspend, or discontinue any part of the Service</li>
-                    <li>We may update these Terms at any time</li>
-                    <li>Continued use after changes means you accept the new Terms</li>
-                </ul>
-
-                <h2 style="color: var(--accent-blue); margin: 2rem 0 1rem 0;">Termination</h2>
-                <p>You can stop using Spore at any time by:</p>
-                <ul style="margin-left: 2rem; margin-top: 0.5rem;">
-                    <li>Logging out of the dashboard</li>
-                    <li>Uninstalling the CLI tools</li>
-                    <li>Terminating all EC2 instances launched with Spore</li>
-                </ul>
-                <p style="margin-top: 0.5rem;">We may terminate or restrict access if you violate these Terms.</p>
-
-                <h2 style="color: var(--accent-blue); margin: 2rem 0 1rem 0;">Third-Party Services</h2>
-                <p>Spore integrates with third-party services, each with their own terms:</p>
-                <ul style="margin-left: 2rem; margin-top: 0.5rem;">
-                    <li><a href="https://aws.amazon.com/service-terms/" target="_blank" style="color: var(--accent-blue);">AWS Service Terms</a></li>
-                    <li><a href="https://policies.google.com/terms" target="_blank" style="color: var(--accent-blue);">Google Terms of Service</a></li>
-                    <li><a href="https://www.globus.org/legal/terms" target="_blank" style="color: var(--accent-blue);">Globus Terms of Service</a></li>
-                    <li><a href="https://docs.github.com/en/site-policy/github-terms/github-terms-of-service" target="_blank" style="color: var(--accent-blue);">GitHub Terms of Service</a></li>
-                </ul>
-
-                <h2 style="color: var(--accent-blue); margin: 2rem 0 1rem 0;">Governing Law</h2>
-                <p>These Terms are governed by the laws of the United States. Any disputes will be resolved in accordance with those laws.</p>
-
-                <h2 style="color: var(--accent-blue); margin: 2rem 0 1rem 0;">Contact</h2>
-                <p>Questions about these Terms? Open an issue on <a href="https://github.com/scttfrdmn/mycelium/issues" target="_blank" style="color: var(--accent-blue);">GitHub</a>.</p>
-
-                <hr style="border: none; border-top: 1px solid var(--border); margin: 2rem 0;">
-
-                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 2rem;"><strong>TL;DR:</strong> Spore is a free, open-source tool. You pay AWS for your instances. We provide no warranty. Use it at your own risk. Be responsible with your AWS account.</p>
-            </div>
-
-            <div style="text-align: center; margin-top: 2rem;">
-                <a href="/" style="color: var(--accent-blue); text-decoration: none;">← Back to Home</a>
-            </div>
-        </section>
-
-        <footer style="margin-top: 4rem;">
-            <div class="footer-links">
-                <a href="https://github.com/scttfrdmn/mycelium">GitHub</a>
-                <a href="/privacy.html">Privacy Policy</a>
-                <a href="/terms.html">Terms of Service</a>
-            </div>
-            <p class="footer-text">
-                Made with 🍄 by <a href="https://github.com/scttfrdmn">@scttfrdmn</a>
-                <br>
-                Licensed under <a href="https://github.com/scttfrdmn/mycelium/blob/main/LICENSE">MIT</a>
-            </p>
-        </footer>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <nav class="nav" role="navigation" aria-label="Main navigation">
+    <div class="nav-inner">
+      <div class="nav-brand"><a href="/">spore.host</a></div>
+      <div class="nav-links">
+        <a href="/#tools">Tools</a>
+        <a href="/#install">Install</a>
+        <a href="library.html">For Developers</a>
+        <a href="https://github.com/scttfrdmn/spore-host" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-btn" id="theme-toggle" aria-label="Toggle colour theme">🌙</button>
+      </div>
     </div>
+  </nav>
+  <main id="main-content">
+    <section>
+      <div class="container">
+        <div class="prose">
+          <p class="section-label">Legal</p>
+          <h2 class="section-title" style="color:var(--text);font-size:1.75rem;margin-bottom:0.5rem;">Terms of Service</h2>
+          <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:2.5rem;">Last updated: January 14, 2026</p>
+          <h2>Agreement to Terms</h2>
+          <p>By using spore.host (the "Service"), you agree to these Terms. If you don't agree, please don't use the Service.</p>
+          <h2>What spore.host Is</h2>
+          <p>spore.host is an open-source command-line tool suite and web dashboard for launching and managing AWS EC2 instances. The Service:</p>
+          <ul>
+            <li>Helps launch EC2 instances with automatic termination (TTL)</li>
+            <li>Provides a dashboard to view your instances</li>
+            <li>Uses your AWS account and credentials</li>
+            <li>Is provided free of charge under the Apache License 2.0</li>
+          </ul>
+          <h2>Your Responsibilities</h2>
+          <h3>AWS account</h3>
+          <ul>
+            <li>You must have a valid AWS account</li>
+            <li>You are responsible for all AWS charges incurred</li>
+            <li>You must comply with <a href="https://aws.amazon.com/service-terms/" target="_blank" rel="noopener">AWS Service Terms</a></li>
+            <li>You are responsible for managing AWS credentials securely</li>
+          </ul>
+          <h3>Costs</h3>
+          <p><strong>⚠️ Important:</strong> AWS charges apply for all EC2 instances, storage, and data transfer. spore.host helps manage TTL to prevent runaway costs, but you are solely responsible for monitoring and paying AWS bills.</p>
+          <h3>Lawful use</h3>
+          <ul>
+            <li>Don't use the Service for illegal activities</li>
+            <li>Don't abuse, hack, or disrupt the Service</li>
+            <li>Follow the AWS Acceptable Use Policy</li>
+          </ul>
+          <h2>No Warranty</h2>
+          <p>The Service is provided "AS IS" without warranties of any kind. We don't guarantee uptime, and we're not responsible for data loss or AWS charges. Features may change or be discontinued.</p>
+          <h2>Limitation of Liability</h2>
+          <p>To the maximum extent permitted by law, we are not liable for any damages arising from your use of spore.host, including AWS charges, data loss, or service interruptions.</p>
+          <h2>Open Source License</h2>
+          <p>spore.host is licensed under the <a href="https://github.com/scttfrdmn/spore-host/blob/main/LICENSE" target="_blank" rel="noopener">Apache License 2.0</a>. The license text takes precedence over these Terms for software usage.</p>
+          <h2>Third-Party Services</h2>
+          <ul>
+            <li><a href="https://aws.amazon.com/service-terms/" target="_blank" rel="noopener">AWS Service Terms</a></li>
+            <li><a href="https://policies.google.com/terms" target="_blank" rel="noopener">Google Terms of Service</a></li>
+            <li><a href="https://www.globus.org/legal/terms" target="_blank" rel="noopener">Globus Terms of Service</a></li>
+            <li><a href="https://docs.github.com/en/site-policy/github-terms/github-terms-of-service" target="_blank" rel="noopener">GitHub Terms of Service</a></li>
+          </ul>
+          <h2>Contact</h2>
+          <p>Questions? Open an issue on <a href="https://github.com/scttfrdmn/spore-host/issues" target="_blank" rel="noopener">GitHub</a>.</p>
+          <div class="tldr">
+            <strong>TL;DR:</strong> spore.host is a free, open-source tool. You pay AWS for your instances. We provide no warranty. Use it at your own risk. Be responsible with your AWS account.
+          </div>
+          <p style="margin-top:2.5rem;font-size:0.9rem;"><a href="/" style="color:var(--spawn);">← Back to Home</a></p>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer>
+    <div class="footer-inner">
+      <div><div class="footer-brand">spore.host</div><div class="footer-tagline">Ephemeral compute for research.</div></div>
+      <nav class="footer-links" aria-label="Footer navigation">
+        <a href="https://github.com/scttfrdmn/spore-host" target="_blank" rel="noopener">GitHub</a>
+        <a href="privacy.html">Privacy</a><a href="terms.html">Terms</a>
+      </nav>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Scott Friedman</span>
+      <span><a href="https://github.com/scttfrdmn/spore-host/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a></span>
+    </div>
+  </footer>
+  <script>
+  document.getElementById('theme-toggle').addEventListener('click', function() {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    this.textContent = next === 'dark' ? '🌙' : '☀️';
+  });
+  (function(){const t=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.getElementById('theme-toggle').textContent=t==='dark'?'🌙':'☀️';})();
+  </script>
 </body>
 </html>
