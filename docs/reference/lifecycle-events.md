@@ -6,11 +6,11 @@ Spored emits lifecycle events when significant things happen to a running instan
 
 | Event | When it fires | Default message |
 |-------|--------------|-----------------|
-| `ttl_warning` | 10 minutes before TTL expires | ⏱️ *name* terminates in 10 minutes |
+| `ttl_warning` | 5 minutes before TTL expires | ⏱️ *name* terminates in 5 minutes |
 | `ttl_expired` | At TTL expiry | 🔴 *name* has terminated — scheduled end time reached |
-| `idle_warning` | 10 minutes before idle timeout | 💤 *name* will terminate in 10 minutes — no activity detected |
-| `idle_terminated` | At idle timeout (terminate action) | 🔴 *name* has terminated — idle timeout reached |
-| `idle_hibernated` | At idle timeout (hibernate action) | 💤 *name* has hibernated — idle timeout reached |
+| `idle_warning` | 5 minutes before idle timeout | 💤 *name* will stop in 5 minutes — no activity detected |
+| `idle_stopped` | At idle timeout (default) | ⏹️ *name* has stopped — idle timeout reached |
+| `idle_hibernated` | At idle timeout with `--hibernate-on-idle` | 💤 *name* has hibernated — idle timeout reached |
 | `completion` | When `spawn:completion-file` is detected | ✅ *name* has completed |
 | `spot_interrupt` | On Spot interruption notice | ⚠️ *name* received a Spot interruption notice |
 | `pre_stop_start` | When pre-stop hook begins | 🔄 *name* is running its shutdown task before terminating |

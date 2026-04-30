@@ -221,19 +221,26 @@ func (a *Agent) checkAndAct(ctx context.Context) {
 	}
 
 	// 2. Check TTL
-	if a.config.TTL > 0 {
-		uptime := time.Since(a.startTime)
-		remaining := a.config.TTL - uptime
+	// TTLDeadline is authoritative — it is set once at launch and anchored to the
+	// original launch time, so it is never reset by stop/start cycles. If not set
+	// (older instances), fall back to startTime+TTL which has the reset bug.
+	if !a.config.TTLDeadline.IsZero() || a.config.TTL > 0 {
+		var remaining time.Duration
+		if !a.config.TTLDeadline.IsZero() {
+			remaining = time.Until(a.config.TTLDeadline)
+		} else {
+			remaining = a.config.TTL - time.Since(a.startTime)
+		}
 
 		if remaining <= 0 {
-			log.Printf("TTL expired (limit: %v, uptime: %v)", a.config.TTL, uptime)
+			log.Printf("TTL expired (deadline: %v)", a.config.TTLDeadline)
 			a.notifier.Notify(ctx, "ttl_expired", "")
 			a.terminate(ctx, "TTL expired")
 			return
 		}
 
 		// Warn once when 5 minutes remain before TTL
-		if remaining > 0 && remaining <= 5*time.Minute && !a.ttlWarned {
+		if remaining <= 5*time.Minute && !a.ttlWarned {
 			a.ttlWarned = true
 			a.warnUsers(i18n.Tf("spawn.agent.ttl_warning", map[string]interface{}{
 				"Duration": remaining.Round(time.Minute),
@@ -273,13 +280,16 @@ func (a *Agent) checkAndAct(ctx context.Context) {
 			if idleTime >= a.config.IdleTimeout {
 				log.Printf("Idle timeout reached (%v)", idleTime)
 
-				// Send event name that reflects the actual action
+				// Send event name that reflects the actual action.
+				// Default: stop the instance (compute billing pauses, instance preserved).
+				// --hibernate-on-idle: hibernate instead (RAM saved to disk).
+				// Only TTL causes termination — idle timeout never destroys data.
 				if a.config.HibernateOnIdle {
 					a.notifier.Notify(ctx, "idle_hibernated", "")
 					a.hibernate(ctx)
 				} else {
-					a.notifier.Notify(ctx, "idle_terminated", "")
-					a.terminate(ctx, "Idle timeout")
+					a.notifier.Notify(ctx, "idle_stopped", "")
+					a.stop(ctx, "Idle timeout")
 				}
 				return
 			}

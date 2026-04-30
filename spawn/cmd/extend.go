@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
@@ -101,11 +102,35 @@ func runExtend(cmd *cobra.Command, args []string) error {
 			"new_ttl": newTTL,
 		}, nil)
 
-	// Update the TTL tag
-	fmt.Fprintf(os.Stderr, "Updating TTL to %s...\n", newTTL)
-	err = client.UpdateInstanceTags(ctx, instance.Region, instance.InstanceID, map[string]string{
-		"spawn:ttl": newTTL,
-	})
+	// Extend the absolute deadline, anchored to the original launch time.
+	// TTL is always relative to first launch — extending adds to the current deadline,
+	// not to the current clock time.
+	extendDuration, err := time.ParseDuration(newTTL)
+	if err != nil {
+		return fmt.Errorf("invalid TTL duration %q: %w", newTTL, err)
+	}
+
+	tags := map[string]string{"spawn:ttl": newTTL}
+
+	// Push the absolute deadline forward, keeping it anchored to the original launch time.
+	var newDeadline time.Time
+	if dl, ok := instance.Tags["spawn:ttl-deadline"]; ok {
+		if parsed, err := time.Parse(time.RFC3339, dl); err == nil {
+			newDeadline = parsed.Add(extendDuration)
+		}
+	}
+	if newDeadline.IsZero() {
+		// Older instance without deadline tag — best-effort from current TTL
+		if cur, err := time.ParseDuration(instance.TTL); err == nil {
+			newDeadline = time.Now().Add(cur).Add(extendDuration)
+		} else {
+			newDeadline = time.Now().Add(extendDuration)
+		}
+	}
+	tags["spawn:ttl-deadline"] = newDeadline.UTC().Format(time.RFC3339)
+
+	fmt.Fprintf(os.Stderr, "Extending TTL deadline to %s...\n", newDeadline.UTC().Format("2006-01-02 15:04 UTC"))
+	err = client.UpdateInstanceTags(ctx, instance.Region, instance.InstanceID, tags)
 	if err != nil {
 		auditLog.LogOperationWithRegion("extend_ttl", instance.InstanceID, instance.Region, "failed", err)
 		return fmt.Errorf("failed to update TTL: %w", err)

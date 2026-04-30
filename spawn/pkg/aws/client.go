@@ -336,6 +336,12 @@ func buildTags(config LaunchConfig, accountID string, userARN string) []types.Ta
 
 	if config.TTL != "" {
 		tags = append(tags, types.Tag{Key: aws.String("spawn:ttl"), Value: aws.String(config.TTL)})
+		// Compute the absolute deadline once at launch; spored uses this across stop/wake cycles
+		// so that TTL is always relative to original launch time, never reset.
+		if d, err := time.ParseDuration(config.TTL); err == nil {
+			deadline := time.Now().Add(d).UTC().Format(time.RFC3339)
+			tags = append(tags, types.Tag{Key: aws.String("spawn:ttl-deadline"), Value: aws.String(deadline)})
+		}
 	}
 
 	if config.DNSName != "" {

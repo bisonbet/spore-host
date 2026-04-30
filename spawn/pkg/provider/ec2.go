@@ -340,6 +340,10 @@ func loadConfigFromEC2Tags(ctx context.Context, client *ec2.Client, instanceID s
 			if duration, err := time.ParseDuration(*tag.Value); err == nil {
 				config.TTL = duration
 			}
+		case tagprefix.Tag("ttl-deadline"):
+			if t, err := time.Parse(time.RFC3339, *tag.Value); err == nil {
+				config.TTLDeadline = t
+			}
 		case tagprefix.Tag("idle-timeout"):
 			if duration, err := time.ParseDuration(*tag.Value); err == nil {
 				config.IdleTimeout = duration

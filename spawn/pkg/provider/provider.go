@@ -28,6 +28,7 @@ type PluginDeclaration struct {
 // Config represents the agent configuration
 type Config struct {
 	TTL             time.Duration
+	TTLDeadline     time.Time     // absolute deadline = launch_time + TTL; authoritative across stop/wake cycles
 	IdleTimeout     time.Duration
 	HibernateOnIdle bool
 	CostLimit       float64
