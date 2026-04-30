@@ -57,45 +57,16 @@
           <a href="https://github.com/scttfrdmn/spore-host" target="_blank" rel="noopener" class="btn btn-outline">View on GitHub</a>
         </div>
 
-        <div class="terminal" role="img" aria-label="Terminal showing a typical spore.host workflow">
-          <div class="terminal-bar" aria-hidden="true">
-            <span class="terminal-dot red"></span>
-            <span class="terminal-dot yellow"></span>
-            <span class="terminal-dot green"></span>
-            <span class="terminal-title">bash</span>
-          </div>
-          <div class="terminal-body">
-            <pre><span class="t-prompt">$</span> <span class="t-cmd">truffle find</span> <span class="t-flag">"nvidia a100"</span> <span class="t-flag">--region us-east-1</span>
-<span class="t-out">p4d.24xlarge   96 vCPU   1152 GiB   8× A100 40GB   $32.77/hr   </span><span class="t-hi">$9.83/hr spot (70% savings)</span>
-<span class="t-out">p3.16xlarge    64 vCPU    488 GiB   8× V100 16GB   $24.48/hr   </span><span class="t-hi">$7.34/hr spot (70% savings)</span>
-
-<span class="t-prompt">$</span> <span class="t-cmd">spawn launch</span> <span class="t-flag">--name</span> ml-training <span class="t-flag">--instance-type</span> p4d.24xlarge \
-         <span class="t-flag">--ttl</span> 12h <span class="t-flag">--on-complete</span> terminate <span class="t-flag">--slack-workspace</span> T03NE3GTY
-<span class="t-ok">✓</span> Instance i-0a1b2c3d4e5f running
-<span class="t-ok">✓</span> ml-training.a1b2c3.spore.host
-<span class="t-ok">✓</span> Terminates automatically in 12h
-<span class="t-ok">✓</span> Slack notifications enabled — you'll hear when it's done</pre>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── Demo ── -->
-    <section id="demo-section">
-      <div class="container">
-        <p class="section-label">See it in action</p>
-        <h2 class="section-title">A full research workflow</h2>
-        <p class="section-sub">Find an AMD EPYC Genoa instance, launch with a 12h TTL and 10-minute idle timeout, run a simulation in the background, disconnect, check back hours later — then watch the idle timeout terminate it early and show the actual cost versus the maximum.</p>
-
         <div id="demo-wrapper">
           <button id="demo-play-btn" class="demo-play-btn" onclick="loadDemo()" aria-label="Watch demo screencast">
             <span class="demo-play-icon">▶</span>
-            Watch demo
+            Watch a full research workflow
           </button>
+          <p class="demo-hint">AMD EPYC Genoa search · launch with TTL + idle timeout · run a job · check cost · watch it self-terminate</p>
           <div id="demo-player" style="display:none;"></div>
         </div>
       </div>
-    </section>
+    </div>
 
     <!-- ── Tools ── -->
     <section id="tools">

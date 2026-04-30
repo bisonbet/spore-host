@@ -312,7 +312,8 @@ h2.section-title {
 .demo-play-btn:hover { opacity: 0.88; }
 .demo-play-btn:disabled { opacity: 0.5; cursor: default; }
 .demo-play-icon { font-size: 0.75rem; }
-#demo-player { border-radius: var(--radius); overflow: hidden; max-width: 900px; }
+#demo-player { border-radius: var(--radius); overflow: hidden; max-width: 900px; margin-top: 0.5rem; }
+.demo-hint { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.6rem; }
 
 /* ── Install ── */
 .install-tabs { display: flex; gap: 0.25rem; margin-bottom: 1rem; }
