@@ -62,7 +62,7 @@ Lifecycle events from spored are routed through spore-bot to your Slack DMs:
 
 ### <span class="tool-badge mcp">MCP Server</span> — Control from AI assistants
 
-The spore-host MCP server exposes all of the above as tools for AI assistants that support the Model Context Protocol — Claude Desktop, Cursor, and others. Instead of running CLI commands, you describe what you need in plain language and the assistant handles it.
+The spore.host MCP server exposes all of the above as tools for AI assistants that support the Model Context Protocol — Claude Desktop, Cursor, and others. Instead of running CLI commands, you describe what you need in plain language and the assistant handles it.
 
 > *"What instances do I have running and how long until they terminate?"*
 

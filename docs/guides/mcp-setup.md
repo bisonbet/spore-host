@@ -1,6 +1,6 @@
 # AI Assistant Integration (MCP)
 
-The spore-host MCP server lets you manage compute through AI assistants that support the Model Context Protocol — including Claude Desktop and Cursor. Instead of running CLI commands, you describe what you need in plain language.
+The spore.host MCP server lets you manage compute through AI assistants that support the Model Context Protocol — including Claude Desktop and Cursor. Instead of running CLI commands, you describe what you need in plain language.
 
 ## What you can do
 
@@ -25,7 +25,7 @@ Or download from the [releases page](https://github.com/scttfrdmn/spore-host/rel
 
 ## Configure Claude Desktop
 
-Add spore-host to `~/.claude/claude_desktop_config.json`:
+Add spore.host to `~/.claude/claude_desktop_config.json`:
 
 ```json
 {
