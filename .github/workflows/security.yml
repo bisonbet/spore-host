@@ -29,11 +29,13 @@ jobs:
       - name: go mod tidy (all modules)
         run: |
           go mod tidy || true
-          cd spawn    && go mod tidy
-          cd ../truffle && go mod tidy
-          cd ../lagotto && go mod tidy
-          cd ../pkg/i18n && go mod tidy
-          cd ../pkg/pricing && go mod tidy
+          cd spawn                   && go mod tidy
+          cd ../truffle              && go mod tidy
+          cd ../lagotto              && go mod tidy
+          cd ../mcp                  && go mod tidy
+          cd ../spawn/lambda/rest-api && go mod tidy
+          cd ../../pkg/i18n          && go mod tidy
+          cd ../pricing              && go mod tidy
 
       - name: govulncheck - root
         run: govulncheck ./... || true  # root module has no Go packages in multi-module repo
