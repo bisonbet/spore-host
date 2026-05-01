@@ -183,41 +183,43 @@ client.UpdateInstanceTags(ctx, result.Region, result.InstanceID,
       </div>
     </section>
 
-    <!-- ── Coming soon ── -->
-    <section id="roadmap">
+    <!-- ── Python SDK ── -->
+    <section id="python-sdk">
       <div class="container">
-        <p class="section-label">Roadmap</p>
-        <h2 class="section-title">What's coming</h2>
-        <p class="section-sub">The Go library and MCP server are available today. Language-agnostic access is next.</p>
+        <p class="section-label">Available now</p>
+        <h2 class="section-title">Python SDK</h2>
+        <p class="section-sub">Use spore.host from Jupyter notebooks, marimo, training scripts, and data pipelines. Find instances, launch compute, and manage the full lifecycle in Python.</p>
 
         <div class="dev-grid">
 
           <div class="dev-block">
-            <h3>Python SDK — early access</h3>
-            <p>Install from the repository while PyPI publication is pending.</p>
-<pre><code>pip install "git+https://github.com/spore-host/spore-host.git#subdirectory=sdk/python"
+            <h3>Install</h3>
+<pre><code>pip install spore-host
+# with notebook extras
+pip install "spore-host[jupyter]"</code></pre>
 
-# or, with notebook extras
-pip install "spore-host[jupyter] @ git+https://github.com/spore-host/spore-host.git#subdirectory=sdk/python"</code></pre>
-
-            <h3 style="margin-top:1.5rem">Usage — Jupyter / marimo / scripts</h3>
+            <h3 style="margin-top:1.5rem">Launch and manage</h3>
 <pre><code>import spore
+
+# Launch an instance
+inst = spore.spawn.launch(
+    "c8a.2xlarge",
+    name="my-analysis",
+    ttl="12h",
+    idle_timeout="30m",
+)
+inst.wait_running()
 
 # Find instances
 results = spore.truffle.find("amd epyc genoa", region="us-east-1")
 for r in results:
     print(r.instance_type, f"${r.on_demand_price:.4f}/hr")
 
-# Spot prices
-prices = spore.truffle.spot("c8a.2xlarge", region="us-east-1")
-cheapest = min(prices, key=lambda p: p.spot_price)
-
 # Manage running instances
 instances = spore.spawn.list()
 inst = spore.spawn.status("sim-run-42")
-inst.extend("2h")           # push TTL deadline forward
-inst.wait("terminated",     # block until done
-    on_status=lambda i: print(i.state))</code></pre>
+inst.extend("2h")
+inst.wait("terminated", on_status=lambda i: print(i.state))</code></pre>
             <div style="margin-top:1rem;display:flex;gap:0.75rem;flex-wrap:wrap">
               <a href="https://docs.spore.host/guides/python-sdk" target="_blank" rel="noopener" class="btn btn-outline">Full Python SDK docs →</a>
               <a href="https://github.com/spore-host/python-sdk/blob/main/examples/jupyter_example.ipynb" target="_blank" rel="noopener" class="btn btn-outline">Jupyter example →</a>
@@ -225,17 +227,20 @@ inst.wait("terminated",     # block until done
             </div>
           </div>
 
-          <div class="coming-soon-card">
-            <span class="badge">Coming soon</span>
+          <div class="dev-block">
             <h3>REST API</h3>
-            <p>A language-agnostic HTTP API over truffle and spawn. Authenticated via AWS SigV4 — same credentials you already have. The foundation the Python SDK and future R/Julia bindings will build on.</p>
-<pre style="margin-top:0.75rem"><code>GET  /v1/instances/search?query=nvidia+h100
-GET  /v1/instances/spot-prices?type=p4d.24xlarge
-POST /v1/instances          # launch
-GET  /v1/instances          # list
+            <p>A language-agnostic HTTP API over truffle and spawn — the foundation for the Python SDK and future R/Julia bindings.</p>
+<pre><code>GET  /v1/instances              # list
+POST /v1/instances              # launch
+GET  /v1/instances/{id}         # status
 POST /v1/instances/{id}/stop
-POST /v1/instances/{id}/terminate</code></pre>
-            <a href="https://github.com/spore-host/spore-host/issues/252" target="_blank" rel="noopener" style="font-size:0.85rem; color:var(--spawn);">Track issue #252 →</a>
+POST /v1/instances/{id}/start
+POST /v1/instances/{id}/extend
+POST /v1/instances/{id}/terminate
+GET  /v1/search?q=nvidia+h100
+GET  /v1/spot?type=p4d.24xlarge
+GET  /v1/quota?type=p4d.24xlarge&region=us-east-1</code></pre>
+            <p style="margin-top:0.75rem;font-size:0.875rem;color:var(--text-muted);">Auth: <span class="inline-code">X-API-Key</span> header. Keys via <span class="inline-code">spawn api-key create</span>.</p>
           </div>
 
         </div>

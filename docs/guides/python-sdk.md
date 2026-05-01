@@ -135,12 +135,39 @@ inst.wait(
 
 ## Launching instances
 
-::: warning Coming soon
-`spore.spawn.launch()` is not yet implemented in the Python SDK. Use the CLI to launch:
-```sh
-spawn launch --name my-job --instance-type c8a.2xlarge --ttl 8h --idle-timeout 30m
+```python
+inst = spore.spawn.launch(
+    "c8a.2xlarge",
+    name="my-analysis",
+    ttl="12h",
+    idle_timeout="30m",
+    on_complete="terminate",
+)
+print(inst.instance_id, inst.public_ip)
+
+# Block until the instance is running
+inst.wait_running()
 ```
-Then manage the running instance from Python.
+
+Full parameter reference:
+
+```python
+spore.spawn.launch(
+    instance_type,          # required — e.g. "c8a.2xlarge"
+    name=None,              # instance name tag
+    region=None,            # AWS region; defaults to client region
+    ttl="4h",               # hard termination deadline
+    idle_timeout=None,      # stop if idle for this duration, e.g. "30m"
+    spot=False,             # use Spot pricing
+    on_complete="terminate",# action on SPAWN_COMPLETE: "terminate", "stop", "hibernate"
+    slack_workspace=None,   # Slack workspace ID for lifecycle SMS/DM notifications
+    active_processes=None,  # list of process names that indicate activity, e.g. ["rsession"]
+    wait=False,             # if True, block until instance is running
+)
+```
+
+::: tip TTL vs idle timeout
+`ttl` is the hard deadline — the instance terminates at `launch_time + ttl` regardless of activity. `idle_timeout` stops the instance when idle; the timer resets on each wake. See [TTL vs idle timeout](/reference/configuration#ttl-vs-idle-timeout-how-they-interact).
 :::
 
 ## Jupyter notebooks
