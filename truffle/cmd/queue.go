@@ -20,18 +20,20 @@ var (
 )
 
 var queueCmd = &cobra.Command{
-	Use:   "queue",
-	Short: "Manage batch job queues",
+	Use:        "queue",
+	Short:      "Manage batch job queues",
+	Deprecated: "use 'spawn queue' instead — queue management belongs with spawn, not truffle",
 	Long: `Commands for managing and monitoring batch job queues.
+
+NOTE: This command is deprecated. Use 'spawn queue' for the full implementation
+including template management and proper instance resolution.
 
 Batch queues execute jobs sequentially on a single instance, with
 dependency management and automatic result collection.
 
 Examples:
-  # Check queue status on instance
+  # Use spawn queue instead:
   spawn queue status i-1234567890abcdef0
-
-  # Download queue results
   spawn queue results queue-20260122-140530 --output ./results/
 `,
 }

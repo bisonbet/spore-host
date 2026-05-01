@@ -17,7 +17,7 @@ import (
 
 var (
 	statusSweepID       string
-	statusJSON          bool
+	statusJSON          bool // deprecated: use --output json
 	statusCheckComplete bool
 )
 
@@ -32,7 +32,9 @@ func init() {
 	rootCmd.AddCommand(statusCmd)
 
 	statusCmd.Flags().StringVar(&statusSweepID, "sweep-id", "", "Check parameter sweep status instead of instance status")
+	_ = statusCmd.Flags().MarkDeprecated("sweep-id", "use 'spawn sweep status <sweep-id>' instead")
 	statusCmd.Flags().BoolVar(&statusJSON, "json", false, "Output status as JSON")
+	_ = statusCmd.Flags().MarkDeprecated("json", "use --output json instead")
 	statusCmd.Flags().BoolVar(&statusCheckComplete, "check-complete", false, "Check completion status and exit with standardized codes (0=complete, 1=failed, 2=running, 3=error)")
 
 	// Register completion for instance ID argument
@@ -42,14 +44,14 @@ func init() {
 func runStatus(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 
-	// Check if sweep status requested
+	// Check if sweep status requested (deprecated path; prefer 'spawn sweep status')
 	if statusSweepID != "" {
-		return runSweepStatus(ctx, statusSweepID)
+		return runSweepStatus(ctx, statusSweepID, statusJSON || getOutputFormat() == "json", statusCheckComplete)
 	}
 
 	// Instance status mode (original behavior)
 	if len(args) == 0 {
-		return fmt.Errorf("instance ID required, or use --sweep-id for sweep status")
+		return fmt.Errorf("instance ID or name required")
 	}
 
 	instanceIdentifier := args[0]
@@ -93,7 +95,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runSweepStatus(ctx context.Context, sweepID string) error {
+func runSweepStatus(ctx context.Context, sweepID string, jsonOut bool, checkComplete bool) error {
 	// Load AWS SDK config for spore-host-infra (where DynamoDB table lives)
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion("us-east-1"),
@@ -104,19 +106,19 @@ func runSweepStatus(ctx context.Context, sweepID string) error {
 	}
 
 	// Query sweep status
-	if !statusJSON && !statusCheckComplete {
+	if !jsonOut && !checkComplete {
 		fmt.Fprintf(os.Stderr, "🔍 Querying sweep status...\n\n")
 	}
 	status, err := sweep.QuerySweepStatus(ctx, cfg, sweepID)
 	if err != nil {
-		if statusCheckComplete {
+		if checkComplete {
 			os.Exit(3) // Error querying status
 		}
 		return fmt.Errorf("failed to query sweep status: %w", err)
 	}
 
 	// If check-complete mode, exit with standardized code
-	if statusCheckComplete {
+	if checkComplete {
 		switch status.Status {
 		case "COMPLETED":
 			os.Exit(0) // Complete
@@ -130,7 +132,7 @@ func runSweepStatus(ctx context.Context, sweepID string) error {
 	}
 
 	// If JSON output requested, marshal and print
-	if statusJSON {
+	if jsonOut {
 		jsonBytes, err := json.MarshalIndent(status, "", "  ")
 		if err != nil {
 			return fmt.Errorf("failed to marshal status to JSON: %w", err)

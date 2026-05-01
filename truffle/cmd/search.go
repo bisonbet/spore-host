@@ -29,10 +29,10 @@ var (
 )
 
 var searchCmd = &cobra.Command{
-	Use:  "search [instance-type-pattern]",
-	Args: cobra.ExactArgs(1),
-	RunE: runSearch,
-	// Short and Long will be set after i18n initialization
+	Use:   "search [instance-type-pattern]",
+	Short: "Search by instance type pattern (regex, e.g. 'p4d.*' or 'c[6-8]')",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runSearch,
 }
 
 func init() {

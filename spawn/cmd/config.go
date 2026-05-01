@@ -13,10 +13,11 @@ import (
 )
 
 var configCmd = &cobra.Command{
-	Use:  "config <instance-id> <action> [key] [value]",
-	RunE: runConfig,
-	Args: cobra.MinimumNArgs(2),
-	// Short and Long will be set after i18n initialization
+	Use:     "instance-config <instance-id> <action> [key] [value]",
+	Short:   "Read or write runtime config on a running instance via SSH",
+	Aliases: []string{"config"},
+	RunE:    runConfig,
+	Args:    cobra.MinimumNArgs(2),
 }
 
 func init() {

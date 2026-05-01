@@ -24,7 +24,7 @@ var (
 
 var findCmd = &cobra.Command{
 	Use:   "find <query>",
-	Short: "Find instances using natural language queries",
+	Short: "Find instances using natural language (e.g. 'nvidia h100 8gpu', 'amd epyc genoa')",
 	Long: `Find EC2 instance types using natural language queries.
 
 Understands:

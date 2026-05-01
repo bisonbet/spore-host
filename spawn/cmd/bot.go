@@ -52,18 +52,19 @@ var (
 )
 
 var botCmd = &cobra.Command{
-	Use:   "bot",
-	Short: "Manage chat bot registrations for instance control",
-	Long: `Register and manage Slack/Teams bot access to instances.
+	Use:     "notify",
+	Short:   "Manage chat and SMS notification registrations for instances",
+	Aliases: []string{"bot"},
+	Long: `Register and manage Slack/Teams/SMS notifications for instances.
 
-The bot lets authorized chat users start, stop, hibernate, and check
-status on instances without CLI access.
+Lets authorized users receive lifecycle events (launch, idle stop, TTL warn,
+termination) and control instances via chat slash commands without CLI access.
 
 Examples:
-  spawn bot register --platform slack --user professor@example.com \
+  spawn notify register --platform slack --user professor@example.com \
     --instance i-0abc123 --nickname rstudio --allow start,stop,status
-  spawn bot deregister --platform slack --user professor@example.com --nickname rstudio
-  spawn bot list --platform slack --workspace T03NE3GTY`,
+  spawn notify deregister --platform slack --user professor@example.com --nickname rstudio
+  spawn notify list --platform slack --workspace T03NE3GTY`,
 }
 
 // ── register ─────────────────────────────────────────────────────────────────
@@ -213,7 +214,7 @@ func runBotRegister(cmd *cobra.Command, args []string) error {
 				}
 				return vals
 			}()},
-			":by":  &dynamodbtypes.AttributeValueMemberS{Value: reg.RegisteredBy},
+			":by":   &dynamodbtypes.AttributeValueMemberS{Value: reg.RegisteredBy},
 			":plat": &dynamodbtypes.AttributeValueMemberS{Value: reg.Platform},
 			":cat":  &dynamodbtypes.AttributeValueMemberS{Value: reg.CreatedAt},
 		},
@@ -392,7 +393,7 @@ var botDisableCmd = &cobra.Command{
 	Use:   "disable",
 	Short: "Temporarily disable bot access for a registered instance",
 	Long: `Suspend bot access without removing the registration. Use during
-sensitive computation runs or maintenance. Re-enable with 'spawn bot enable'.`,
+sensitive computation runs or maintenance. Re-enable with 'spawn notify enable'.`,
 	RunE: botEnableDisable(false),
 }
 
@@ -496,7 +497,7 @@ spore-bot Lambda can verify incoming slash command requests.
 
 Run this once after installing the Slack app in a workspace:
 
-  spawn bot workspace-add \
+  spawn notify workspace-add \
     --platform slack \
     --workspace-id T03NE3GTY \
     --workspace-name "My Workspace" \
@@ -813,14 +814,14 @@ func lookupSlackUserByEmail(ctx context.Context, cfg aws.Config, platform, works
 		},
 	})
 	if err != nil || result.Item == nil {
-		return "", fmt.Errorf("workspace %s/%s not registered (run spawn bot workspace-add first)", platform, workspaceID)
+		return "", fmt.Errorf("workspace %s/%s not registered (run spawn notify workspace-add first)", platform, workspaceID)
 	}
 	var ws botWorkspace
 	if err := attributevalue.UnmarshalMap(result.Item, &ws); err != nil {
 		return "", fmt.Errorf("unmarshal workspace: %w", err)
 	}
 	if ws.BotToken == "" {
-		return "", fmt.Errorf("no bot token stored for workspace %s — re-run spawn bot workspace-add with --bot-token", workspaceID)
+		return "", fmt.Errorf("no bot token stored for workspace %s — re-run spawn notify workspace-add with --bot-token", workspaceID)
 	}
 
 	// Refresh token if rotation is enabled and token is expired

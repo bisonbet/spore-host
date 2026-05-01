@@ -15,7 +15,6 @@ var (
 
 	// Global flags
 	outputFormat string
-	jsonOutput   bool
 	verbose      bool
 	watchesTable string
 	historyTable string
@@ -55,7 +54,6 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&flagAccessibility, "accessibility", false, "Enable accessibility mode (implies --no-emoji)")
 
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "table", "Output format (table, json)")
-	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "Output as JSON (shorthand for -o json)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	rootCmd.PersistentFlags().StringVar(&watchesTable, "watches-table", "lagotto-watches", "DynamoDB table name for watches")
 	rootCmd.PersistentFlags().StringVar(&historyTable, "history-table", "lagotto-match-history", "DynamoDB table name for match history")
@@ -119,8 +117,5 @@ func updateCommandDescriptions() {
 }
 
 func getOutputFormat() string {
-	if jsonOutput {
-		return "json"
-	}
 	return outputFormat
 }

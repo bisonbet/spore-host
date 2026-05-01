@@ -898,7 +898,7 @@ other = "search [instance-type-pattern]"
 
 [truffle.search.short]
 description = "Short description of search command"
-other = "Search for instance types across AWS regions"
+other = "Search by instance type pattern (regex, e.g. 'p4d.*' or 'c[6-8]')"
 
 [truffle.search.long]
 description = "Long description of search command"

@@ -23,27 +23,26 @@ var (
 
 // stop command
 var stopCmd = &cobra.Command{
-	Use:  "stop [instance-id-or-name]",
-	RunE: runStop,
-	Args: cobra.RangeArgs(0, 1),
-	// Short and Long will be set after i18n initialization
+	Use:   "stop [instance-id-or-name]",
+	Short: "Stop a running instance (preserves EBS volumes)",
+	RunE:  runStop,
+	Args:  cobra.RangeArgs(0, 1),
 }
 
 // hibernate command
 var hibernateCmd = &cobra.Command{
-	Use:     "hibernate [instance-id-or-name]",
-	RunE:    runHibernate,
-	Aliases: []string{"sleep"},
-	Args:    cobra.RangeArgs(0, 1),
-	// Short and Long will be set after i18n initialization
+	Use:   "hibernate [instance-id-or-name]",
+	Short: "Hibernate an instance to disk (saves RAM state)",
+	RunE:  runHibernate,
+	Args:  cobra.RangeArgs(0, 1),
 }
 
 // start command
 var startCmd = &cobra.Command{
-	Use:  "start [instance-id-or-name]",
-	RunE: runStart,
-	Args: cobra.RangeArgs(0, 1),
-	// Short and Long will be set after i18n initialization
+	Use:   "start [instance-id-or-name]",
+	Short: "Start a stopped or hibernated instance",
+	RunE:  runStart,
+	Args:  cobra.RangeArgs(0, 1),
 }
 
 func init() {

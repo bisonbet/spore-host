@@ -17,6 +17,10 @@ var (
 	flagNoEmoji       bool
 	flagAccessibility bool
 	flagNoColor       bool
+
+	// Output / display flags
+	spawnOutputFormat string
+	spawnVerbose      bool
 )
 
 var rootCmd = &cobra.Command{
@@ -51,6 +55,10 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&flagAccessibility, "accessibility", false, "Enable accessibility mode (implies --no-emoji)")
 	rootCmd.PersistentFlags().BoolVar(&flagNoColor, "no-color", false, "Disable colorized output")
 
+	// Output format and verbosity
+	rootCmd.PersistentFlags().StringVarP(&spawnOutputFormat, "output", "o", "table", "Output format (table, json)")
+	rootCmd.PersistentFlags().BoolVarP(&spawnVerbose, "verbose", "v", false, "Enable verbose output")
+
 	// Enable shell completion for all supported shells
 	rootCmd.CompletionOptions.DisableDefaultCmd = false
 	rootCmd.CompletionOptions.DisableDescriptions = false
@@ -80,6 +88,11 @@ func initI18n() {
 
 	// Set command descriptions after i18n is initialized
 	updateCommandDescriptions()
+}
+
+// getOutputFormat returns the global output format flag value.
+func getOutputFormat() string {
+	return spawnOutputFormat
 }
 
 func updateCommandDescriptions() {

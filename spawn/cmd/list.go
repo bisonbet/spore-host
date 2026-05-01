@@ -17,12 +17,13 @@ import (
 
 var (
 	listRegion         string
+	listRegions        []string
 	listAZ             string
 	listState          string
 	listInstanceType   string
 	listInstanceFamily string
 	listTag            []string
-	listJSON           bool
+	listJSON           bool // deprecated: use --output json
 	listJobArrayID     string
 	listJobArrayName   string
 	listSweepID        string
@@ -40,12 +41,14 @@ func init() {
 	rootCmd.AddCommand(listCmd)
 
 	listCmd.Flags().StringVar(&listRegion, "region", "", "Filter by AWS region (default: all regions)")
+	listCmd.Flags().StringSliceVarP(&listRegions, "regions", "r", nil, "Filter by regions (comma-separated, e.g. us-east-1,us-west-2)")
 	listCmd.Flags().StringVar(&listAZ, "az", "", "Filter by availability zone")
 	listCmd.Flags().StringVar(&listState, "state", "", "Filter by instance state (running, stopped, etc.)")
 	listCmd.Flags().StringVar(&listInstanceType, "instance-type", "", "Filter by exact instance type (e.g., t3.micro)")
 	listCmd.Flags().StringVar(&listInstanceFamily, "instance-family", "", "Filter by instance family (e.g., m7i, t3)")
 	listCmd.Flags().StringArrayVar(&listTag, "tag", []string{}, "Filter by tag (key=value format, can be specified multiple times)")
 	listCmd.Flags().BoolVar(&listJSON, "json", false, "Output as JSON")
+	_ = listCmd.Flags().MarkDeprecated("json", "use --output json instead")
 	listCmd.Flags().StringVar(&listJobArrayID, "job-array-id", "", "Filter by job array ID")
 	listCmd.Flags().StringVar(&listJobArrayName, "job-array-name", "", "Filter by job array name")
 	listCmd.Flags().StringVar(&listSweepID, "sweep-id", "", "Filter by parameter sweep ID")
@@ -55,6 +58,12 @@ func init() {
 func runList(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 
+	// Resolve effective region: --region takes precedence; --regions provides the first value as filter
+	effectiveRegion := listRegion
+	if effectiveRegion == "" && len(listRegions) > 0 {
+		effectiveRegion = listRegions[0]
+	}
+
 	// Create AWS client
 	client, err := aws.NewClient(ctx)
 	if err != nil {
@@ -62,15 +71,15 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 
 	// List instances
-	if listRegion != "" {
+	if effectiveRegion != "" {
 		fmt.Fprintf(os.Stderr, "%s...\n", i18n.Tf("spawn.list.searching_region", map[string]interface{}{
-			"Region": listRegion,
+			"Region": effectiveRegion,
 		}))
 	} else {
 		fmt.Fprintf(os.Stderr, "%s...\n", i18n.T("spawn.list.searching_all_regions"))
 	}
 
-	instances, err := client.ListInstances(ctx, listRegion, listState)
+	instances, err := client.ListInstances(ctx, effectiveRegion, listState)
 	if err != nil {
 		return i18n.Te("spawn.list.error.list_failed", err)
 	}
@@ -93,8 +102,8 @@ func runList(cmd *cobra.Command, args []string) error {
 		return instances[i].LaunchTime.After(instances[j].LaunchTime)
 	})
 
-	// Output format
-	if listJSON {
+	// Output format: --json flag or global --output json
+	if listJSON || getOutputFormat() == "json" {
 		return outputJSON(instances)
 	}
 
