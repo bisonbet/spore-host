@@ -34,7 +34,7 @@ jobs:
           cd ../lagotto              && go mod tidy
           cd ../mcp                  && go mod tidy
           cd ../spawn/lambda/rest-api && go mod tidy
-          cd ../../pkg/i18n          && go mod tidy
+          cd ../../../pkg/i18n       && go mod tidy
           cd ../pricing              && go mod tidy
 
       - name: govulncheck - root
