@@ -15,39 +15,61 @@ agent with no prior context. Every command is concrete and verifiable.
 | **Region** | `us-east-1` |
 | **Environment** | `integ` (prod requires Midway security review — not yet started) |
 | **DNS domain** | `spore.research.wwps.aws.dev` |
-| **DNS parent zone** | `research.wwps.aws.dev` (user controls this; NS delegation needed after Route53 zone is created) |
+| **DNS parent zone** | `research.wwps.aws.dev` (in a separate AWS account; agent performs delegation automatically) |
 | **SPORE_ENV** | `integ` |
 
 ---
 
 ## Prerequisites for the executing agent
 
-The agent must have:
-1. AWS access keys for account `812107987990` with admin permissions, exported as:
-   ```sh
-   export AWS_ACCESS_KEY_ID=...
-   export AWS_SECRET_ACCESS_KEY=...
-   export AWS_REGION=us-east-1
-   ```
-2. The Go toolchain (1.21+) installed: `go version`
-3. The AWS CLI v2 installed: `aws --version`
-4. The spore.host repository cloned at a known path:
-   ```sh
-   git clone https://github.com/spore-host/spore-host.git
-   cd spore-host
-   ```
+The agent must have **two sets of AWS credentials** — one for each account involved
+in DNS delegation.
 
-**Verify account access before starting:**
+### 1. Infra account — 812107987990 (all Lambda/DynamoDB/Route53 work)
+
+```sh
+export AWS_ACCESS_KEY_ID=<infra account key>
+export AWS_SECRET_ACCESS_KEY=<infra account secret>
+export AWS_REGION=us-east-1
+```
+
+### 2. Parent DNS account (holds `research.wwps.aws.dev`)
+
+The parent zone lives in a separate account. Store its credentials under a
+distinct env var prefix so the agent can switch between them:
+
+```sh
+export PARENT_AWS_ACCESS_KEY_ID=<parent account key>
+export PARENT_AWS_SECRET_ACCESS_KEY=<parent account secret>
+```
+
+The agent switches to the parent account by temporarily overriding the standard
+env vars (see Step 1b), then switches back to the infra account.
+
+### 3. Toolchain
+
+- Go 1.21+: `go version`
+- AWS CLI v2: `aws --version`
+- `jq`: `jq --version`
+
+### 4. Repository
+
+```sh
+git clone https://github.com/spore-host/spore-host.git
+cd spore-host
+```
+
+**Verify infra account access before starting:**
 ```sh
 aws sts get-caller-identity
-# Expected: Account: "812107987990"
+# Expected: "Account": "812107987990"
 ```
 
 ---
 
-## Step 1 — Route53 hosted zone
+## Step 1a — Create Route53 hosted zone in the infra account
 
-Create a hosted zone for `spore.research.wwps.aws.dev`:
+Using the **infra account** credentials (default env vars):
 
 ```sh
 ZONE_OUTPUT=$(aws route53 create-hosted-zone \
@@ -58,19 +80,67 @@ ZONE_OUTPUT=$(aws route53 create-hosted-zone \
 ZONE_ID=$(echo "$ZONE_OUTPUT" | jq -r '.HostedZone.Id' | cut -d/ -f3)
 echo "Zone ID: $ZONE_ID"
 
-# Get NS records for delegation
-aws route53 list-resource-record-sets \
+# Capture the 4 NS records assigned to this zone
+NS_RECORDS=$(aws route53 list-resource-record-sets \
   --hosted-zone-id "$ZONE_ID" \
   --query "ResourceRecordSets[?Type=='NS'].ResourceRecords[].Value" \
-  --output text
+  --output json)
+echo "NS records: $NS_RECORDS"
 ```
 
-**After this step:** Provide the 4 NS records to the owner of `research.wwps.aws.dev`
-so they can add a delegation record. The dns-updater will not work until NS
-delegation is active. Proceed with the remaining steps in parallel — delegation
-can be confirmed later with:
+## Step 1b — Delegate from parent zone to the new zone (parent account)
+
+Switch to the parent account credentials, find the `research.wwps.aws.dev`
+hosted zone, and insert the NS delegation record:
+
+```sh
+# Switch to parent account
+export AWS_ACCESS_KEY_ID="$PARENT_AWS_ACCESS_KEY_ID"
+export AWS_SECRET_ACCESS_KEY="$PARENT_AWS_SECRET_ACCESS_KEY"
+
+# Find the parent zone ID
+PARENT_ZONE_ID=$(aws route53 list-hosted-zones-by-name \
+  --dns-name research.wwps.aws.dev \
+  --query "HostedZones[?Name=='research.wwps.aws.dev.'].Id" \
+  --output text | cut -d/ -f3)
+echo "Parent zone ID: $PARENT_ZONE_ID"
+
+# Build the NS resource record set from the captured NS records
+NS_CHANGE=$(jq -n \
+  --argjson ns "$NS_RECORDS" \
+  '{
+    "Comment": "Delegate spore.research.wwps.aws.dev to infra account",
+    "Changes": [{
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "spore.research.wwps.aws.dev",
+        "Type": "NS",
+        "TTL": 300,
+        "ResourceRecords": ($ns | map({"Value": .}))
+      }
+    }]
+  }')
+
+# Apply the delegation
+CHANGE_ID=$(aws route53 change-resource-record-sets \
+  --hosted-zone-id "$PARENT_ZONE_ID" \
+  --change-batch "$NS_CHANGE" \
+  --query 'ChangeInfo.Id' --output text)
+echo "Change submitted: $CHANGE_ID"
+
+# Wait for propagation (typically <60s)
+aws route53 wait resource-record-sets-changed --id "$CHANGE_ID"
+echo "Delegation propagated."
+
+# Switch back to infra account
+export AWS_ACCESS_KEY_ID=<infra account key>
+export AWS_SECRET_ACCESS_KEY=<infra account secret>
+```
+
+**Verify delegation is live:**
 ```sh
 dig NS spore.research.wwps.aws.dev
+# Expected: 4 NS records matching the infra account's Route53 nameservers
 ```
 
 ---
