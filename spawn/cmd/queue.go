@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	spawnconfig "github.com/scttfrdmn/spore-host/spawn/pkg/config"
 	"github.com/scttfrdmn/spore-host/spawn/pkg/queue"
 	"github.com/spf13/cobra"
 )
@@ -195,10 +195,7 @@ func runQueueStatus(cmd *cobra.Command, args []string) error {
 	// Get instance details to find public IP/DNS
 	fmt.Fprintf(os.Stderr, "Getting instance details...\n")
 
-	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithRegion(region),
-		config.WithSharedConfigProfile("spore-host-dev"),
-	)
+	cfg, err := spawnconfig.LoadComputeAWSConfig(ctx, region)
 	if err != nil {
 		return fmt.Errorf("failed to load AWS config: %w", err)
 	}
@@ -311,10 +308,7 @@ func runQueueResults(cmd *cobra.Command, args []string) error {
 	}
 
 	// Load AWS config
-	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithRegion(downloadRegion),
-		config.WithSharedConfigProfile("spore-host-dev"),
-	)
+	cfg, err := spawnconfig.LoadComputeAWSConfig(ctx, downloadRegion)
 	if err != nil {
 		return fmt.Errorf("failed to load AWS config: %w", err)
 	}

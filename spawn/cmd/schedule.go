@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	spawnconfig "github.com/scttfrdmn/spore-host/spawn/pkg/config"
 	"github.com/scttfrdmn/spore-host/spawn/pkg/scheduler"
 	"github.com/scttfrdmn/spore-host/spawn/pkg/staging"
 	"github.com/spf13/cobra"
@@ -186,10 +186,7 @@ func runScheduleCreate(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(os.Stderr, "\n📅 Creating Scheduled Execution\n\n")
 
 	// Load AWS config for spore-host-infra
-	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithRegion("us-east-1"),
-		config.WithSharedConfigProfile("spore-host-infra"),
-	)
+	cfg, err := spawnconfig.LoadInfraAWSConfig(ctx, "us-east-1")
 	if err != nil {
 		return fmt.Errorf("failed to load AWS config: %w", err)
 	}
@@ -303,10 +300,7 @@ func runScheduleList(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 
 	// Load AWS config for spore-host-infra
-	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithRegion("us-east-1"),
-		config.WithSharedConfigProfile("spore-host-infra"),
-	)
+	cfg, err := spawnconfig.LoadInfraAWSConfig(ctx, "us-east-1")
 	if err != nil {
 		return fmt.Errorf("failed to load AWS config: %w", err)
 	}
@@ -365,10 +359,7 @@ func runScheduleDescribe(cmd *cobra.Command, args []string) error {
 	scheduleID := args[0]
 
 	// Load AWS config for spore-host-infra
-	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithRegion("us-east-1"),
-		config.WithSharedConfigProfile("spore-host-infra"),
-	)
+	cfg, err := spawnconfig.LoadInfraAWSConfig(ctx, "us-east-1")
 	if err != nil {
 		return fmt.Errorf("failed to load AWS config: %w", err)
 	}
@@ -451,10 +442,7 @@ func runScheduleCancel(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(os.Stderr, "   Schedule ID: %s\n\n", scheduleID)
 
 	// Load AWS config for spore-host-infra
-	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithRegion("us-east-1"),
-		config.WithSharedConfigProfile("spore-host-infra"),
-	)
+	cfg, err := spawnconfig.LoadInfraAWSConfig(ctx, "us-east-1")
 	if err != nil {
 		return fmt.Errorf("failed to load AWS config: %w", err)
 	}
@@ -502,10 +490,7 @@ func updateScheduleStatusCmd(ctx context.Context, scheduleID string, status sche
 	fmt.Fprintf(os.Stderr, "   Schedule ID: %s\n\n", scheduleID)
 
 	// Load AWS config for spore-host-infra
-	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithRegion("us-east-1"),
-		config.WithSharedConfigProfile("spore-host-infra"),
-	)
+	cfg, err := spawnconfig.LoadInfraAWSConfig(ctx, "us-east-1")
 	if err != nil {
 		return fmt.Errorf("failed to load AWS config: %w", err)
 	}

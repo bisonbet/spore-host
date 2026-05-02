@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	spawnclient "github.com/scttfrdmn/spore-host/spawn/pkg/aws"
+	spawnconfig "github.com/scttfrdmn/spore-host/spawn/pkg/config"
 )
 
 func handleListInstances(ctx context.Context, cfg aws.Config, req events.APIGatewayV2HTTPRequest, p *Principal) (events.APIGatewayV2HTTPResponse, error) {
@@ -63,18 +64,18 @@ func handleListInstances(ctx context.Context, cfg aws.Config, req events.APIGate
 // LaunchRequest is the JSON body for POST /v1/instances.
 // Only InstanceType, Region, and AMI are required; all lifecycle fields are optional.
 type LaunchRequest struct {
-	Name         string `json:"name"`
-	InstanceType string `json:"instance_type"`
-	Region       string `json:"region"`
-	AMI          string `json:"ami"`
-	KeyName      string `json:"key_name,omitempty"`
-	Spot         bool   `json:"spot,omitempty"`
-	TTL          string `json:"ttl,omitempty"`
-	IdleTimeout  string `json:"idle_timeout,omitempty"`
-	OnComplete   string `json:"on_complete,omitempty"`
-	PreStop      string `json:"pre_stop,omitempty"`
-	CompletionFile string `json:"completion_file,omitempty"`
-	SlackWorkspace string `json:"slack_workspace,omitempty"`
+	Name            string `json:"name"`
+	InstanceType    string `json:"instance_type"`
+	Region          string `json:"region"`
+	AMI             string `json:"ami"`
+	KeyName         string `json:"key_name,omitempty"`
+	Spot            bool   `json:"spot,omitempty"`
+	TTL             string `json:"ttl,omitempty"`
+	IdleTimeout     string `json:"idle_timeout,omitempty"`
+	OnComplete      string `json:"on_complete,omitempty"`
+	PreStop         string `json:"pre_stop,omitempty"`
+	CompletionFile  string `json:"completion_file,omitempty"`
+	SlackWorkspace  string `json:"slack_workspace,omitempty"`
 	ActiveProcesses string `json:"active_processes,omitempty"`
 }
 
@@ -88,24 +89,24 @@ func handleLaunch(ctx context.Context, cfg aws.Config, req events.APIGatewayV2HT
 	}
 
 	lc := spawnclient.LaunchConfig{
-		Name:            body.Name,
-		InstanceType:    body.InstanceType,
-		Region:          body.Region,
-		AMI:             body.AMI,
-		KeyName:         body.KeyName,
-		Spot:            body.Spot,
-		TTL:             body.TTL,
-		IdleTimeout:     body.IdleTimeout,
-		OnComplete:      body.OnComplete,
-		PreStop:         body.PreStop,
-		CompletionFile:  body.CompletionFile,
-		SlackWorkspaceID: body.SlackWorkspace,
+		Name:               body.Name,
+		InstanceType:       body.InstanceType,
+		Region:             body.Region,
+		AMI:                body.AMI,
+		KeyName:            body.KeyName,
+		Spot:               body.Spot,
+		TTL:                body.TTL,
+		IdleTimeout:        body.IdleTimeout,
+		OnComplete:         body.OnComplete,
+		PreStop:            body.PreStop,
+		CompletionFile:     body.CompletionFile,
+		SlackWorkspaceID:   body.SlackWorkspace,
 		ActiveProcessesRaw: body.ActiveProcesses,
 	}
 
 	// Inject notification URL for hosted spore.host
 	if body.SlackWorkspace != "" && lc.NotifyURL == "" {
-		lc.NotifyURL = "https://awdzf7fbbsvqcrnrzusqjsuybm0iiyvf.lambda-url.us-east-1.on.aws"
+		lc.NotifyURL = spawnconfig.GetNotifyURL()
 		lc.NotifyCommand = "/spore"
 	}
 

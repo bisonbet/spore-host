@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -19,6 +18,7 @@ import (
 	lambdatypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	spawnconfig "github.com/scttfrdmn/spore-host/spawn/pkg/config"
 	"github.com/scttfrdmn/spore-host/spawn/pkg/pipeline"
 	"github.com/spf13/cobra"
 )
@@ -293,10 +293,7 @@ func runLaunchPipeline(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithRegion(region),
-		config.WithSharedConfigProfile("spore-host-infra"), // Infrastructure account
-	)
+	cfg, err := spawnconfig.LoadInfraAWSConfig(ctx, region)
 	if err != nil {
 		return fmt.Errorf("load AWS config: %w", err)
 	}
@@ -417,9 +414,7 @@ func runStatusPipeline(cmd *cobra.Command, args []string) error {
 	pipelineID := args[0]
 
 	// Load AWS config
-	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithSharedConfigProfile("spore-host-infra"),
-	)
+	cfg, err := spawnconfig.LoadInfraAWSConfig(ctx, "")
 	if err != nil {
 		return fmt.Errorf("load AWS config: %w", err)
 	}
@@ -543,9 +538,7 @@ func runCollectPipeline(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(os.Stderr, "   Output directory: %s\n\n", flagOutputDir)
 
 	// Load AWS config
-	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithSharedConfigProfile("spore-host-infra"),
-	)
+	cfg, err := spawnconfig.LoadInfraAWSConfig(ctx, "")
 	if err != nil {
 		return fmt.Errorf("load AWS config: %w", err)
 	}
@@ -673,9 +666,7 @@ func runListPipeline(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 
 	// Load AWS config
-	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithSharedConfigProfile("spore-host-infra"),
-	)
+	cfg, err := spawnconfig.LoadInfraAWSConfig(ctx, "")
 	if err != nil {
 		return fmt.Errorf("load AWS config: %w", err)
 	}
@@ -774,9 +765,7 @@ func runCancelPipeline(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(os.Stderr, "⚠️  Cancelling pipeline: %s\n", pipelineID)
 
 	// Load AWS config
-	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithSharedConfigProfile("spore-host-infra"),
-	)
+	cfg, err := spawnconfig.LoadInfraAWSConfig(ctx, "")
 	if err != nil {
 		return fmt.Errorf("load AWS config: %w", err)
 	}

@@ -25,8 +25,10 @@ const (
 	defaultHistoryTable         = "spawn-schedule-history"
 	defaultSchedulesBucketTmpl  = "spawn-schedules-%s" // %s = region
 	defaultOrchestratorFuncName = "sweep-orchestrator"
-	defaultAccountID            = "966362334030" // spore-host-infra account
 )
+
+// defaultAccountID is the infra account ID; overridable via SPAWN_INFRA_ACCOUNT_ID.
+var defaultAccountID = getEnv("SPAWN_INFRA_ACCOUNT_ID", "966362334030")
 
 // Event is the input from EventBridge Scheduler
 type Event struct {

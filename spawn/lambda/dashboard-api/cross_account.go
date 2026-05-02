@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -11,9 +12,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
-const (
-	crossAccountRoleARN = "arn:aws:iam::435415984226:role/SpawnDashboardCrossAccountReadRole"
-)
+// getCrossAccountRoleARN returns the IAM role ARN used for cross-account EC2 reads.
+// Reads from SPAWN_DASHBOARD_CROSS_ACCOUNT_ROLE env var, falls back to hosted default.
+func getCrossAccountRoleARN() string {
+	if v := os.Getenv("SPAWN_DASHBOARD_CROSS_ACCOUNT_ROLE"); v != "" {
+		return v
+	}
+	return "arn:aws:iam::435415984226:role/SpawnDashboardCrossAccountReadRole"
+}
 
 // getEC2ClientForRegion creates an EC2 client for the specified region using the cross-account role
 func getEC2ClientForRegion(ctx context.Context, cfg aws.Config, region string) (*ec2.Client, error) {
@@ -21,7 +27,7 @@ func getEC2ClientForRegion(ctx context.Context, cfg aws.Config, region string) (
 	stsClient := sts.NewFromConfig(cfg)
 
 	// Create credentials provider that assumes the role
-	credsProvider := stscreds.NewAssumeRoleProvider(stsClient, crossAccountRoleARN, func(o *stscreds.AssumeRoleOptions) {
+	credsProvider := stscreds.NewAssumeRoleProvider(stsClient, getCrossAccountRoleARN(), func(o *stscreds.AssumeRoleOptions) {
 		o.RoleSessionName = "spawn-dashboard-api"
 	})
 

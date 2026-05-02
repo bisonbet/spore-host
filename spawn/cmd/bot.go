@@ -21,17 +21,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	spawnconfig "github.com/scttfrdmn/spore-host/spawn/pkg/config"
 	"github.com/scttfrdmn/spore-host/spawn/pkg/tagprefix"
 	"github.com/spf13/cobra"
 )
 
 const (
-	defaultBotRegistryTable = "spore-bot-registry"
 	// botCrossAccountRoleName is created automatically in the caller's AWS account
 	// when registering an instance without an explicit --role-arn.
 	botCrossAccountRoleName = "SpawnBotCrossAccount"
-	// botLambdaRoleARN is the spore-bot Lambda execution role trusted by the cross-account role.
-	botLambdaRoleARN = "arn:aws:iam::966362334030:role/prism-bot-PrismBotFunctionRole-U2vZFZXgWBeM"
 )
 
 var (
@@ -186,7 +184,7 @@ func runBotRegister(cmd *cobra.Command, args []string) error {
 
 	tableName := botTable
 	if tableName == "" {
-		tableName = defaultBotRegistryTable
+		tableName = spawnconfig.GetBotRegistryTable()
 	}
 
 	client := dynamodb.NewFromConfig(cfg)
@@ -262,7 +260,7 @@ func ensureCrossAccountRole(ctx context.Context, cfg aws.Config) (string, error)
 			"Action": "sts:AssumeRole",
 			"Condition": {"StringEquals": {"sts:ExternalId": "spawn-bot"}}
 		}]
-	}`, botLambdaRoleARN)
+	}`, spawnconfig.GetBotLambdaRoleARN())
 
 	created, err := client.CreateRole(ctx, &iam.CreateRoleInput{
 		RoleName:                 aws.String(botCrossAccountRoleName),
@@ -318,7 +316,7 @@ var botDeregisterCmd = &cobra.Command{
 		}
 		tableName := botTable
 		if tableName == "" {
-			tableName = defaultBotRegistryTable
+			tableName = spawnconfig.GetBotRegistryTable()
 		}
 		userKey := strings.Join([]string{botPlatform, botWorkspaceID, botUserID}, "#")
 		client := dynamodb.NewFromConfig(cfg)
@@ -352,7 +350,7 @@ func botEnableDisable(enabled bool) func(cmd *cobra.Command, args []string) erro
 		}
 		tableName := botTable
 		if tableName == "" {
-			tableName = defaultBotRegistryTable
+			tableName = spawnconfig.GetBotRegistryTable()
 		}
 		userKey := strings.Join([]string{botPlatform, botWorkspaceID, botUserID}, "#")
 		client := dynamodb.NewFromConfig(cfg)
@@ -413,7 +411,7 @@ var botListCmd = &cobra.Command{
 		}
 		tableName := botTable
 		if tableName == "" {
-			tableName = defaultBotRegistryTable
+			tableName = spawnconfig.GetBotRegistryTable()
 		}
 		// Scan with filter on platform+workspace prefix
 		client := dynamodb.NewFromConfig(cfg)
@@ -463,8 +461,6 @@ var botListCmd = &cobra.Command{
 }
 
 // ── workspace-add / workspace-remove / workspace-list ────────────────────────
-
-const defaultBotWorkspacesTable = "spore-bot-workspaces"
 
 var (
 	botWorkspaceName   string
@@ -533,7 +529,7 @@ Run this once after installing the Slack app in a workspace:
 		}
 		tableName := botWorkspacesTable
 		if tableName == "" {
-			tableName = defaultBotWorkspacesTable
+			tableName = spawnconfig.GetBotWorkspacesTable()
 		}
 		client := dynamodb.NewFromConfig(cfg)
 		item, err := attributevalue.MarshalMap(ws)
@@ -573,7 +569,7 @@ var botWorkspaceRemoveCmd = &cobra.Command{
 		}
 		tableName := botWorkspacesTable
 		if tableName == "" {
-			tableName = defaultBotWorkspacesTable
+			tableName = spawnconfig.GetBotWorkspacesTable()
 		}
 		client := dynamodb.NewFromConfig(cfg)
 		_, err = client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
@@ -601,7 +597,7 @@ var botWorkspaceListCmd = &cobra.Command{
 		}
 		tableName := botWorkspacesTable
 		if tableName == "" {
-			tableName = defaultBotWorkspacesTable
+			tableName = spawnconfig.GetBotWorkspacesTable()
 		}
 		client := dynamodb.NewFromConfig(cfg)
 		input := &dynamodb.ScanInput{TableName: aws.String(tableName)}
@@ -678,11 +674,11 @@ deleted automatically. Remove it separately with:
 
 		registryTable := botTable
 		if registryTable == "" {
-			registryTable = defaultBotRegistryTable
+			registryTable = spawnconfig.GetBotRegistryTable()
 		}
 		workspacesTable := botWorkspacesTable
 		if workspacesTable == "" {
-			workspacesTable = defaultBotWorkspacesTable
+			workspacesTable = spawnconfig.GetBotWorkspacesTable()
 		}
 
 		client := dynamodb.NewFromConfig(cfg)
@@ -804,7 +800,7 @@ func lookupSlackUserByEmail(ctx context.Context, cfg aws.Config, platform, works
 	// Fetch bot token from workspaces table
 	workspacesTable := tableOverride
 	if workspacesTable == "" {
-		workspacesTable = defaultBotWorkspacesTable
+		workspacesTable = spawnconfig.GetBotWorkspacesTable()
 	}
 	client := dynamodb.NewFromConfig(cfg)
 	result, err := client.GetItem(ctx, &dynamodb.GetItemInput{
@@ -930,7 +926,7 @@ type connectCodeRecord struct {
 func redeemConnectCode(ctx context.Context, cfg aws.Config, code, tableOverride string) (*connectCodeRecord, error) {
 	workspacesTable := tableOverride
 	if workspacesTable == "" {
-		workspacesTable = defaultBotWorkspacesTable
+		workspacesTable = spawnconfig.GetBotWorkspacesTable()
 	}
 	// Normalize: accept with or without "SPORE-" prefix
 	code = strings.TrimPrefix(strings.ToUpper(code), "SPORE-")

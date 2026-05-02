@@ -19,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/google/uuid"
 	"github.com/scttfrdmn/spore-host/pkg/i18n"
+	"github.com/scttfrdmn/spore-host/pkg/pricing"
 	"github.com/scttfrdmn/spore-host/spawn/pkg/audit"
 	"github.com/scttfrdmn/spore-host/spawn/pkg/aws"
 	"github.com/scttfrdmn/spore-host/spawn/pkg/compliance"
@@ -27,7 +28,6 @@ import (
 	"github.com/scttfrdmn/spore-host/spawn/pkg/locality"
 	"github.com/scttfrdmn/spore-host/spawn/pkg/platform"
 	"github.com/scttfrdmn/spore-host/spawn/pkg/plugin"
-	"github.com/scttfrdmn/spore-host/pkg/pricing"
 	"github.com/scttfrdmn/spore-host/spawn/pkg/progress"
 	"github.com/scttfrdmn/spore-host/spawn/pkg/queue"
 	"github.com/scttfrdmn/spore-host/spawn/pkg/regions"
@@ -67,17 +67,17 @@ var (
 	ttl             string
 	idleTimeout     string
 	hibernateOnIdle bool
-	preStop        string
-	preStopTimeout string
+	preStop         string
+	preStopTimeout  string
 	onComplete      string
 	completionFile  string
 	completionDelay string
 	sessionTimeout  string
 
 	// Meta
-	name           string
-	userData       string
-	userDataFile   string
+	name             string
+	userData         string
+	userDataFile     string
 	dnsName          string
 	dnsDomain        string
 	dnsAPIEndpoint   string
@@ -1594,10 +1594,7 @@ func buildLaunchConfig(truffleInput *input.TruffleInput) (*aws.LaunchConfig, err
 		config.SlackWorkspaceID = slackWorkspaceID
 		// The spore-bot Lambda Function URL — hard-coded for hosted spore.host;
 		// can be overridden via SPORE_BOT_NOTIFY_URL env var for self-hosted deployments.
-		notifyURL := os.Getenv("SPORE_BOT_NOTIFY_URL")
-		if notifyURL == "" {
-			notifyURL = "https://awdzf7fbbsvqcrnrzusqjsuybm0iiyvf.lambda-url.us-east-1.on.aws"
-		}
+		notifyURL := spawnconfig.GetNotifyURL()
 		config.NotifyURL = notifyURL
 		config.NotifyCommand = "/spore" // routes notifications to spore-bot workspace config
 	}
@@ -2880,9 +2877,7 @@ func launchSweepDetached(ctx context.Context, paramFormat *ParamFileFormat, base
 	// Load dev account config to get account ID
 	// IMPORTANT: Always use spore-host-dev profile for target account ID
 	// regardless of what AWS_PROFILE is set in environment
-	devCfg, err := config.LoadDefaultConfig(ctx,
-		config.WithSharedConfigProfile("spore-host-dev"),
-	)
+	devCfg, err := spawnconfig.LoadComputeAWSConfig(ctx, "")
 	if err != nil {
 		return fmt.Errorf("failed to load AWS config: %w", err)
 	}
@@ -2896,12 +2891,9 @@ func launchSweepDetached(ctx context.Context, paramFormat *ParamFileFormat, base
 	accountID := *identity.Account
 
 	// Use spore-host-infra config for Lambda/S3/DynamoDB operations
-	infraCfg, err := config.LoadDefaultConfig(ctx,
-		config.WithRegion("us-east-1"),
-		config.WithSharedConfigProfile("spore-host-infra"),
-	)
+	infraCfg, err := spawnconfig.LoadInfraAWSConfig(ctx, "us-east-1")
 	if err != nil {
-		return fmt.Errorf("failed to load spore-host-infra AWS config: %w", err)
+		return fmt.Errorf("failed to load infra AWS config: %w", err)
 	}
 
 	// Convert ParamFileFormat to sweep.ParamFileFormat
@@ -3085,7 +3077,7 @@ func launchSweepDetached(ctx context.Context, paramFormat *ParamFileFormat, base
 	fmt.Fprintf(os.Stderr, "Total Parameters:  %d\n", len(paramFormat.Params))
 	fmt.Fprintf(os.Stderr, "Max Concurrent:    %d\n", maxConcurrent)
 	fmt.Fprintf(os.Stderr, "Region:            %s\n", sweepRegion)
-	fmt.Fprintf(os.Stderr, "Orchestration:     Lambda (spore-host-infra account)\n\n")
+	fmt.Fprintf(os.Stderr, "Orchestration:     Lambda (infra account)\n\n")
 
 	fmt.Fprintf(os.Stderr, "The sweep is now running in Lambda. You can disconnect safely.\n\n")
 	fmt.Fprintf(os.Stderr, "To check status:\n")
@@ -3180,10 +3172,7 @@ func launchWithBatchQueue(ctx context.Context, plat *platform.Platform, auditLog
 	}
 
 	// Load AWS config for spore-host-dev (where EC2 instances run)
-	devCfg, err := config.LoadDefaultConfig(ctx,
-		config.WithRegion(queueRegion),
-		config.WithSharedConfigProfile("spore-host-dev"),
-	)
+	devCfg, err := spawnconfig.LoadComputeAWSConfig(ctx, queueRegion)
 	if err != nil {
 		return fmt.Errorf("failed to load AWS config: %w", err)
 	}
@@ -3491,10 +3480,7 @@ func writeOutputID(id, filepath string) error {
 
 // waitForSweepCompletion polls sweep status until completion or timeout
 func waitForSweepCompletion(ctx context.Context, sweepID string, timeout time.Duration) error {
-	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithRegion("us-east-1"),
-		config.WithSharedConfigProfile("spore-host-infra"),
-	)
+	cfg, err := spawnconfig.LoadInfraAWSConfig(ctx, "us-east-1")
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}

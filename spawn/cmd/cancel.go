@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/google/uuid"
 	"github.com/scttfrdmn/spore-host/spawn/pkg/audit"
+	spawnconfig "github.com/scttfrdmn/spore-host/spawn/pkg/config"
 	"github.com/scttfrdmn/spore-host/spawn/pkg/sweep"
 	"github.com/spf13/cobra"
 )
@@ -46,10 +47,7 @@ func runCancel(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(os.Stderr, "   Sweep ID: %s\n\n", cancelSweepID)
 
 	// Load AWS config for spore-host-infra (where DynamoDB lives)
-	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithRegion("us-east-1"),
-		config.WithSharedConfigProfile("spore-host-infra"),
-	)
+	cfg, err := spawnconfig.LoadInfraAWSConfig(ctx, "us-east-1")
 	if err != nil {
 		return fmt.Errorf("failed to load AWS config: %w", err)
 	}

@@ -14,12 +14,11 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
+	spawnconfig "github.com/scttfrdmn/spore-host/spawn/pkg/config"
 )
 
 const (
-	// Default DNS configuration
-	defaultAPIEndpoint = "https://zqonqra6blwh7342ujuxv3bwei0wnpyq.lambda-url.us-east-1.on.aws/"
-	defaultDomain      = "spore.host"
+	defaultDomain = "spore.host"
 )
 
 // DNSUpdateRequest represents the request to the DNS API
@@ -66,7 +65,7 @@ func NewClient(ctx context.Context, domain, apiEndpoint string) (*Client, error)
 		domain = defaultDomain
 	}
 	if apiEndpoint == "" {
-		apiEndpoint = defaultAPIEndpoint
+		apiEndpoint = spawnconfig.GetDNSEndpointURL()
 	}
 
 	return &Client{
