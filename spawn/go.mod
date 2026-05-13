@@ -33,11 +33,11 @@ require (
 	github.com/pebbe/zmq4 v1.4.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/spore-host/spore-host/pkg/i18n v0.0.0-00010101000000-000000000000
-	github.com/spore-host/spore-host/pkg/pricing v0.0.0-00010101000000-000000000000
 	github.com/scttfrdmn/strata v0.22.0
 	github.com/scttfrdmn/substrate v0.65.0
 	github.com/spf13/cobra v1.10.2
+	github.com/spore-host/spore-host/pkg/i18n v0.0.0-00010101000000-000000000000
+	github.com/spore-host/spore-host/pkg/pricing v0.0.0-00010101000000-000000000000
 	go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws v0.68.0
 	go.opentelemetry.io/otel v1.43.0
 	go.opentelemetry.io/otel/sdk v1.43.0
@@ -109,6 +109,8 @@ require (
 	modernc.org/memory v1.9.1 // indirect
 	modernc.org/sqlite v1.37.0 // indirect
 )
+
+replace github.com/spore-host/spore-host/pkg/catalog => ../pkg/catalog
 
 replace github.com/spore-host/spore-host/pkg/i18n => ../pkg/i18n
 

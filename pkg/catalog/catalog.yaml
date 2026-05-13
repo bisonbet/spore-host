@@ -1,0 +1,79 @@
+apps:
+  - name: paraview
+    description: "Scientific visualization — CFD, FEA, large mesh"
+    instance_families: [g6, g5, g4dn]
+    high_vram_families: [g6e]
+    min_vcpus: 4
+    min_memory_gib: 16
+    gpu: true
+    min_vram_gib: 24
+    dcv: true
+    idle_timeout_default: 20m
+    launch_command: /usr/local/bin/paraview
+    aliases: [pv]
+    license: open-source
+    amis: {}
+
+  - name: igv
+    description: "Integrative Genomics Viewer — genome browser, sequencing data"
+    instance_families: [c7i, m7i, c6i]
+    min_vcpus: 4
+    min_memory_gib: 16
+    gpu: false
+    dcv: true
+    idle_timeout_default: 30m
+    launch_command: /opt/igv/igv.sh
+    license: open-source
+    amis: {}
+
+  - name: chimerax
+    description: "Protein structure visualization, cryo-EM (UCSF ChimeraX)"
+    instance_families: [g6, g5]
+    high_vram_families: [g6e]
+    min_vcpus: 4
+    min_memory_gib: 16
+    gpu: true
+    min_vram_gib: 24
+    dcv: true
+    idle_timeout_default: 20m
+    launch_command: /usr/bin/chimerax
+    aliases: [chimera]
+    license: open-source
+    amis: {}
+
+  - name: qgis
+    description: "GIS analysis, remote sensing, ecology"
+    instance_families: [c7i, m7i]
+    min_vcpus: 4
+    min_memory_gib: 8
+    gpu: false
+    dcv: true
+    idle_timeout_default: 30m
+    launch_command: /usr/bin/qgis
+    license: open-source
+    amis: {}
+
+  - name: fiji
+    description: "Image analysis — microscopy, histology, connectomics (ImageJ/Fiji)"
+    instance_families: [c7i, m7i]
+    min_vcpus: 4
+    min_memory_gib: 16
+    gpu: false
+    dcv: true
+    idle_timeout_default: 30m
+    launch_command: /opt/fiji/ImageJ-linux64
+    aliases: [imagej]
+    license: open-source
+    amis: {}
+
+  - name: ds9
+    description: "Astronomical image display — observatory standard (SAO)"
+    instance_families: [c7i, m7i]
+    min_vcpus: 2
+    min_memory_gib: 4
+    gpu: false
+    dcv: true
+    idle_timeout_default: 30m
+    launch_command: /usr/bin/ds9
+    license: open-source
+    amis: {}

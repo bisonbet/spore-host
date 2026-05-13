@@ -11,10 +11,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/servicequotas v1.34.7
 	github.com/fatih/color v1.19.0
 	github.com/olekukonko/tablewriter v1.1.4
-	github.com/spore-host/spore-host/pkg/i18n v0.0.0-00010101000000-000000000000
-	github.com/spore-host/spore-host/pkg/pricing v0.0.0-00010101000000-000000000000
 	github.com/scttfrdmn/substrate v0.65.0
 	github.com/spf13/cobra v1.10.2
+	github.com/spore-host/spore-host/pkg/i18n v0.0.0-00010101000000-000000000000
+	github.com/spore-host/spore-host/pkg/pricing v0.0.0-00010101000000-000000000000
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -101,6 +101,8 @@ require (
 //
 //   client, _ := aws.NewClient(ctx)
 //   results, _ := client.SearchInstanceTypes(ctx, regions, matcher, opts)
+
+replace github.com/spore-host/spore-host/pkg/catalog => ../pkg/catalog
 
 replace github.com/spore-host/spore-host/pkg/i18n => ../pkg/i18n
 
