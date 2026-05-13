@@ -24,9 +24,9 @@ const PendingTable = "spore-sms-pending"
 // PendingNotification tracks a sent SMS while waiting for the user's numbered reply.
 // Keyed by twilioNumber#userPhone so each project's number scopes its own reply state.
 type PendingNotification struct {
-	TwilioNumber string            // the Twilio number that sent the message (identifies the project)
-	UserPhone    string            // the recipient's phone number
-	Project      string            // "spore", "prism", etc.
+	TwilioNumber string // the Twilio number that sent the message (identifies the project)
+	UserPhone    string // the recipient's phone number
+	Project      string // "spore", "prism", etc.
 	InstanceID   string
 	Region       string
 	EventType    string

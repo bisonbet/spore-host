@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/scttfrdmn/spore-host/truffle/pkg/aws"
-	"github.com/scttfrdmn/spore-host/truffle/pkg/metadata"
+	"github.com/spore-host/spore-host/truffle/pkg/aws"
+	"github.com/spore-host/spore-host/truffle/pkg/metadata"
 )
 
 // FindResult extends [aws.InstanceTypeResult] with match explanations produced

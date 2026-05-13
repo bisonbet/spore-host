@@ -13,7 +13,7 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/tagprefix"
+	"github.com/spore-host/spore-host/spawn/pkg/tagprefix"
 )
 
 // PeerInfo contains information about a pipeline peer instance

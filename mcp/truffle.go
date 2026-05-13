@@ -7,9 +7,9 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	truffleaws "github.com/scttfrdmn/spore-host/truffle/pkg/aws"
-	"github.com/scttfrdmn/spore-host/truffle/pkg/find"
-	"github.com/scttfrdmn/spore-host/truffle/pkg/quotas"
+	truffleaws "github.com/spore-host/spore-host/truffle/pkg/aws"
+	"github.com/spore-host/spore-host/truffle/pkg/find"
+	"github.com/spore-host/spore-host/truffle/pkg/quotas"
 )
 
 func registerTruffleTools(s *server.MCPServer) {

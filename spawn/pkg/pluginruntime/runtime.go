@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/scttfrdmn/spore-host/spawn/pkg/plugin"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/provider"
+	"github.com/spore-host/spore-host/spawn/pkg/plugin"
+	"github.com/spore-host/spore-host/spawn/pkg/provider"
 )
 
 // pushedKeyRe matches valid pushed key names (same constraints as POSIX env vars, max 64 chars).
@@ -213,9 +213,9 @@ func (rt *Runtime) buildTemplateContext(st *plugin.PluginState) plugin.TemplateC
 		tmplCtx.Pushed[k] = v
 	}
 	if rt.identity != nil {
-		tmplCtx.Instance["id"]   = rt.identity.InstanceID
+		tmplCtx.Instance["id"] = rt.identity.InstanceID
 		tmplCtx.Instance["name"] = rt.identity.Name
-		tmplCtx.Instance["ip"]   = rt.identity.PublicIP
+		tmplCtx.Instance["ip"] = rt.identity.PublicIP
 	}
 	return tmplCtx
 }

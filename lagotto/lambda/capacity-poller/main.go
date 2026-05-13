@@ -11,8 +11,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/scheduler"
 	schedulertypes "github.com/aws/aws-sdk-go-v2/service/scheduler/types"
-	"github.com/scttfrdmn/spore-host/lagotto/pkg/watcher"
-	truffleaws "github.com/scttfrdmn/spore-host/truffle/pkg/aws"
+	"github.com/spore-host/spore-host/lagotto/pkg/watcher"
+	truffleaws "github.com/spore-host/spore-host/truffle/pkg/aws"
 )
 
 var (

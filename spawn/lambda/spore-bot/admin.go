@@ -41,7 +41,6 @@ type adminRequest struct {
 	Enabled bool `json:"enabled"`
 }
 
-
 // handleAdminV1 handles admin requests from REST API (v1) proxy events.
 // Caller ARN comes from requestContext.identity.userArn (IAM auth).
 func handleAdminV1(ctx context.Context, reg *Registry, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -142,9 +141,9 @@ func adminWorkspaceAdd(ctx context.Context, reg *Registry, r adminRequest, calle
 	}
 
 	return adminOK(map[string]string{
-		"workspace_key": ws.WorkspaceKey,
+		"workspace_key":  ws.WorkspaceKey,
 		"workspace_name": ws.WorkspaceName,
-		"installed_by":  callerARN,
+		"installed_by":   callerARN,
 	})
 }
 
@@ -162,15 +161,15 @@ func adminWorkspaceList(ctx context.Context, reg *Registry, params map[string]st
 
 	// Return workspace metadata only — never return bot_token or signing_secret
 	return adminOK(map[string]interface{}{
-		"workspace_key":  ws.WorkspaceKey,
-		"platform":       ws.Platform,
-		"workspace_name": ws.WorkspaceName,
-		"installed_by":   ws.InstalledBy,
-		"installed_at":   ws.InstalledAt,
-		"allowed_channels": ws.AllowedChannels,
+		"workspace_key":          ws.WorkspaceKey,
+		"platform":               ws.Platform,
+		"workspace_name":         ws.WorkspaceName,
+		"installed_by":           ws.InstalledBy,
+		"installed_at":           ws.InstalledAt,
+		"allowed_channels":       ws.AllowedChannels,
 		"connect_code_ttl_hours": ws.ConnectCodeTTLHours,
-		"has_incoming_webhook": ws.IncomingWebhookURL != "",
-		"token_rotation": ws.TokenRotation,
+		"has_incoming_webhook":   ws.IncomingWebhookURL != "",
+		"token_rotation":         ws.TokenRotation,
 	})
 }
 
@@ -292,7 +291,6 @@ func adminList(ctx context.Context, reg *Registry, params map[string]string, cal
 		"count":         len(regs),
 	})
 }
-
 
 // resolveSlackAppID calls Slack's auth.test API to get the App ID for a bot token.
 // Returns "" on failure so callers fall back to the legacy workspace key format.

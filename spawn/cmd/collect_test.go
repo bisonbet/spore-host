@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/scttfrdmn/spore-host/spawn/pkg/testutil"
+	"github.com/spore-host/spore-host/spawn/pkg/testutil"
 )
 
 // TestSweepResultParsing tests parsing of sweep result JSON

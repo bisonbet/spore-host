@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/scttfrdmn/spore-host/truffle/pkg/aws"
+	"github.com/spore-host/spore-host/truffle/pkg/aws"
 )
 
 // SearchCriteria holds the compiled, ready-to-execute form of a [ParsedQuery].

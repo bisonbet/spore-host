@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"text/template" // nosemgrep: go.lang.security.audit.xss.import-text-template.import-text-template
 
-	"github.com/scttfrdmn/spore-host/spawn/pkg/security"
+	"github.com/spore-host/spore-host/spawn/pkg/security"
 )
 
 // MPIConfig contains configuration for MPI user-data generation

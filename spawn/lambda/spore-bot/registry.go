@@ -44,7 +44,7 @@ type BotRegistration struct {
 type WorkspaceConfig struct {
 	// PK: {platform}#{workspace-id}#{app-id}  (preferred)
 	//  or {platform}#{workspace-id}            (legacy, single app per workspace)
-	WorkspaceKey  string `dynamodbav:"workspace_key"`
+	WorkspaceKey string `dynamodbav:"workspace_key"`
 	// AppID is the Slack App ID (A...). Used to scope workspace keys when multiple
 	// Slack apps are installed in the same workspace (e.g. spore-bot + prism-bot).
 	AppID         string `dynamodbav:"app_id,omitempty"`

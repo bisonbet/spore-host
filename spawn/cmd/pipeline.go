@@ -18,9 +18,9 @@ import (
 	lambdatypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	spawnconfig "github.com/scttfrdmn/spore-host/spawn/pkg/config"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/pipeline"
 	"github.com/spf13/cobra"
+	spawnconfig "github.com/spore-host/spore-host/spawn/pkg/config"
+	"github.com/spore-host/spore-host/spawn/pkg/pipeline"
 )
 
 var pipelineCmd = &cobra.Command{

@@ -9,9 +9,9 @@ import (
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
 	"github.com/olekukonko/tablewriter/tw"
-	"github.com/scttfrdmn/spore-host/pkg/i18n"
+	"github.com/spore-host/spore-host/pkg/i18n"
 	"github.com/spf13/cobra"
-	"github.com/scttfrdmn/spore-host/truffle/pkg/quotas"
+	"github.com/spore-host/spore-host/truffle/pkg/quotas"
 )
 
 var (

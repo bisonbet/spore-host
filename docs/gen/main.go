@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	spawnCmd "github.com/scttfrdmn/spore-host/spawn/cmd"
+	spawnCmd "github.com/spore-host/spore-host/spawn/cmd"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 )

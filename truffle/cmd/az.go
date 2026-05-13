@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/scttfrdmn/spore-host/truffle/pkg/aws"
-	"github.com/scttfrdmn/spore-host/truffle/pkg/output"
+	"github.com/spore-host/spore-host/truffle/pkg/aws"
+	"github.com/spore-host/spore-host/truffle/pkg/output"
 )
 
 var (

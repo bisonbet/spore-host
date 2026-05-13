@@ -1,4 +1,4 @@
-module github.com/scttfrdmn/spore-host/spawn/lambda/spore-bot
+module github.com/spore-host/spore-host/spawn/lambda/spore-bot
 
 go 1.26
 
@@ -75,4 +75,4 @@ require (
 	modernc.org/sqlite v1.37.0 // indirect
 )
 
-replace github.com/scttfrdmn/spore-host/spawn => ../..
+replace github.com/spore-host/spore-host/spawn => ../..

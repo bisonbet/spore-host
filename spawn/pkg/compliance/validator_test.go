@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/scttfrdmn/spore-host/spawn/pkg/aws"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/config"
+	"github.com/spore-host/spore-host/spawn/pkg/aws"
+	"github.com/spore-host/spore-host/spawn/pkg/config"
 )
 
 func TestNewValidator(t *testing.T) {

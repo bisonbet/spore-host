@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/availability"
-	spawnconfig "github.com/scttfrdmn/spore-host/spawn/pkg/config"
 	"github.com/spf13/cobra"
+	"github.com/spore-host/spore-host/spawn/pkg/availability"
+	spawnconfig "github.com/spore-host/spore-host/spawn/pkg/config"
 )
 
 var (

@@ -3,7 +3,7 @@ package watcher
 import (
 	"testing"
 
-	truffleaws "github.com/scttfrdmn/spore-host/truffle/pkg/aws"
+	truffleaws "github.com/spore-host/spore-host/truffle/pkg/aws"
 )
 
 func TestEvaluate_OnDemand_NoMaxPrice(t *testing.T) {

@@ -1,4 +1,4 @@
-module github.com/scttfrdmn/spore-host/truffle
+module github.com/spore-host/spore-host/truffle
 
 go 1.26
 
@@ -11,8 +11,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/servicequotas v1.34.7
 	github.com/fatih/color v1.19.0
 	github.com/olekukonko/tablewriter v1.1.4
-	github.com/scttfrdmn/spore-host/pkg/i18n v0.0.0-00010101000000-000000000000
-	github.com/scttfrdmn/spore-host/pkg/pricing v0.0.0-00010101000000-000000000000
+	github.com/spore-host/spore-host/pkg/i18n v0.0.0-00010101000000-000000000000
+	github.com/spore-host/spore-host/pkg/pricing v0.0.0-00010101000000-000000000000
 	github.com/scttfrdmn/substrate v0.65.0
 	github.com/spf13/cobra v1.10.2
 	gopkg.in/yaml.v3 v3.0.1
@@ -93,15 +93,15 @@ require (
 // This module can be used both as a CLI tool and as a library in other Go applications.
 //
 // Key packages:
-//   - github.com/scttfrdmn/spore-host/truffle/pkg/aws: AWS EC2 client and data structures
-//   - github.com/scttfrdmn/spore-host/truffle/pkg/output: Output formatting utilities
+//   - github.com/spore-host/spore-host/truffle/pkg/aws: AWS EC2 client and data structures
+//   - github.com/spore-host/spore-host/truffle/pkg/output: Output formatting utilities
 //
 // Example usage as a library:
-//   import "github.com/scttfrdmn/spore-host/truffle/pkg/aws"
+//   import "github.com/spore-host/spore-host/truffle/pkg/aws"
 //
 //   client, _ := aws.NewClient(ctx)
 //   results, _ := client.SearchInstanceTypes(ctx, regions, matcher, opts)
 
-replace github.com/scttfrdmn/spore-host/pkg/i18n => ../pkg/i18n
+replace github.com/spore-host/spore-host/pkg/i18n => ../pkg/i18n
 
-replace github.com/scttfrdmn/spore-host/pkg/pricing => ../pkg/pricing
+replace github.com/spore-host/spore-host/pkg/pricing => ../pkg/pricing

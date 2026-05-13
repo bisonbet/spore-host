@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/scttfrdmn/spore-host/spawn/pkg/provider"
+	"github.com/spore-host/spore-host/spawn/pkg/provider"
 )
 
 // stubProvider is a minimal Provider implementation for unit tests.

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/scttfrdmn/spore-host/lagotto/pkg/testutil"
-	"github.com/scttfrdmn/spore-host/lagotto/pkg/watcher"
+	"github.com/spore-host/spore-host/lagotto/pkg/testutil"
+	"github.com/spore-host/spore-host/lagotto/pkg/watcher"
 )
 
 const (

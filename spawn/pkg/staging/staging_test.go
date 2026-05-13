@@ -12,7 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamodbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/testutil"
+	"github.com/spore-host/spore-host/spawn/pkg/testutil"
 )
 
 func setupStagingBucket(t *testing.T, s3Client *s3.Client, bucket string) {

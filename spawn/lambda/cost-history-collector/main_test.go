@@ -7,8 +7,8 @@ import (
 func TestInstancePricingMap(t *testing.T) {
 	// Verify known pricing values are present and positive.
 	cases := []struct {
-		instanceType  string
-		wantPrice     float64
+		instanceType string
+		wantPrice    float64
 	}{
 		{"t3.micro", 0.0104},
 		{"t3.small", 0.0208},

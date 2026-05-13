@@ -7,11 +7,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/scttfrdmn/spore-host/spawn/pkg/aws"
-	spawnconfig "github.com/scttfrdmn/spore-host/spawn/pkg/config"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/platform"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/sweep"
 	"github.com/spf13/cobra"
+	"github.com/spore-host/spore-host/spawn/pkg/aws"
+	spawnconfig "github.com/spore-host/spore-host/spawn/pkg/config"
+	"github.com/spore-host/spore-host/spawn/pkg/platform"
+	"github.com/spore-host/spore-host/spawn/pkg/sweep"
 )
 
 var (

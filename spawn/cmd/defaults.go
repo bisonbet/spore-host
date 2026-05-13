@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	spawnconfig "github.com/scttfrdmn/spore-host/spawn/pkg/config"
 	"github.com/spf13/cobra"
+	spawnconfig "github.com/spore-host/spore-host/spawn/pkg/config"
 )
 
 var defaultsCmd = &cobra.Command{

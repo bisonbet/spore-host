@@ -152,8 +152,6 @@ func logf(format string, args ...interface{}) {
 	log.Printf(format, args...)
 }
 
-
-
 func main() {
 	lambda.Start(handler)
 }

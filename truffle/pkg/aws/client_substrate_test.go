@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/scttfrdmn/spore-host/truffle/pkg/testutil"
+	"github.com/spore-host/spore-host/truffle/pkg/testutil"
 )
 
 func TestGetEnabledRegions(t *testing.T) {

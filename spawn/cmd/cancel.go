@@ -10,10 +10,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/google/uuid"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/audit"
-	spawnconfig "github.com/scttfrdmn/spore-host/spawn/pkg/config"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/sweep"
 	"github.com/spf13/cobra"
+	"github.com/spore-host/spore-host/spawn/pkg/audit"
+	spawnconfig "github.com/spore-host/spore-host/spawn/pkg/config"
+	"github.com/spore-host/spore-host/spawn/pkg/sweep"
 )
 
 var cancelSweepID string

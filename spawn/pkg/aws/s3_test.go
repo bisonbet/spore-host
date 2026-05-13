@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/scttfrdmn/spore-host/spawn/pkg/testutil"
+	"github.com/spore-host/spore-host/spawn/pkg/testutil"
 )
 
 func TestCreateS3BucketIfNotExists(t *testing.T) {

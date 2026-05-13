@@ -10,39 +10,39 @@ import (
 	"strings"
 	"time"
 
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/scttfrdmn/spore-host/pkg/i18n"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/dns"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/plugin"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/pluginruntime"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/provider"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/registry"
+	"github.com/spore-host/spore-host/pkg/i18n"
+	"github.com/spore-host/spore-host/spawn/pkg/dns"
+	"github.com/spore-host/spore-host/spawn/pkg/plugin"
+	"github.com/spore-host/spore-host/spawn/pkg/pluginruntime"
+	"github.com/spore-host/spore-host/spawn/pkg/provider"
+	"github.com/spore-host/spore-host/spawn/pkg/registry"
 )
 
 type Agent struct {
-	provider         provider.Provider
-	identity         *provider.Identity
-	config           *provider.Config
-	dnsClient        *dns.Client
-	dnsDomain        string // DNS domain (e.g. "spore.host" or "prismcloud.host")
-	registry         *registry.PeerRegistry
-	pluginRuntime    *pluginruntime.Runtime
-	notifier         *Notifier // Slack lifecycle notifications (nil if not configured)
-	startTime        time.Time
+	provider            provider.Provider
+	identity            *provider.Identity
+	config              *provider.Config
+	dnsClient           *dns.Client
+	dnsDomain           string // DNS domain (e.g. "spore.host" or "prismcloud.host")
+	registry            *registry.PeerRegistry
+	pluginRuntime       *pluginruntime.Runtime
+	notifier            *Notifier // Slack lifecycle notifications (nil if not configured)
+	startTime           time.Time
 	lastActivityTime    time.Time
-	preStopDone         bool  // guards against running pre-stop hook more than once
-	prevCPUIdle         int64      // /proc/stat idle jiffies at last getCPUUsage call
-	prevCPUTotal        int64      // /proc/stat total jiffies at last getCPUUsage call
-	lastSessionTagWrite  time.Time  // throttle spawn:logged-in-count tag writes
-	lastComputeTagWrite  time.Time  // throttle spawn:compute-seconds tag writes
-	computeSecondsBase   int64      // compute-seconds already accumulated before this spored start
-	prevNetRx            int64      // /proc/net/dev RX bytes at last getNetworkBytes call
-	prevNetTx            int64      // /proc/net/dev TX bytes at last getNetworkBytes call
-	idleWarned           bool       // send idle_warning notification only once
-	ttlWarned            bool       // send ttl_warning notification only once
+	preStopDone         bool      // guards against running pre-stop hook more than once
+	prevCPUIdle         int64     // /proc/stat idle jiffies at last getCPUUsage call
+	prevCPUTotal        int64     // /proc/stat total jiffies at last getCPUUsage call
+	lastSessionTagWrite time.Time // throttle spawn:logged-in-count tag writes
+	lastComputeTagWrite time.Time // throttle spawn:compute-seconds tag writes
+	computeSecondsBase  int64     // compute-seconds already accumulated before this spored start
+	prevNetRx           int64     // /proc/net/dev RX bytes at last getNetworkBytes call
+	prevNetTx           int64     // /proc/net/dev TX bytes at last getNetworkBytes call
+	idleWarned          bool      // send idle_warning notification only once
+	ttlWarned           bool      // send ttl_warning notification only once
 }
 
 func NewAgent(ctx context.Context, prov provider.Provider) (*Agent, error) {

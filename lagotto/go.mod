@@ -1,4 +1,4 @@
-module github.com/scttfrdmn/spore-host/lagotto
+module github.com/spore-host/spore-host/lagotto
 
 go 1.26
 
@@ -8,16 +8,16 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.16
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.20.39
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.57.3
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.299.1
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.300.0
 	github.com/aws/aws-sdk-go-v2/service/scheduler v1.17.24
 	github.com/aws/aws-sdk-go-v2/service/sns v1.39.17
 	github.com/aws/aws-sdk-go-v2/service/sts v1.42.1
 	github.com/google/uuid v1.6.0
-	github.com/scttfrdmn/spore-host/pkg/i18n v0.0.0-00010101000000-000000000000
-	github.com/scttfrdmn/spore-host/spawn v0.0.0-00010101000000-000000000000
-	github.com/scttfrdmn/spore-host/truffle v0.0.0
 	github.com/scttfrdmn/substrate v0.65.0
 	github.com/spf13/cobra v1.10.2
+	github.com/spore-host/spore-host/pkg/i18n v0.0.0-00010101000000-000000000000
+	github.com/spore-host/spore-host/spawn v0.0.0-00010101000000-000000000000
+	github.com/spore-host/spore-host/truffle v0.0.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -30,7 +30,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.24 // indirect
 	github.com/aws/aws-sdk-go-v2/service/dynamodbstreams v1.32.16 // indirect
 	github.com/aws/aws-sdk-go-v2/service/fsx v1.65.9 // indirect
-	github.com/aws/aws-sdk-go-v2/service/iam v1.53.9 // indirect
+	github.com/aws/aws-sdk-go-v2/service/iam v1.53.10 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.15 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery v1.11.23 // indirect
@@ -61,12 +61,12 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
-	github.com/scttfrdmn/spore-host/pkg/pricing v0.0.0-00010101000000-000000000000 // indirect
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/spf13/viper v1.21.0 // indirect
+	github.com/spore-host/spore-host/pkg/pricing v0.0.0-00010101000000-000000000000 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws v0.68.0 // indirect
@@ -94,8 +94,8 @@ require (
 )
 
 replace (
-	github.com/scttfrdmn/spore-host/pkg/i18n => ../pkg/i18n
-	github.com/scttfrdmn/spore-host/pkg/pricing => ../pkg/pricing
-	github.com/scttfrdmn/spore-host/spawn => ../spawn
-	github.com/scttfrdmn/spore-host/truffle => ../truffle
+	github.com/spore-host/spore-host/pkg/i18n => ../pkg/i18n
+	github.com/spore-host/spore-host/pkg/pricing => ../pkg/pricing
+	github.com/spore-host/spore-host/spawn => ../spawn
+	github.com/spore-host/spore-host/truffle => ../truffle
 )

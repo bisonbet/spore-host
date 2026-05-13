@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/scttfrdmn/spore-host/spawn/pkg/observability"
+	"github.com/spore-host/spore-host/spawn/pkg/observability"
 )
 
 // Identity represents the instance's identity information
@@ -28,10 +28,10 @@ type PluginDeclaration struct {
 // Config represents the agent configuration
 type Config struct {
 	TTL             time.Duration
-	TTLDeadline     time.Time     // absolute deadline = launch_time + TTL; authoritative across stop/wake cycles
-	LaunchTime      time.Time     // original launch time; never resets on stop/wake
-	ComputeSeconds  int64         // accumulated compute seconds since launch (updated by spored)
-	EBSHourlyCost   float64       // actual EBS cost per hour (queried at first start, tagged for reuse)
+	TTLDeadline     time.Time // absolute deadline = launch_time + TTL; authoritative across stop/wake cycles
+	LaunchTime      time.Time // original launch time; never resets on stop/wake
+	ComputeSeconds  int64     // accumulated compute seconds since launch (updated by spored)
+	EBSHourlyCost   float64   // actual EBS cost per hour (queried at first start, tagged for reuse)
 	IdleTimeout     time.Duration
 	HibernateOnIdle bool
 	CostLimit       float64
@@ -51,10 +51,10 @@ type Config struct {
 	DNSName string
 
 	// Notification settings — populated from EC2 tags at startup
-	NotifyURL        string // spore-bot Lambda Function URL for lifecycle notifications
-	SlackWorkspaceID string // Slack workspace ID (e.g. "T03NE3GTY")
-	NotifyCommand    string // Slash command for workspace config lookup (e.g. "/spore", "/prism")
-	AccountBase36    string // base36-encoded account ID for full DNS FQDN (name.base36.spore.host)
+	NotifyURL        string   // spore-bot Lambda Function URL for lifecycle notifications
+	SlackWorkspaceID string   // Slack workspace ID (e.g. "T03NE3GTY")
+	NotifyCommand    string   // Slash command for workspace config lookup (e.g. "/spore", "/prism")
+	AccountBase36    string   // base36-encoded account ID for full DNS FQDN (name.base36.spore.host)
 	ActivePorts      []int    // TCP ports to monitor for active connections (e.g. 8787 for RStudio)
 	ActiveProcesses  []string // Process names to check; if any running, instance is not idle (e.g. "rsession")
 

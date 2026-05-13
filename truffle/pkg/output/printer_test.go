@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/scttfrdmn/spore-host/truffle/pkg/aws"
+	"github.com/spore-host/spore-host/truffle/pkg/aws"
 )
 
 // captureStdout redirects os.Stdout to a buffer for the duration of fn.

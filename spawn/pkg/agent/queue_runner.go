@@ -15,8 +15,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/queue"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/security"
+	"github.com/spore-host/spore-host/spawn/pkg/queue"
+	"github.com/spore-host/spore-host/spawn/pkg/security"
 )
 
 // QueueRunner executes a batch job queue sequentially

@@ -10,8 +10,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/alerts"
 	"github.com/spf13/cobra"
+	"github.com/spore-host/spore-host/spawn/pkg/alerts"
 )
 
 var (

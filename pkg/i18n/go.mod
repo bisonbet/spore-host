@@ -1,4 +1,4 @@
-module github.com/scttfrdmn/spore-host/pkg/i18n
+module github.com/spore-host/spore-host/pkg/i18n
 
 go 1.23
 

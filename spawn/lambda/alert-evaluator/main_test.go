@@ -118,9 +118,9 @@ func TestThresholdComparison(t *testing.T) {
 
 func TestDailyProjectionFromHourly(t *testing.T) {
 	tests := []struct {
-		name        string
-		hourlyCost  float64
-		wantDaily   float64
+		name       string
+		hourlyCost float64
+		wantDaily  float64
 	}{
 		{
 			name:       "zero hourly",

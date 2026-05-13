@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/scttfrdmn/spore-host/pkg/i18n"
 	"github.com/spf13/cobra"
+	"github.com/spore-host/spore-host/pkg/i18n"
 )
 
 var Version = "0.20.0"

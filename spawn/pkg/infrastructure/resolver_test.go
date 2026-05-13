@@ -3,7 +3,7 @@ package infrastructure
 import (
 	"testing"
 
-	"github.com/scttfrdmn/spore-host/spawn/pkg/config"
+	"github.com/spore-host/spore-host/spawn/pkg/config"
 )
 
 func TestResolver_DynamoDBTables(t *testing.T) {

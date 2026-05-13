@@ -23,9 +23,9 @@ type NotifyRequest struct {
 	InstanceIdentityDocument  string `json:"instance_identity_document,omitempty"`
 	InstanceIdentitySignature string `json:"instance_identity_signature,omitempty"`
 	Command                   string `json:"command,omitempty"` // e.g. "/spore" — routes to correct workspace config
-	Platform                  string `json:"platform"`     // "slack"
-	WorkspaceID               string `json:"workspace_id"` // e.g. "T03NE3GTY"
-	EventType                 string `json:"event_type"`   // ttl_warning, completion, etc.
+	Platform                  string `json:"platform"`          // "slack"
+	WorkspaceID               string `json:"workspace_id"`      // e.g. "T03NE3GTY"
+	EventType                 string `json:"event_type"`        // ttl_warning, completion, etc.
 	InstanceName              string `json:"instance_name"`
 	InstanceID                string `json:"instance_id"`
 	Region                    string `json:"region"`

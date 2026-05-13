@@ -9,8 +9,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/cost"
 	"github.com/spf13/cobra"
+	"github.com/spore-host/spore-host/spawn/pkg/cost"
 )
 
 var costCmd = &cobra.Command{

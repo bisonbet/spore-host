@@ -13,10 +13,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/google/uuid"
-	"github.com/scttfrdmn/spore-host/pkg/i18n"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/audit"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/aws"
 	"github.com/spf13/cobra"
+	"github.com/spore-host/spore-host/pkg/i18n"
+	"github.com/spore-host/spore-host/spawn/pkg/audit"
+	"github.com/spore-host/spore-host/spawn/pkg/aws"
 )
 
 var (

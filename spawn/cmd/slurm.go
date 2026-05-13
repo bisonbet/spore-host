@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/scttfrdmn/spore-host/spawn/pkg/slurm"
 	"github.com/spf13/cobra"
+	"github.com/spore-host/spore-host/spawn/pkg/slurm"
 	"gopkg.in/yaml.v3"
 )
 

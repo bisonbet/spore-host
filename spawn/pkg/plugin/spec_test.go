@@ -3,7 +3,7 @@ package plugin_test
 import (
 	"testing"
 
-	"github.com/scttfrdmn/spore-host/spawn/pkg/plugin"
+	"github.com/spore-host/spore-host/spawn/pkg/plugin"
 )
 
 func TestParseSpec(t *testing.T) {

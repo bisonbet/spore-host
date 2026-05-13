@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/scttfrdmn/spore-host/spawn/pkg/plugin"
+	"github.com/spore-host/spore-host/spawn/pkg/plugin"
 )
 
 // newTestServer creates a PushAPIServer backed by an in-memory store and

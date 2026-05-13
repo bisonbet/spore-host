@@ -14,9 +14,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	spawnconfig "github.com/scttfrdmn/spore-host/spawn/pkg/config"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/queue"
 	"github.com/spf13/cobra"
+	spawnconfig "github.com/spore-host/spore-host/spawn/pkg/config"
+	"github.com/spore-host/spore-host/spawn/pkg/queue"
 )
 
 var (

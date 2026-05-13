@@ -18,28 +18,28 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/google/uuid"
-	"github.com/scttfrdmn/spore-host/pkg/i18n"
-	"github.com/scttfrdmn/spore-host/pkg/pricing"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/audit"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/aws"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/compliance"
-	spawnconfig "github.com/scttfrdmn/spore-host/spawn/pkg/config"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/input"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/locality"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/platform"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/plugin"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/progress"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/queue"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/regions"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/security"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/staging"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/storage"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/sweep"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/userdata"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/wizard"
 	"github.com/scttfrdmn/strata/pkg/strata"
 	"github.com/scttfrdmn/strata/spec"
 	"github.com/spf13/cobra"
+	"github.com/spore-host/spore-host/pkg/i18n"
+	"github.com/spore-host/spore-host/pkg/pricing"
+	"github.com/spore-host/spore-host/spawn/pkg/audit"
+	"github.com/spore-host/spore-host/spawn/pkg/aws"
+	"github.com/spore-host/spore-host/spawn/pkg/compliance"
+	spawnconfig "github.com/spore-host/spore-host/spawn/pkg/config"
+	"github.com/spore-host/spore-host/spawn/pkg/input"
+	"github.com/spore-host/spore-host/spawn/pkg/locality"
+	"github.com/spore-host/spore-host/spawn/pkg/platform"
+	"github.com/spore-host/spore-host/spawn/pkg/plugin"
+	"github.com/spore-host/spore-host/spawn/pkg/progress"
+	"github.com/spore-host/spore-host/spawn/pkg/queue"
+	"github.com/spore-host/spore-host/spawn/pkg/regions"
+	"github.com/spore-host/spore-host/spawn/pkg/security"
+	"github.com/spore-host/spore-host/spawn/pkg/staging"
+	"github.com/spore-host/spore-host/spawn/pkg/storage"
+	"github.com/spore-host/spore-host/spawn/pkg/sweep"
+	"github.com/spore-host/spore-host/spawn/pkg/userdata"
+	"github.com/spore-host/spore-host/spawn/pkg/wizard"
 	"gopkg.in/yaml.v3"
 )
 
@@ -564,7 +564,7 @@ func runLaunch(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "\n⚠️  Auto-setting --idle-timeout=1h to prevent zombie instances\n")
 		fmt.Fprintf(os.Stderr, "   Instance will terminate after 1 hour of inactivity.\n")
 		fmt.Fprintf(os.Stderr, "   Override with --ttl, --idle-timeout, or --no-timeout\n")
-		fmt.Fprintf(os.Stderr, "   See: https://github.com/scttfrdmn/spore-host/blob/main/spawn/docs/lifecycle.md\n\n")
+		fmt.Fprintf(os.Stderr, "   See: https://github.com/spore-host/spore-host/blob/main/spawn/docs/lifecycle.md\n\n")
 	} else if noTimeout {
 		// User explicitly disabled timeout - warn about zombie risk
 		fmt.Fprintf(os.Stderr, "\n⚠️  WARNING: --no-timeout specified\n")
@@ -2168,7 +2168,7 @@ To view current status:
 To extend TTL:
   spawn extend <instance-id> <new-ttl>
 
-Documentation: https://github.com/scttfrdmn/spore-host
+Documentation: https://github.com/spore-host/spore-host
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 EOFMOTD
@@ -2196,7 +2196,7 @@ To view current status:
 To extend TTL:
   spawn extend <instance-id> <new-ttl>
 
-Documentation: https://github.com/scttfrdmn/spore-host
+Documentation: https://github.com/spore-host/spore-host
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 EOFMOTD

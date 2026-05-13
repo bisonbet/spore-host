@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/scttfrdmn/spore-host/spawn/pkg/plugin"
+	"github.com/spore-host/spore-host/spawn/pkg/plugin"
 )
 
 // fetchClient is used for all plugin fetch steps; the 5-minute timeout prevents

@@ -77,10 +77,10 @@ func TestGetEnvOverridesDefault(t *testing.T) {
 func TestScheduleRecordConstants(t *testing.T) {
 	// Verify the default constants are sensible non-empty strings.
 	defaults := map[string]string{
-		"schedulesTable":      defaultSchedulesTable,
-		"historyTable":        defaultHistoryTable,
-		"orchestratorFunc":    defaultOrchestratorFuncName,
-		"accountID":           defaultAccountID,
+		"schedulesTable":   defaultSchedulesTable,
+		"historyTable":     defaultHistoryTable,
+		"orchestratorFunc": defaultOrchestratorFuncName,
+		"accountID":        defaultAccountID,
 	}
 	for name, val := range defaults {
 		if val == "" {

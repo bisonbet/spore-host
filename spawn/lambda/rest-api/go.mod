@@ -1,12 +1,12 @@
-module github.com/scttfrdmn/spore-host/spawn/lambda/rest-api
+module github.com/spore-host/spore-host/spawn/lambda/rest-api
 
 go 1.26
 
 replace (
-	github.com/scttfrdmn/spore-host/pkg/i18n => ../../../pkg/i18n
-	github.com/scttfrdmn/spore-host/pkg/pricing => ../../../pkg/pricing
-	github.com/scttfrdmn/spore-host/spawn => ../..
-	github.com/scttfrdmn/spore-host/truffle => ../../../truffle
+	github.com/spore-host/spore-host/pkg/i18n => ../../../pkg/i18n
+	github.com/spore-host/spore-host/pkg/pricing => ../../../pkg/pricing
+	github.com/spore-host/spore-host/spawn => ../..
+	github.com/spore-host/spore-host/truffle => ../../../truffle
 )
 
 require (
@@ -14,8 +14,8 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.41.7
 	github.com/aws/aws-sdk-go-v2/config v1.32.17
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.57.3
-	github.com/scttfrdmn/spore-host/spawn v0.0.0-00010101000000-000000000000
-	github.com/scttfrdmn/spore-host/truffle v0.0.0-00010101000000-000000000000
+	github.com/spore-host/spore-host/spawn v0.0.0-00010101000000-000000000000
+	github.com/spore-host/spore-host/truffle v0.0.0-00010101000000-000000000000
 )
 
 require (
@@ -25,9 +25,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.23 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.23 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.24 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.299.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.300.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/fsx v1.65.9 // indirect
-	github.com/aws/aws-sdk-go-v2/service/iam v1.53.9 // indirect
+	github.com/aws/aws-sdk-go-v2/service/iam v1.53.10 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.15 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery v1.11.23 // indirect
@@ -49,7 +49,7 @@ require (
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/scttfrdmn/spore-host/pkg/pricing v0.0.0-00010101000000-000000000000 // indirect
+	github.com/spore-host/spore-host/pkg/pricing v0.0.0-00010101000000-000000000000 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws v0.68.0 // indirect
 	go.opentelemetry.io/otel v1.43.0 // indirect

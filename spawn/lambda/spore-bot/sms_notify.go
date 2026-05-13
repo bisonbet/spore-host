@@ -125,9 +125,13 @@ func twilioMessage(instanceName, eventType string, extra map[string]string) (str
 
 func encodeOpts(opts map[string]string) string {
 	keys := make([]string, 0, len(opts))
-	for k := range opts { keys = append(keys, k) }
+	for k := range opts {
+		keys = append(keys, k)
+	}
 	sort.Strings(keys)
 	parts := make([]string, 0, len(keys))
-	for _, k := range keys { parts = append(parts, k+"="+opts[k]) }
+	for _, k := range keys {
+		parts = append(parts, k+"="+opts[k])
+	}
 	return strings.Join(parts, ",")
 }

@@ -9,8 +9,8 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/aws"
-	spawnclient "github.com/scttfrdmn/spore-host/spawn/pkg/aws"
-	spawnconfig "github.com/scttfrdmn/spore-host/spawn/pkg/config"
+	spawnclient "github.com/spore-host/spore-host/spawn/pkg/aws"
+	spawnconfig "github.com/spore-host/spore-host/spawn/pkg/config"
 )
 
 func handleListInstances(ctx context.Context, cfg aws.Config, req events.APIGatewayV2HTTPRequest, p *Principal) (events.APIGatewayV2HTTPResponse, error) {

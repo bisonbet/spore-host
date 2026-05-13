@@ -14,7 +14,7 @@ import (
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/provider"
+	"github.com/spore-host/spore-host/spawn/pkg/provider"
 )
 
 // notifyRequest mirrors the NotifyRequest struct in the spore-bot Lambda.
@@ -123,16 +123,16 @@ func (n *Notifier) send(ctx context.Context, eventType, detail string) error {
 	}
 
 	nr := notifyRequest{
-		PKCS7:   base64.StdEncoding.EncodeToString(pkcs7DER),
-		Command: n.command,
-		Platform:                  n.platform,
-		WorkspaceID:               n.workspaceID,
-		EventType:                 eventType,
-		InstanceName:              n.instanceName,
-		InstanceID:                n.instanceID,
-		Region:                    n.region,
-		DNSName:                   n.dnsName,
-		Detail:                    detail,
+		PKCS7:        base64.StdEncoding.EncodeToString(pkcs7DER),
+		Command:      n.command,
+		Platform:     n.platform,
+		WorkspaceID:  n.workspaceID,
+		EventType:    eventType,
+		InstanceName: n.instanceName,
+		InstanceID:   n.instanceID,
+		Region:       n.region,
+		DNSName:      n.dnsName,
+		Detail:       detail,
 	}
 
 	body, err := json.Marshal(nr)

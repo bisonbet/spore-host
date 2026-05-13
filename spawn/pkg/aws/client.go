@@ -30,8 +30,8 @@ import (
 	awspricing "github.com/aws/aws-sdk-go-v2/service/pricing"
 	pricingtypes "github.com/aws/aws-sdk-go-v2/service/pricing/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/observability/tracing"
-	"github.com/scttfrdmn/spore-host/pkg/pricing"
+	"github.com/spore-host/spore-host/pkg/pricing"
+	"github.com/spore-host/spore-host/spawn/pkg/observability/tracing"
 )
 
 // Client wraps an AWS SDK configuration and provides EC2 lifecycle operations
@@ -167,11 +167,11 @@ type LaunchConfig struct {
 	IMDSv2HopLimit int    // IMDSv2 hop limit (default: 1)
 
 	// Slack lifecycle notifications
-	SlackWorkspaceID string // Slack workspace ID — injected as spawn:slack-workspace-id tag
-	NotifyURL        string // spore-bot Lambda Function URL — injected as spawn:notify-url tag
-	NotifyCommand    string // Slash command for workspace routing — injected as spawn:notify-command tag
-	ActivePortsRaw      string // comma-separated ports to monitor — injected as spawn:active-ports tag
-	ActiveProcessesRaw  string // comma-separated process names — injected as spawn:active-processes tag
+	SlackWorkspaceID   string // Slack workspace ID — injected as spawn:slack-workspace-id tag
+	NotifyURL          string // spore-bot Lambda Function URL — injected as spawn:notify-url tag
+	NotifyCommand      string // Slash command for workspace routing — injected as spawn:notify-command tag
+	ActivePortsRaw     string // comma-separated ports to monitor — injected as spawn:active-ports tag
+	ActiveProcessesRaw string // comma-separated process names — injected as spawn:active-processes tag
 
 	// Pricing (populated at launch from AWS Pricing API)
 	PricePerHour float64 // actual on-demand rate; 0 means look it up

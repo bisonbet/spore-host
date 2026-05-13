@@ -27,7 +27,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/scttfrdmn/spore-host/truffle/pkg/metadata"
+	"github.com/spore-host/spore-host/truffle/pkg/metadata"
 )
 
 // TokenType represents the type of a parsed token

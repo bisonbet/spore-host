@@ -1,4 +1,4 @@
-module github.com/scttfrdmn/spore-host/spawn/lambda/dashboard-websocket
+module github.com/spore-host/spore-host/spawn/lambda/dashboard-websocket
 
 go 1.25.5
 

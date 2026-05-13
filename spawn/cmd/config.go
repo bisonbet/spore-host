@@ -6,10 +6,10 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/scttfrdmn/spore-host/pkg/i18n"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/aws"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/security"
 	"github.com/spf13/cobra"
+	"github.com/spore-host/spore-host/pkg/i18n"
+	"github.com/spore-host/spore-host/spawn/pkg/aws"
+	"github.com/spore-host/spore-host/spawn/pkg/security"
 )
 
 var configCmd = &cobra.Command{

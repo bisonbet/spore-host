@@ -1,4 +1,4 @@
-module github.com/scttfrdmn/spore-host/spawn/lambda/alert-evaluator
+module github.com/spore-host/spore-host/spawn/lambda/alert-evaluator
 
 go 1.25.0
 
@@ -9,7 +9,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.20.32
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.55.0
 	github.com/aws/aws-sdk-go-v2/service/sns v1.39.11
-	github.com/aws/aws-sdk-go-v2/service/sqs v1.42.21
 )
 
 require (

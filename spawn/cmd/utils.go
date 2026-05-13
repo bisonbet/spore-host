@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/scttfrdmn/spore-host/spawn/pkg/aws"
+	"github.com/spore-host/spore-host/spawn/pkg/aws"
 )
 
 // resolveInstance finds an instance by ID or name

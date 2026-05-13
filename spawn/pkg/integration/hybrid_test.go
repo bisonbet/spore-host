@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/scttfrdmn/spore-host/spawn/pkg/provider"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/registry"
+	"github.com/spore-host/spore-host/spawn/pkg/provider"
+	"github.com/spore-host/spore-host/spawn/pkg/registry"
 )
 
 // TestHybridWorkflow tests the complete hybrid compute workflow

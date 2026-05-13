@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/scttfrdmn/spore-host/pkg/i18n"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/aws"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/platform"
+	"github.com/spore-host/spore-host/pkg/i18n"
+	"github.com/spore-host/spore-host/spawn/pkg/aws"
+	"github.com/spore-host/spore-host/spawn/pkg/platform"
 )
 
 // Wizard guides users through spawning an instance

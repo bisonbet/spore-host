@@ -15,15 +15,15 @@ import (
 )
 
 const (
-	wsTicketsTable   = "spawn-ws-tickets"
-	wsTicketTTL      = 30 * time.Second
+	wsTicketsTable = "spawn-ws-tickets"
+	wsTicketTTL    = 30 * time.Second
 )
 
 // wsTicket is a short-lived token exchanged for a WebSocket connection.
 type wsTicket struct {
-	TicketID  string `dynamodbav:"ticket_id"`
-	UserARN   string `dynamodbav:"user_arn"`
-	TTL       int64  `dynamodbav:"ttl"`
+	TicketID string `dynamodbav:"ticket_id"`
+	UserARN  string `dynamodbav:"user_arn"`
+	TTL      int64  `dynamodbav:"ttl"`
 }
 
 // handleGetWSToken creates a single-use 30-second ticket that the client passes

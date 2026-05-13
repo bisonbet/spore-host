@@ -24,11 +24,11 @@ import (
 )
 
 const (
-	slackAuthorizeURL  = "https://slack.com/oauth/v2/authorize"
-	slackAccessURL     = "https://slack.com/api/oauth.v2.access"
-	slackExchangeURL   = "https://slack.com/api/oauth.v2.exchange"
-	slackOAuthScopes   = "commands,chat:write,users:read,users:read.email,incoming-webhook"
-	pkceStateMaxAge    = 10 * time.Minute
+	slackAuthorizeURL = "https://slack.com/oauth/v2/authorize"
+	slackAccessURL    = "https://slack.com/api/oauth.v2.access"
+	slackExchangeURL  = "https://slack.com/api/oauth.v2.exchange"
+	slackOAuthScopes  = "commands,chat:write,users:read,users:read.email,incoming-webhook"
+	pkceStateMaxAge   = 10 * time.Minute
 )
 
 // handleSlackOAuthRedirect redirects the user to Slack's OAuth authorization page.
@@ -169,9 +169,9 @@ type slackOAuthTokenResponse struct {
 	// IncomingWebhook is only present when the user selects a channel during OAuth.
 	// It provides a ready-to-use webhook URL for posting to that channel.
 	IncomingWebhook struct {
-		URL           string `json:"url"`
-		Channel       string `json:"channel"`
-		ChannelID     string `json:"channel_id"`
+		URL              string `json:"url"`
+		Channel          string `json:"channel"`
+		ChannelID        string `json:"channel_id"`
 		ConfigurationURL string `json:"configuration_url"`
 	} `json:"incoming_webhook,omitempty"`
 }

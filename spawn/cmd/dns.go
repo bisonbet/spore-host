@@ -6,11 +6,11 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/scttfrdmn/spore-host/pkg/i18n"
 	"github.com/spf13/cobra"
+	"github.com/spore-host/spore-host/pkg/i18n"
 
-	"github.com/scttfrdmn/spore-host/spawn/pkg/aws"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/dns"
+	"github.com/spore-host/spore-host/spawn/pkg/aws"
+	"github.com/spore-host/spore-host/spawn/pkg/dns"
 )
 
 var (

@@ -37,12 +37,12 @@ type TeamsActivity struct {
 		Name string `json:"name"`
 	} `json:"recipient"`
 	Conversation struct {
-		ID          string `json:"id"`
-		IsGroup     bool   `json:"isGroup"`
+		ID               string `json:"id"`
+		IsGroup          bool   `json:"isGroup"`
 		ConversationType string `json:"conversationType"`
 	} `json:"conversation"`
-	ChannelID  string `json:"channelId"`
-	ServiceURL string `json:"serviceUrl"`
+	ChannelID   string `json:"channelId"`
+	ServiceURL  string `json:"serviceUrl"`
 	ChannelData struct {
 		Tenant struct {
 			ID string `json:"id"`
@@ -144,9 +144,9 @@ func storeTeamsConversationRef(ctx context.Context, reg *Registry, userKey strin
 // ── Bot Framework Token ───────────────────────────────────────────────────────
 
 var (
-	teamsBFToken      string
-	teamsBFTokenExp   time.Time
-	teamsBFTokenMu    sync.Mutex
+	teamsBFToken    string
+	teamsBFTokenExp time.Time
+	teamsBFTokenMu  sync.Mutex
 )
 
 // getTeamsBotToken acquires a Bot Framework access token via client credentials.

@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/scttfrdmn/spore-host/lagotto/pkg/watcher"
-	truffleaws "github.com/scttfrdmn/spore-host/truffle/pkg/aws"
+	"github.com/spore-host/spore-host/lagotto/pkg/watcher"
+	truffleaws "github.com/spore-host/spore-host/truffle/pkg/aws"
 	"github.com/spf13/cobra"
 )
 

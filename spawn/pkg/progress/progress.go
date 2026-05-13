@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/scttfrdmn/spore-host/pkg/i18n"
+	"github.com/spore-host/spore-host/pkg/i18n"
 )
 
 // Progress tracks and displays spawn progress

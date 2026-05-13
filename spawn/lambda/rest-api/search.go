@@ -7,9 +7,9 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/aws"
-	truffleaws "github.com/scttfrdmn/spore-host/truffle/pkg/aws"
-	"github.com/scttfrdmn/spore-host/truffle/pkg/find"
-	"github.com/scttfrdmn/spore-host/truffle/pkg/quotas"
+	truffleaws "github.com/spore-host/spore-host/truffle/pkg/aws"
+	"github.com/spore-host/spore-host/truffle/pkg/find"
+	"github.com/spore-host/spore-host/truffle/pkg/quotas"
 )
 
 func handleSearch(ctx context.Context, cfg aws.Config, req events.APIGatewayV2HTTPRequest, p *Principal) (events.APIGatewayV2HTTPResponse, error) {

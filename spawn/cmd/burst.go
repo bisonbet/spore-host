@@ -9,8 +9,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/registry"
 	"github.com/spf13/cobra"
+	"github.com/spore-host/spore-host/spawn/pkg/registry"
 )
 
 var burstCmd = &cobra.Command{

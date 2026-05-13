@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	truffleaws "github.com/scttfrdmn/spore-host/truffle/pkg/aws"
+	truffleaws "github.com/spore-host/spore-host/truffle/pkg/aws"
 )
 
 // Poller checks instance capacity for active watches.

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/scttfrdmn/spore-host/spawn/pkg/plugin"
+	"github.com/spore-host/spore-host/spawn/pkg/plugin"
 )
 
 // TestPlugin_Lifecycle exercises the full sequential plugin lifecycle through

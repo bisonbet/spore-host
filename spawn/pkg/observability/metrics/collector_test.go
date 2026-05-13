@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/scttfrdmn/spore-host/spawn/pkg/provider"
+	"github.com/spore-host/spore-host/spawn/pkg/provider"
 )
 
 type mockMetricsSource struct {
