@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -188,4 +189,93 @@ func TestCheckCompletion_FilePresent(t *testing.T) {
 	// With an unknown action the function returns false after the sleep(0),
 	// but the file detection path is still exercised.
 	_ = a.checkCompletion(ctx)
+}
+
+// writeFakeDCV writes a fake `dcv` script to dir and prepends dir to PATH.
+// The script exits 0 and prints output if it receives args matching sessionID,
+// otherwise it exits 1 to simulate "not found / not ready".
+func writeFakeDCV(t *testing.T, sessionID string, output string, exitCode int) {
+	t.Helper()
+	dir := t.TempDir()
+	script := filepath.Join(dir, "dcv")
+
+	var body string
+	if exitCode == 0 {
+		body = "#!/bin/sh\necho '" + output + "'\nexit 0\n"
+	} else {
+		body = "#!/bin/sh\nexit 1\n"
+	}
+
+	if err := os.WriteFile(script, []byte(body), 0755); err != nil {
+		t.Fatalf("writeFakeDCV: %v", err)
+	}
+	t.Setenv("PATH", dir+":"+os.Getenv("PATH"))
+}
+
+func TestDCVIdleSource_NoSessionID(t *testing.T) {
+	// When DCVSessionID is empty the DCV check is skipped entirely.
+	// getDCVConnectionCount should not be called; isIdle proceeds to other checks.
+	a := newTestAgent(t, &provider.Config{
+		IdleTimeout:    5 * time.Minute,
+		IdleCPUPercent: 100.0, // prevent CPU check from blocking
+		DCVSessionID:   "",
+	})
+	// getDCVConnectionCount with empty session ID — should return -1 without exec
+	count := a.getDCVConnectionCount()
+	// With no real dcv binary and empty session the exec will fail → -1
+	if count > 0 {
+		t.Errorf("getDCVConnectionCount() = %d with empty DCVSessionID, want <= 0", count)
+	}
+}
+
+func TestDCVIdleSource_ServerNotReady(t *testing.T) {
+	// dcv exits non-zero → getDCVConnectionCount returns -1 → isIdle returns false.
+	writeFakeDCV(t, "console", "", 1)
+	a := newTestAgent(t, &provider.Config{
+		IdleTimeout:    5 * time.Minute,
+		IdleCPUPercent: 100.0,
+		DCVSessionID:   "console",
+	})
+	count := a.getDCVConnectionCount()
+	if count != -1 {
+		t.Errorf("getDCVConnectionCount() = %d when dcv exits non-zero, want -1", count)
+	}
+	// isIdle must return false (grace period — server not ready)
+	if a.IsIdle() {
+		t.Error("IsIdle() = true when DCV server not ready, want false")
+	}
+}
+
+func TestDCVIdleSource_ZeroClients(t *testing.T) {
+	// dcv returns 0 connections → isIdle returns true (idle, skip CPU/network checks).
+	writeFakeDCV(t, "console", `{"num-of-connections":0}`, 0)
+	a := newTestAgent(t, &provider.Config{
+		IdleTimeout:    5 * time.Minute,
+		IdleCPUPercent: 100.0,
+		DCVSessionID:   "console",
+	})
+	count := a.getDCVConnectionCount()
+	if count != 0 {
+		t.Errorf("getDCVConnectionCount() = %d, want 0", count)
+	}
+	if !a.IsIdle() {
+		t.Error("IsIdle() = false when DCV has 0 clients, want true")
+	}
+}
+
+func TestDCVIdleSource_ActiveClients(t *testing.T) {
+	// dcv returns 2 connections → isIdle returns false.
+	writeFakeDCV(t, "console", `{"num-of-connections":2}`, 0)
+	a := newTestAgent(t, &provider.Config{
+		IdleTimeout:    5 * time.Minute,
+		IdleCPUPercent: 100.0,
+		DCVSessionID:   "console",
+	})
+	count := a.getDCVConnectionCount()
+	if count != 2 {
+		t.Errorf("getDCVConnectionCount() = %d, want 2", count)
+	}
+	if a.IsIdle() {
+		t.Error("IsIdle() = true when DCV has 2 active clients, want false")
+	}
 }

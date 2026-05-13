@@ -476,6 +476,8 @@ func loadConfigFromEC2Tags(ctx context.Context, client *ec2.Client, instanceID s
 					config.ActiveProcesses = append(config.ActiveProcesses, p)
 				}
 			}
+		case tagprefix.Tag("dcv-session-id"):
+			config.DCVSessionID = *tag.Value
 		case tagprefix.Tag("slack-workspace-id"):
 			config.SlackWorkspaceID = *tag.Value
 		case tagprefix.Tag("pre-stop"):

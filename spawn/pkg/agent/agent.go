@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -81,6 +82,11 @@ func NewAgent(ctx context.Context, prov provider.Provider) (*Agent, error) {
 				log.Printf("EBS hourly cost: $%.4f/hr", ebsCost)
 			}
 		}()
+	}
+
+	// Log DCV idle detection if this is an application streaming instance.
+	if config.DCVSessionID != "" {
+		log.Printf("DCV idle detection enabled for session %s", config.DCVSessionID)
 	}
 
 	// Initialize lifecycle notifier (Slack notifications via spore-bot Lambda)
@@ -444,6 +450,26 @@ func (a *Agent) TotalComputeSeconds() int64 {
 }
 
 func (a *Agent) isIdle() bool {
+	// DCV application streaming: client connectivity is the authoritative idle signal.
+	// Checked first — DCV streaming itself generates CPU, network, and session activity
+	// that would otherwise block idle detection even when no user is present.
+	if a.config.DCVSessionID != "" {
+		count := a.getDCVConnectionCount()
+		if count < 0 {
+			// DCV server not yet ready — conservatively not idle (startup grace period)
+			log.Printf("Not idle: DCV server not yet ready (session %s)", a.config.DCVSessionID)
+			return false
+		}
+		if count > 0 {
+			log.Printf("Not idle: DCV session %s has %d connected client(s)",
+				a.config.DCVSessionID, count)
+			return false
+		}
+		// Zero clients connected — idle regardless of all other signals
+		log.Printf("DCV session %s: no connected clients — idle", a.config.DCVSessionID)
+		return true
+	}
+
 	// Active SSH/terminal sessions reset the idle timer.
 	if sessions := countActiveSessions(); sessions > 0 {
 		log.Printf("Not idle: %d active session(s)", sessions)
@@ -651,6 +677,23 @@ func (a *Agent) getGPUUtilization() float64 {
 	}
 
 	return maxUtilization
+}
+
+// getDCVConnectionCount returns the number of clients connected to the DCV session,
+// or -1 if the DCV server is not yet ready (treated as a startup grace period).
+// Uses `dcv describe-session --json` — same approach as getGPUUtilization uses nvidia-smi.
+func (a *Agent) getDCVConnectionCount() int {
+	out, err := exec.Command("dcv", "describe-session", a.config.DCVSessionID, "--json").Output()
+	if err != nil {
+		return -1 // DCV not ready or session not found
+	}
+	var result struct {
+		NumConnections int `json:"num-of-connections"`
+	}
+	if err := json.Unmarshal(out, &result); err != nil {
+		return -1
+	}
+	return result.NumConnections
 }
 
 func (a *Agent) hasLoggedInUsers() bool {

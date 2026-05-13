@@ -58,6 +58,11 @@ type Config struct {
 	ActivePorts      []int    // TCP ports to monitor for active connections (e.g. 8787 for RStudio)
 	ActiveProcesses  []string // Process names to check; if any running, instance is not idle (e.g. "rsession")
 
+	// DCVSessionID is the NICE DCV session ID for application streaming instances.
+	// When set, spored uses DCV client connectivity as the primary idle signal,
+	// short-circuiting CPU/network/disk checks (DCV streaming generates those itself).
+	DCVSessionID string
+
 	// Job array settings
 	JobArrayID    string
 	JobArrayName  string
