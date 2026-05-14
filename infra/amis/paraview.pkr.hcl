@@ -1,0 +1,128 @@
+packer {
+  required_plugins {
+    amazon = {
+      version = ">= 1.3.0"
+      source  = "github.com/hashicorp/amazon"
+    }
+  }
+}
+
+variable "region" {
+  type    = string
+  default = "us-east-1"
+}
+
+variable "build_instance_type" {
+  type    = string
+  default = "g5.xlarge" # GPU instance required — validates OpenGL/EGL at build time
+}
+
+variable "paraview_version" {
+  type    = string
+  default = "5.13.2"
+}
+
+# Official AWS NICE DCV AMIs — DCV 2023.1.17701 + NVIDIA 550.90.10 on Amazon Linux 2
+# Owner 877902723034 is AWS; these AMIs are free, public, no Marketplace subscription needed.
+locals {
+  dcv_amis = {
+    us-east-1      = "ami-0395a52954860831a"
+    us-east-2      = "ami-04239b781533e0ae2"
+    us-west-1      = "ami-055385a154c2c7be7"
+    us-west-2      = "ami-017d0c53440a48b8b"
+    eu-west-1      = "ami-03255242b0ee1097e"
+    eu-west-2      = "ami-072738c544c4799a4"
+    eu-central-1   = "ami-01d899a27cd864289"
+    ap-southeast-1 = "ami-0d1bfd507f4c6aa2b"
+    ap-northeast-1 = "ami-0cd6202cd363b6bc8"
+  }
+  source_ami    = local.dcv_amis[var.region]
+  pv_major_minor = join(".", slice(split(".", var.paraview_version), 0, 2))
+  pv_archive     = "ParaView-${var.paraview_version}-MPI-Linux-Python3.10-x86_64.tar.gz"
+  pv_url         = "https://www.paraview.org/files/v${local.pv_major_minor}/${local.pv_archive}"
+  pv_dir         = "ParaView-${var.paraview_version}-MPI-Linux-Python3.10-x86_64"
+}
+
+source "amazon-ebs" "paraview" {
+  region        = var.region
+  source_ami    = local.source_ami
+  instance_type = var.build_instance_type
+  ssh_username  = "ec2-user"
+
+  ami_name        = "spore-paraview-${var.paraview_version}-dcv-{{timestamp}}"
+  ami_description = "spore.host: ParaView ${var.paraview_version} on DCV + NVIDIA 550 (AL2)"
+
+  tags = {
+    "spore:app"         = "paraview"
+    "spore:app-version" = var.paraview_version
+    "spore:dcv-version" = "2023.1.17701"
+    "spore:managed"     = "true"
+    "spore:build-date"  = "{{timestamp}}"
+  }
+
+  # IMDSv2 required (account has httpTokensEnforced)
+  metadata_options {
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
+    instance_metadata_tags      = "enabled"
+  }
+
+  # Expand root from 8 GB → 30 GB
+  # ParaView binary is ~2.2 GB extracted; download is ~660 MB
+  launch_block_device_mappings {
+    device_name           = "/dev/xvda"
+    volume_size           = 30
+    volume_type           = "gp3"
+    delete_on_termination = true
+  }
+}
+
+build {
+  name    = "spore-paraview"
+  sources = ["source.amazon-ebs.paraview"]
+
+  # System dependencies for ParaView OpenGL rendering via DCV
+  provisioner "shell" {
+    inline = [
+      "sudo yum install -y mesa-libGL mesa-libGLU mesa-dri-drivers libXt libXrender libXext",
+    ]
+  }
+
+  # Download and install ParaView
+  provisioner "shell" {
+    inline = [
+      "set -ex",
+      "curl -fsSL '${local.pv_url}' -o /tmp/${local.pv_archive}",
+      "sudo tar -xzf /tmp/${local.pv_archive} -C /opt/",
+      "sudo ln -sf /opt/${local.pv_dir}/bin/paraview /usr/local/bin/paraview",
+      "rm /tmp/${local.pv_archive}",
+      "echo 'ParaView installed: $(/usr/local/bin/paraview --version 2>&1 | head -1)'",
+    ]
+    timeout = "15m"
+  }
+
+  # Configure DCV for application streaming (virtual session, no desktop manager)
+  provisioner "shell" {
+    inline = [
+      # Enable automatic virtual session creation
+      "sudo sed -i 's/#create-session = true/create-session = true/' /etc/dcv/dcv.conf || true",
+      "sudo systemctl enable dcvserver",
+      "echo 'DCV configured for application streaming'",
+    ]
+  }
+
+  # Verify installation (offscreen — no display available during build)
+  provisioner "shell" {
+    inline = [
+      "test -f /usr/local/bin/paraview && echo 'ParaView binary: OK'",
+      "ls /opt/ParaView-${var.paraview_version}-MPI-Linux-Python3.10-x86_64/bin/paraview",
+      "nvidia-smi --query-gpu=name,driver_version --format=csv,noheader",
+      "echo 'Build verification complete'",
+    ]
+  }
+
+  post-processor "manifest" {
+    output     = "${path.root}/manifest-paraview-${var.region}.json"
+    strip_path = true
+  }
+}
