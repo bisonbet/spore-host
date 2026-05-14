@@ -36,6 +36,7 @@ require (
 	github.com/scttfrdmn/strata v0.22.0
 	github.com/scttfrdmn/substrate v0.65.0
 	github.com/spf13/cobra v1.10.2
+	github.com/spore-host/spore-host/pkg/catalog v0.0.0-00010101000000-000000000000
 	github.com/spore-host/spore-host/pkg/i18n v0.0.0-00010101000000-000000000000
 	github.com/spore-host/spore-host/pkg/pricing v0.0.0-00010101000000-000000000000
 	go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws v0.68.0

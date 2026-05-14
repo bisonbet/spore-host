@@ -173,6 +173,10 @@ type LaunchConfig struct {
 	ActivePortsRaw     string // comma-separated ports to monitor — injected as spawn:active-ports tag
 	ActiveProcessesRaw string // comma-separated process names — injected as spawn:active-processes tag
 
+	// DCV application streaming
+	DCVSessionID string // NICE DCV session ID — activates DCV idle detection in spored (e.g. "console")
+	AppName      string // Catalog application name — informational tag (e.g. "paraview")
+
 	// Pricing (populated at launch from AWS Pricing API)
 	PricePerHour float64 // actual on-demand rate; 0 means look it up
 
@@ -413,6 +417,12 @@ func buildTags(config LaunchConfig, accountID string, userARN string) []types.Ta
 	}
 	if config.ActiveProcessesRaw != "" {
 		tags = append(tags, types.Tag{Key: aws.String("spawn:active-processes"), Value: aws.String(config.ActiveProcessesRaw)})
+	}
+	if config.DCVSessionID != "" {
+		tags = append(tags, types.Tag{Key: aws.String("spawn:dcv-session-id"), Value: aws.String(config.DCVSessionID)})
+	}
+	if config.AppName != "" {
+		tags = append(tags, types.Tag{Key: aws.String("spawn:app-name"), Value: aws.String(config.AppName)})
 	}
 
 	if config.IdleTimeout != "" {
@@ -1287,6 +1297,82 @@ func (c *Client) GetDefaultVPC(ctx context.Context, region string) (string, erro
 	}
 
 	return *result.Vpcs[0].VpcId, nil
+}
+
+// CreateOrGetDCVSecurityGroup creates or retrieves a security group named "spawn-dcv"
+// that allows inbound TCP 8443 (NICE DCV) from anywhere. Returns the security group ID.
+func (c *Client) CreateOrGetDCVSecurityGroup(ctx context.Context, region, vpcID string) (string, error) {
+	cfg := c.cfg.Copy()
+	cfg.Region = region
+	ec2Client := ec2.NewFromConfig(cfg)
+
+	const sgName = "spawn-dcv"
+
+	// Check if it already exists
+	describeResult, err := ec2Client.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
+		Filters: []types.Filter{
+			{Name: aws.String("group-name"), Values: []string{sgName}},
+			{Name: aws.String("vpc-id"), Values: []string{vpcID}},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("describe security groups: %w", err)
+	}
+	if len(describeResult.SecurityGroups) > 0 {
+		return *describeResult.SecurityGroups[0].GroupId, nil
+	}
+
+	// Create it
+	createResult, err := ec2Client.CreateSecurityGroup(ctx, &ec2.CreateSecurityGroupInput{
+		GroupName:   aws.String(sgName),
+		Description: aws.String("spawn-managed: NICE DCV application streaming (TCP 8443)"),
+		VpcId:       aws.String(vpcID),
+		TagSpecifications: []types.TagSpecification{
+			{
+				ResourceType: types.ResourceTypeSecurityGroup,
+				Tags: []types.Tag{
+					{Key: aws.String("spawn:managed"), Value: aws.String("true")},
+					{Key: aws.String("Name"), Value: aws.String(sgName)},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("create security group: %w", err)
+	}
+	sgID := *createResult.GroupId
+
+	// Authorize DCV port
+	_, err = ec2Client.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
+		GroupId: aws.String(sgID),
+		IpPermissions: []types.IpPermission{
+			{
+				IpProtocol: aws.String("tcp"),
+				FromPort:   aws.Int32(8443),
+				ToPort:     aws.Int32(8443),
+				IpRanges: []types.IpRange{
+					{CidrIp: aws.String("0.0.0.0/0"), Description: aws.String("NICE DCV (IPv4)")},
+				},
+				Ipv6Ranges: []types.Ipv6Range{
+					{CidrIpv6: aws.String("::/0"), Description: aws.String("NICE DCV (IPv6)")},
+				},
+			},
+			// Also allow SSH so users can debug if needed
+			{
+				IpProtocol: aws.String("tcp"),
+				FromPort:   aws.Int32(22),
+				ToPort:     aws.Int32(22),
+				IpRanges: []types.IpRange{
+					{CidrIp: aws.String("0.0.0.0/0"), Description: aws.String("SSH")},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("authorize DCV ingress: %w", err)
+	}
+
+	return sgID, nil
 }
 
 // GetEFSDNSName constructs the EFS DNS name from filesystem ID and region
