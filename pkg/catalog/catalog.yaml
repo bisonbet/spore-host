@@ -1,3 +1,20 @@
+# spore.host application catalog
+# GPU apps use the official AWS NICE DCV AMI (owner: 877902723034, free, no Marketplace subscription)
+# CPU apps: AMIs TBD — use standard AL2023 until dedicated AMIs are built (#286)
+
+# DCV GPU AMIs — DCV-AmazonLinux2-x86_64-2023.1.17701-NVIDIA-550.90.10
+# Same AMI version across all regions as of 2026-05-14
+dcv_gpu_amis: &dcv_gpu_amis
+  us-east-1: ami-0395a52954860831a
+  us-east-2: ami-04239b781533e0ae2
+  us-west-1: ami-055385a154c2c7be7
+  us-west-2: ami-017d0c53440a48b8b
+  eu-west-1: ami-03255242b0ee1097e
+  eu-west-2: ami-072738c544c4799a4
+  eu-central-1: ami-01d899a27cd864289
+  ap-southeast-1: ami-0d1bfd507f4c6aa2b
+  ap-northeast-1: ami-0cd6202cd363b6bc8
+
 apps:
   - name: paraview
     description: "Scientific visualization — CFD, FEA, large mesh"
@@ -12,7 +29,16 @@ apps:
     launch_command: /usr/local/bin/paraview
     aliases: [pv]
     license: open-source
-    amis: {}
+    amis:
+      us-east-1: ami-0395a52954860831a
+      us-east-2: ami-04239b781533e0ae2
+      us-west-1: ami-055385a154c2c7be7
+      us-west-2: ami-017d0c53440a48b8b
+      eu-west-1: ami-03255242b0ee1097e
+      eu-west-2: ami-072738c544c4799a4
+      eu-central-1: ami-01d899a27cd864289
+      ap-southeast-1: ami-0d1bfd507f4c6aa2b
+      ap-northeast-1: ami-0cd6202cd363b6bc8
 
   - name: igv
     description: "Integrative Genomics Viewer — genome browser, sequencing data"
@@ -39,7 +65,16 @@ apps:
     launch_command: /usr/bin/chimerax
     aliases: [chimera]
     license: open-source
-    amis: {}
+    amis:
+      us-east-1: ami-0395a52954860831a
+      us-east-2: ami-04239b781533e0ae2
+      us-west-1: ami-055385a154c2c7be7
+      us-west-2: ami-017d0c53440a48b8b
+      eu-west-1: ami-03255242b0ee1097e
+      eu-west-2: ami-072738c544c4799a4
+      eu-central-1: ami-01d899a27cd864289
+      ap-southeast-1: ami-0d1bfd507f4c6aa2b
+      ap-northeast-1: ami-0cd6202cd363b6bc8
 
   - name: qgis
     description: "GIS analysis, remote sensing, ecology"
