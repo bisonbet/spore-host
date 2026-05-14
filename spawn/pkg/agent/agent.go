@@ -2,13 +2,17 @@ package agent
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -43,7 +47,12 @@ type Agent struct {
 	prevNetRx           int64     // /proc/net/dev RX bytes at last getNetworkBytes call
 	prevNetTx           int64     // /proc/net/dev TX bytes at last getNetworkBytes call
 	idleWarned          bool      // send idle_warning notification only once
-	ttlWarned           bool      // send ttl_warning notification only once
+
+	// DCV auth token verifier (embedded HTTP server for seamless browser auth)
+	dcvTokens          map[string]string // token → username
+	dcvTokensMu        sync.Mutex
+	dcvReadyURLWritten bool
+	ttlWarned          bool // send ttl_warning notification only once
 }
 
 func NewAgent(ctx context.Context, prov provider.Provider) (*Agent, error) {
@@ -87,6 +96,10 @@ func NewAgent(ctx context.Context, prov provider.Provider) (*Agent, error) {
 	// Log DCV idle detection if this is an application streaming instance.
 	if config.DCVSessionID != "" {
 		log.Printf("DCV idle detection enabled for session %s", config.DCVSessionID)
+		// Start auth token verifier and wait for DCV to be ready, then write spawn:ready-url.
+		if identity.Provider == "ec2" {
+			go agent.setupDCVAuth(context.Background())
+		}
 	}
 
 	// Initialize lifecycle notifier (Slack notifications via spore-bot Lambda)
@@ -447,6 +460,143 @@ func (a *Agent) writeComputeSecondsTag(ctx context.Context) {
 // TotalComputeSeconds returns accumulated compute time across all start/stop cycles.
 func (a *Agent) TotalComputeSeconds() int64 {
 	return a.computeSecondsBase + int64(time.Since(a.startTime).Seconds())
+}
+
+// ── DCV auth token verifier ───────────────────────────────────────────────────
+
+// startDCVAuthVerifier starts a tiny HTTP server on 127.0.0.1:8444 that verifies
+// one-time auth tokens for NICE DCV. DCV calls this endpoint when a browser connects
+// with ?authToken=<token> in the URL. The protocol is specified by AWS DCV:
+// POST body: sessionId=<id>&authenticationToken=<token>&clientAddress=<ip>
+// Response XML: <auth result="yes"><username>ec2-user</username></auth>
+func (a *Agent) startDCVAuthVerifier(ctx context.Context) {
+	a.dcvTokens = make(map[string]string)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		token := r.FormValue("authenticationToken")
+		a.dcvTokensMu.Lock()
+		username, ok := a.dcvTokens[token]
+		if ok {
+			delete(a.dcvTokens, token) // single-use: consumed on first verify
+		}
+		a.dcvTokensMu.Unlock()
+		w.Header().Set("Content-Type", "text/xml")
+		if ok {
+			fmt.Fprintf(w, `<auth result="yes"><username>%s</username></auth>`, username)
+		} else {
+			fmt.Fprintf(w, `<auth result="no"><message>invalid or expired token</message></auth>`)
+		}
+	})
+	srv := &http.Server{Addr: "127.0.0.1:8444", Handler: mux}
+	go func() { _ = srv.ListenAndServe() }()
+	go func() { <-ctx.Done(); _ = srv.Shutdown(context.Background()) }()
+	log.Printf("DCV: auth token verifier listening on 127.0.0.1:8444")
+}
+
+// setupDCVAuth starts the token verifier, waits for the DCV session to be ready,
+// generates a one-time token, and writes spawn:ready-url to the instance tags.
+// Runs as a goroutine in NewAgent() when spawn:dcv-session-id is set.
+func (a *Agent) setupDCVAuth(ctx context.Context) {
+	sessionID := a.config.DCVSessionID
+
+	// Start verifier before DCV is ready (no race possible — DCV connects after boot)
+	a.startDCVAuthVerifier(ctx)
+
+	// Wait for DCV to create the session (up to 3 minutes)
+	log.Printf("DCV: waiting for session %q...", sessionID)
+	for i := 0; i < 36; i++ {
+		out, _ := exec.Command("dcv", "list-sessions").Output()
+		if strings.Contains(string(out), sessionID) {
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
+
+	// Generate a random 32-hex-char single-use token
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		log.Printf("DCV: failed to generate token: %v", err)
+		return
+	}
+	token := hex.EncodeToString(b)
+
+	// Register it
+	a.dcvTokensMu.Lock()
+	a.dcvTokens[token] = "ec2-user"
+	a.dcvTokensMu.Unlock()
+
+	// Build the ready URL — use DNS FQDN when available, else public IP
+	host := a.identity.PublicIP
+	if a.config.DNSName != "" && a.dnsDomain != "" {
+		host = dns.GetFullDNSName(a.config.DNSName, a.identity.AccountID, a.dnsDomain)
+	}
+	readyURL := fmt.Sprintf("https://%s:8443/#%s?authToken=%s", host, sessionID, token)
+
+	// Read app name from spawn:app-name EC2 tag
+	appName := a.readInstanceTag(ctx, "spawn:app-name")
+	status := "ready"
+	if appName != "" {
+		status = appName + " ready"
+	}
+	a.writeReadyTags(ctx, map[string]string{
+		"spawn:ready-url":    readyURL,
+		"spawn:ready-token":  token,
+		"spawn:ready-status": status,
+	})
+	log.Printf("DCV: spawn:ready-url written (session %s, host %s)", sessionID, host)
+}
+
+// readInstanceTag returns the value of a single EC2 tag on this instance, or "".
+func (a *Agent) readInstanceTag(ctx context.Context, key string) string {
+	cfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(a.identity.Region))
+	if err != nil {
+		return ""
+	}
+	client := ec2.NewFromConfig(cfg)
+	out, err := client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+		InstanceIds: []string{a.identity.InstanceID},
+	})
+	if err != nil || len(out.Reservations) == 0 || len(out.Reservations[0].Instances) == 0 {
+		return ""
+	}
+	for _, t := range out.Reservations[0].Instances[0].Tags {
+		if t.Key != nil && *t.Key == key && t.Value != nil {
+			return *t.Value
+		}
+	}
+	return ""
+}
+
+// writeReadyTags writes spawn:ready-* tags to the instance, once.
+// Follows the same pattern as writeSessionCountTag.
+func (a *Agent) writeReadyTags(ctx context.Context, tags map[string]string) {
+	if a.dcvReadyURLWritten {
+		return
+	}
+	cfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(a.identity.Region))
+	if err != nil {
+		log.Printf("DCV: failed to load AWS config for tag write: %v", err)
+		return
+	}
+	client := ec2.NewFromConfig(cfg)
+	var ec2Tags []ec2types.Tag
+	for k, v := range tags {
+		k, v := k, v
+		ec2Tags = append(ec2Tags, ec2types.Tag{Key: aws.String(k), Value: aws.String(v)})
+	}
+	_, err = client.CreateTags(ctx, &ec2.CreateTagsInput{
+		Resources: []string{a.identity.InstanceID},
+		Tags:      ec2Tags,
+	})
+	if err != nil {
+		log.Printf("DCV: failed to write ready tags: %v", err)
+		return
+	}
+	a.dcvReadyURLWritten = true
 }
 
 func (a *Agent) isIdle() bool {

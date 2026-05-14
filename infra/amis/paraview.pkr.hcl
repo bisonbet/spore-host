@@ -101,13 +101,16 @@ build {
     timeout = "15m"
   }
 
-  # Configure DCV for application streaming (virtual session, no desktop manager)
+  # Configure DCV for application streaming and spored's embedded token verifier
   provisioner "shell" {
     inline = [
       # Enable automatic virtual session creation
       "sudo sed -i 's/#create-session = true/create-session = true/' /etc/dcv/dcv.conf || true",
+      # Point DCV at spored's embedded auth token verifier (http — loopback only, no TLS needed)
+      # spored listens on 127.0.0.1:8444 and verifies one-time tokens generated at startup.
+      "sudo sed -i '/^\\[security\\]/a auth-token-verifier=\"http://127.0.0.1:8444\"' /etc/dcv/dcv.conf",
       "sudo systemctl enable dcvserver",
-      "echo 'DCV configured for application streaming'",
+      "echo 'DCV configured for application streaming with token auth'",
     ]
   }
 

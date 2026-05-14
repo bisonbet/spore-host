@@ -248,17 +248,56 @@ func runAppLaunch(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// 14. Wait for DCV to become ready
+	// 14. Poll for spawn:ready-url written by spored's DCV token verifier.
+	// spored starts a tiny HTTP server, waits for DCV, generates a token, writes the tag.
 	dnsName := sessionName // spored will register a DNS name; fall back to IP
-	if host != "" {
-		fmt.Fprintf(os.Stderr, "Waiting for DCV at https://%s:8443...\n", host)
-		if err := waitForDCV(ctx, host, 3*time.Minute); err != nil {
-			fmt.Fprintf(os.Stderr, "⚠️  DCV not ready yet — session HTML will auto-retry.\n")
+	authToken := ""
+	if entry.DCVEnabled {
+		fmt.Fprintf(os.Stderr, "Waiting for DCV session URL")
+		for i := 0; i < 40; i++ {
+			time.Sleep(5 * time.Second)
+			fmt.Fprintf(os.Stderr, ".")
+			instances, err := client.ListInstances(ctx, region, "running")
+			if err != nil {
+				continue
+			}
+			for _, inst := range instances {
+				if inst.InstanceID != result.InstanceID {
+					continue
+				}
+				// Update host if we now have a DNS name or IP
+				if dns := inst.Tags["spawn:dns-name"]; dns != "" {
+					dnsName = dns
+				}
+				if readyURL := inst.Tags["spawn:ready-url"]; readyURL != "" {
+					// Extract authToken= query param
+					if idx := strings.Index(readyURL, "authToken="); idx >= 0 {
+						authToken = readyURL[idx+10:]
+					}
+					// Use the host embedded in the ready URL
+					if host == "" {
+						if start := strings.Index(readyURL, "https://"); start >= 0 {
+							rest := readyURL[start+8:]
+							if end := strings.Index(rest, ":8443"); end >= 0 {
+								host = rest[:end]
+							}
+						}
+					}
+				}
+				break
+			}
+			if authToken != "" {
+				fmt.Fprintf(os.Stderr, " ready\n")
+				break
+			}
+		}
+		if authToken == "" {
+			fmt.Fprintf(os.Stderr, " (timed out — DCV login screen will appear)\n")
 		}
 	}
 
-	// 14. Write session HTML file
-	sessionFile, err := writeSessionHTML(result.InstanceID, sessionName, dnsName, host, entry.Name, entry.Description, instanceType)
+	// 15. Write session HTML file
+	sessionFile, err := writeSessionHTML(result.InstanceID, sessionName, dnsName, host, entry.Name, entry.Description, instanceType, authToken)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "⚠️  Failed to write session file: %v\n", err)
 	} else {
@@ -367,7 +406,7 @@ func findSessionFile(dir, instanceID string) string {
 }
 
 // writeSessionHTML writes the DCV session HTML file to ~/.spawn/sessions/ and returns the path.
-func writeSessionHTML(instanceID, sessionName, dnsName, publicIP, appName, appDesc, instanceType string) (string, error) {
+func writeSessionHTML(instanceID, sessionName, dnsName, publicIP, appName, appDesc, instanceType, authToken string) (string, error) {
 	dir, err := getSessionsDir()
 	if err != nil {
 		return "", err
@@ -392,6 +431,7 @@ func writeSessionHTML(instanceID, sessionName, dnsName, publicIP, appName, appDe
 		Host:         host,
 		DCVPort:      8443,
 		LaunchedAt:   time.Now().Format("2006-01-02 15:04 UTC"),
+		AuthToken:    authToken,
 	}
 
 	tmpl, err := template.New("session").Parse(sessionHTMLTemplate)
