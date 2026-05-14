@@ -6,7 +6,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spore-host/spore-host/pkg/i18n"
@@ -60,6 +62,11 @@ func runConnect(cmd *cobra.Command, args []string) error {
 		"Region": instance.Region,
 		"State":  instance.State,
 	}))
+
+	// DCV application streaming session — open/focus browser instead of SSH.
+	if instance.Tags["spawn:dcv-session-id"] != "" {
+		return connectDCV(ctx, client, instance)
+	}
 
 	// Check if instance is running
 	if instance.State != "running" {
@@ -174,4 +181,132 @@ func findSSHKey(keyName string) (string, error) {
 	return "", i18n.Te("spawn.connect.error.key_not_found_for_name", nil, map[string]interface{}{
 		"KeyName": keyName,
 	})
+}
+
+// ── DCV session connect ───────────────────────────────────────────────────────
+
+// connectDCV handles reconnecting to a NICE DCV application streaming session.
+// It wakes a stopped instance, tries to focus an existing browser tab, then
+// falls back to opening the session HTML file or the raw DCV URL.
+func connectDCV(ctx context.Context, client *aws.Client, instance *aws.InstanceInfo) error {
+	appName := instance.Tags["spawn:app-name"]
+	if appName == "" {
+		appName = "app"
+	}
+
+	// Wake the instance if it has been stopped by idle timeout.
+	if instance.State == "stopped" {
+		fmt.Fprintf(os.Stderr, "Instance is stopped — starting it back up...\n")
+		if err := client.StartInstance(ctx, instance.Region, instance.InstanceID); err != nil {
+			return fmt.Errorf("start instance: %w", err)
+		}
+		fmt.Fprintf(os.Stderr, "Waiting for instance to reach running state")
+		for i := 0; i < 30; i++ {
+			time.Sleep(5 * time.Second)
+			fmt.Fprintf(os.Stderr, ".")
+			instances, err := client.ListInstances(ctx, instance.Region, "running")
+			if err != nil {
+				continue
+			}
+			for idx := range instances {
+				if instances[idx].InstanceID == instance.InstanceID {
+					instance = &instances[idx]
+					fmt.Fprintf(os.Stderr, " running\n")
+					goto instanceRunning
+				}
+			}
+		}
+		return fmt.Errorf("instance did not reach running state within 2.5 minutes")
+	instanceRunning:
+	}
+
+	// Try to focus an existing browser tab containing this instance ID.
+	if focusDCVTab(instance.InstanceID) {
+		fmt.Fprintf(os.Stdout, "✓ Reconnected to %s session.\n", appName)
+		return nil
+	}
+
+	// Find and open the session HTML file.
+	sessionsDir, err := getSessionsDir()
+	if err == nil {
+		if path := findSessionFile(sessionsDir, instance.InstanceID); path != "" {
+			fmt.Fprintf(os.Stderr, "Opening session: %s\n", path)
+			return openBrowser(path)
+		}
+	}
+
+	// Final fallback: open DCV URL directly.
+	host := instance.PublicIP
+	if dns := instance.Tags["spawn:dns-name"]; dns != "" {
+		host = dns
+	}
+	if host == "" {
+		return fmt.Errorf("instance has no public IP or DNS name — cannot open DCV session")
+	}
+	dcvURL := fmt.Sprintf("https://%s:8443", host)
+	fmt.Fprintf(os.Stderr, "Opening DCV at %s\n", dcvURL)
+	return openBrowser(dcvURL)
+}
+
+// focusDCVTab tries to bring an existing browser tab containing instanceID to
+// the foreground. Returns true if a tab was found and focused.
+func focusDCVTab(instanceID string) bool {
+	switch runtime.GOOS {
+	case "darwin":
+		return focusDCVTabMacOS(instanceID)
+	case "linux":
+		// wmctrl -a searches window titles; our HTML title contains the instance ID.
+		return exec.Command("wmctrl", "-a", instanceID).Run() == nil
+	}
+	return false
+}
+
+func focusDCVTabMacOS(instanceID string) bool {
+	// AppleScript: search Chrome then Safari for a tab whose title contains instanceID.
+	for _, browser := range []string{"Google Chrome", "Safari"} {
+		var prop string
+		if browser == "Safari" {
+			prop = "name of current tab of w"
+		} else {
+			prop = "title of t"
+		}
+		_ = prop // used in template below
+
+		var script string
+		if browser == "Safari" {
+			script = fmt.Sprintf(`
+tell application "Safari"
+  repeat with w in windows
+    repeat with t in tabs of w
+      if name of t contains %q then
+        set current tab of w to t
+        activate
+        return "found"
+      end if
+    end repeat
+  end repeat
+end tell
+return "not found"`, instanceID)
+		} else {
+			script = fmt.Sprintf(`
+tell application "Google Chrome"
+  repeat with w in windows
+    repeat with t in tabs of w
+      if title of t contains %q then
+        set active tab of w to t
+        activate
+        return "found"
+      end if
+    end repeat
+  end repeat
+end tell
+return "not found"`, instanceID)
+		}
+
+		out, err := exec.Command("osascript", "-e", script).Output()
+		if err == nil && strings.TrimSpace(string(out)) == "found" {
+			return true
+		}
+	}
+	return false
 }

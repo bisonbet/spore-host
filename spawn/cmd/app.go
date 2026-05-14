@@ -298,16 +298,44 @@ func waitForDCV(ctx context.Context, host string, timeout time.Duration) error {
 	return fmt.Errorf("DCV not ready after %v", timeout)
 }
 
-// writeSessionHTML writes the DCV session HTML file to ~/.spawn/sessions/ and returns the path.
-func writeSessionHTML(instanceID, sessionName, dnsName, publicIP, appName, appDesc, instanceType string) (string, error) {
+// getSessionsDir returns the path to ~/.spawn/sessions/, creating it if necessary.
+func getSessionsDir() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("get home directory: %w", err)
 	}
-
 	dir := filepath.Join(homeDir, ".spawn", "sessions")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return "", fmt.Errorf("create sessions directory: %w", err)
+	}
+	return dir, nil
+}
+
+// findSessionFile scans the sessions directory for an HTML file containing instanceID.
+// Returns the file path if found, empty string otherwise.
+func findSessionFile(dir, instanceID string) string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".html") {
+			continue
+		}
+		path := filepath.Join(dir, e.Name())
+		data, err := os.ReadFile(path)
+		if err == nil && strings.Contains(string(data), instanceID) {
+			return path
+		}
+	}
+	return ""
+}
+
+// writeSessionHTML writes the DCV session HTML file to ~/.spawn/sessions/ and returns the path.
+func writeSessionHTML(instanceID, sessionName, dnsName, publicIP, appName, appDesc, instanceType string) (string, error) {
+	dir, err := getSessionsDir()
+	if err != nil {
+		return "", err
 	}
 
 	// Generate a short random session ID for the file name and tab title
@@ -386,7 +414,7 @@ var sessionHTMLTemplate = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>spore:{{.SessionID}} — {{.AppName}}</title>
+  <title>spore:{{.SessionID}} — {{.AppName}} ({{.InstanceID}})</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
