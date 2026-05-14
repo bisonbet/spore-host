@@ -30,9 +30,10 @@ apps:
     aliases: [pv]
     license: open-source
     # spore-paraview-5.13.2-dcv AMI: ParaView 5.13.2 + DCV 2023.1 + NVIDIA 550.90.10 (AL2)
+    # DCV configured with auth-token-verifier pointing at spored's embedded verifier (:8444)
     # Built with infra/amis/paraview.pkr.hcl
     amis:
-      us-east-1: ami-01944f1de02d9479a  # built 2026-05-14
+      us-east-1: ami-08b44d9b452f64c8c  # rebuilt 2026-05-14 with auth-token-verifier
       # Other regions: run packer build -var region=<region> infra/amis/paraview.pkr.hcl
       # Fallback for other regions: uses base DCV AMI (no ParaView installed)
       us-east-2: ami-04239b781533e0ae2
