@@ -81,6 +81,17 @@ build {
   name    = "spore-paraview"
   sources = ["source.amazon-ebs.paraview"]
 
+  # Install spored (spore.host lifecycle daemon — provides DCV token verifier on :8444)
+  # Fetches the latest binary from S3; IMDSv2 used for region detection at runtime.
+  provisioner "shell" {
+    inline = [
+      "REGION=$(curl -sf -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' http://169.254.169.254/latest/api/token | xargs -I{} curl -sf -H 'X-aws-ec2-metadata-token: {}' http://169.254.169.254/latest/meta-data/placement/region || echo us-east-1)",
+      "curl -fsSL https://spawn-binaries-$${REGION}.s3.amazonaws.com/spored-linux-amd64 -o /tmp/spored || curl -fsSL https://spawn-binaries-us-east-1.s3.amazonaws.com/spored-linux-amd64 -o /tmp/spored",
+      "chmod +x /tmp/spored && sudo mv /tmp/spored /usr/local/bin/spored",
+      "/usr/local/bin/spored --version 2>&1 || echo 'spored installed'",
+    ]
+  }
+
   # System dependencies for ParaView OpenGL rendering via DCV
   provisioner "shell" {
     inline = [
