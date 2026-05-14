@@ -29,8 +29,12 @@ apps:
     launch_command: /usr/local/bin/paraview
     aliases: [pv]
     license: open-source
+    # spore-paraview-5.13.2-dcv AMI: ParaView 5.13.2 + DCV 2023.1 + NVIDIA 550.90.10 (AL2)
+    # Built with infra/amis/paraview.pkr.hcl
     amis:
-      us-east-1: ami-0395a52954860831a
+      us-east-1: ami-01944f1de02d9479a  # built 2026-05-14
+      # Other regions: run packer build -var region=<region> infra/amis/paraview.pkr.hcl
+      # Fallback for other regions: uses base DCV AMI (no ParaView installed)
       us-east-2: ami-04239b781533e0ae2
       us-west-1: ami-055385a154c2c7be7
       us-west-2: ami-017d0c53440a48b8b

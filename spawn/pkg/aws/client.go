@@ -174,8 +174,9 @@ type LaunchConfig struct {
 	ActiveProcessesRaw string // comma-separated process names — injected as spawn:active-processes tag
 
 	// DCV application streaming
-	DCVSessionID string // NICE DCV session ID — activates DCV idle detection in spored (e.g. "console")
-	AppName      string // Catalog application name — informational tag (e.g. "paraview")
+	DCVSessionID      string // NICE DCV session ID — activates DCV idle detection in spored (e.g. "console")
+	AppName           string // Catalog application name — informational tag (e.g. "paraview")
+	RootVolumeSizeGiB int32  // Override root EBS volume size in GiB (0 = use default 20 GiB)
 
 	// Pricing (populated at launch from AWS Pricing API)
 	PricePerHour float64 // actual on-demand rate; 0 means look it up
@@ -503,12 +504,13 @@ func buildTags(config LaunchConfig, accountID string, userARN string) []types.Ta
 }
 
 func buildBlockDevices(config LaunchConfig) []types.BlockDeviceMapping {
-	// Calculate volume size for hibernation
+	// Calculate volume size
 	volumeSize := int32(20) // Default 20 GB
 
-	if config.Hibernate {
+	if config.RootVolumeSizeGiB > 0 {
+		volumeSize = config.RootVolumeSizeGiB
+	} else if config.Hibernate {
 		// For hibernation, need RAM + OS + buffer
-		// Estimate based on instance type
 		volumeSize = estimateVolumeSize(config.InstanceType)
 	}
 

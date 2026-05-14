@@ -204,19 +204,20 @@ func runAppLaunch(cmd *cobra.Command, args []string) error {
 
 	// 13. Build LaunchConfig
 	lc := spawnclient.LaunchConfig{
-		Name:             sessionName,
-		InstanceType:     instanceType,
-		Region:           region,
-		AMI:              ami,
-		KeyName:          keyName,
-		Spot:             appLaunchSpot,
-		TTL:              appLaunchTTL,
-		IdleTimeout:      idleTimeout,
-		OnComplete:       "stop", // stop (not terminate) so session can be restarted
-		SecurityGroupIDs: []string{dcvSGID},
-		UserData:         dcvUserData,
-		DCVSessionID:     dcvSessionID,
-		AppName:          entry.Name,
+		Name:              sessionName,
+		InstanceType:      instanceType,
+		Region:            region,
+		AMI:               ami,
+		KeyName:           keyName,
+		Spot:              appLaunchSpot,
+		TTL:               appLaunchTTL,
+		IdleTimeout:       idleTimeout,
+		OnComplete:        "stop", // stop (not terminate) so session can be restarted
+		SecurityGroupIDs:  []string{dcvSGID},
+		UserData:          dcvUserData,
+		DCVSessionID:      dcvSessionID,
+		AppName:           entry.Name,
+		RootVolumeSizeGiB: 30, // catalog AMIs have 30 GB root (ParaView ~2 GB extracted)
 	}
 
 	// 12. Launch

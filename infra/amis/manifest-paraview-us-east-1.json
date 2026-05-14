@@ -1,0 +1,14 @@
+{
+  "builds": [
+    {
+      "name": "paraview",
+      "builder_type": "amazon-ebs",
+      "build_time": 1778730613,
+      "files": null,
+      "artifact_id": "us-east-1:ami-01944f1de02d9479a",
+      "packer_run_uuid": "325dbaa3-6161-4612-929e-66ddd4a85d5c",
+      "custom_data": null
+    }
+  ],
+  "last_run_uuid": "325dbaa3-6161-4612-929e-66ddd4a85d5c"
+}
