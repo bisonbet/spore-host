@@ -375,3 +375,93 @@ func stringSlicesEqual(a, b []string) bool {
 	}
 	return true
 }
+
+func TestParseQuery_AppToken(t *testing.T) {
+	tests := []struct {
+		name     string
+		query    string
+		wantApps []string
+	}{
+		{"app by canonical name", "paraview", []string{"paraview"}},
+		{"app by alias", "pv", []string{"paraview"}},
+		{"app by alias imagej", "imagej", []string{"fiji"}},
+		{"app case insensitive", "ParaView", []string{"paraview"}},
+		{"non-app word is not app", "nvidia", nil},
+		{"unknown word is not app", "notarealapplication", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pq, err := ParseQuery(tt.query)
+			if err != nil {
+				t.Fatalf("ParseQuery(%q) error = %v", tt.query, err)
+			}
+			if len(pq.Apps) != len(tt.wantApps) {
+				t.Errorf("Apps = %v, want %v", pq.Apps, tt.wantApps)
+				return
+			}
+			for i, want := range tt.wantApps {
+				if pq.Apps[i] != want {
+					t.Errorf("Apps[%d] = %q, want %q", i, pq.Apps[i], want)
+				}
+			}
+		})
+	}
+}
+
+func TestResolveInstanceFamilies_AppToken(t *testing.T) {
+	pq, err := ParseQuery("paraview")
+	if err != nil {
+		t.Fatalf("ParseQuery error: %v", err)
+	}
+	families := pq.ResolveInstanceFamilies()
+	if len(families) == 0 {
+		t.Error("ResolveInstanceFamilies() returned empty for paraview")
+	}
+	// ParaView catalog entry specifies g6, g5, g4dn
+	found := false
+	for _, f := range families {
+		if f == "g6" || f == "g5" || f == "g4dn" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected g6/g5/g4dn families for paraview, got %v", families)
+	}
+}
+
+func TestBuildCriteria_AppMinHardware(t *testing.T) {
+	// ParaView: min_vcpus=4, min_memory_gib=16
+	pq, err := ParseQuery("paraview")
+	if err != nil {
+		t.Fatalf("ParseQuery error: %v", err)
+	}
+	criteria, err := pq.BuildCriteria()
+	if err != nil {
+		t.Fatalf("BuildCriteria error: %v", err)
+	}
+	if criteria.FilterOptions.MinVCPUs < 4 {
+		t.Errorf("MinVCPUs = %d, want >= 4", criteria.FilterOptions.MinVCPUs)
+	}
+	if criteria.FilterOptions.MinMemory < 16 {
+		t.Errorf("MinMemory = %.0f, want >= 16", criteria.FilterOptions.MinMemory)
+	}
+}
+
+func TestBuildCriteria_AppDoesNotOverrideExplicit(t *testing.T) {
+	// Explicit 32 vCPUs should override the app's 4 minimum
+	pq, err := ParseQuery("paraview 32 vcpus")
+	if err != nil {
+		t.Fatalf("ParseQuery error: %v", err)
+	}
+	if pq.MinVCPU != 32 {
+		t.Fatalf("Expected MinVCPU=32, got %d", pq.MinVCPU)
+	}
+	criteria, err := pq.BuildCriteria()
+	if err != nil {
+		t.Fatalf("BuildCriteria error: %v", err)
+	}
+	if criteria.FilterOptions.MinVCPUs != 32 {
+		t.Errorf("MinVCPUs = %d, want 32 (explicit override)", criteria.FilterOptions.MinVCPUs)
+	}
+}

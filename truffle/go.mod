@@ -13,6 +13,7 @@ require (
 	github.com/olekukonko/tablewriter v1.1.4
 	github.com/scttfrdmn/substrate v0.65.0
 	github.com/spf13/cobra v1.10.2
+	github.com/spore-host/spore-host/pkg/catalog v0.0.0-00010101000000-000000000000
 	github.com/spore-host/spore-host/pkg/i18n v0.0.0-00010101000000-000000000000
 	github.com/spore-host/spore-host/pkg/pricing v0.0.0-00010101000000-000000000000
 	gopkg.in/yaml.v3 v3.0.1

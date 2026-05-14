@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/spore-host/spore-host/pkg/catalog"
 	"github.com/spore-host/spore-host/truffle/pkg/metadata"
 )
 
@@ -45,6 +46,7 @@ const (
 	TokenArchitecture
 	TokenNetworkSpeed
 	TokenEFA
+	TokenApp // Application name from pkg/catalog (e.g. "paraview", "igv")
 )
 
 // Token represents a single classified word from a natural language query.
@@ -68,6 +70,7 @@ type ParsedQuery struct {
 	MinNetworkGbps int      // Minimum network bandwidth in Gbps; 0 means unconstrained
 	RequireEFA     bool     // If true, only match instance families with EFA support
 	RawTokens      []Token  // Parsed tokens in input order, useful for diagnostics
+	Apps           []string // Application names from catalog (e.g. ["paraview"]); resolved to hardware in BuildCriteria
 }
 
 var (
@@ -122,6 +125,8 @@ func ParseQuery(query string) (*ParsedQuery, error) {
 			}
 		case TokenEFA:
 			pq.RequireEFA = true
+		case TokenApp:
+			pq.Apps = append(pq.Apps, token.Value)
 		}
 	}
 
@@ -177,7 +182,13 @@ func classifyTokens(words []string) []Token {
 		}
 
 		// Single-word patterns
-		// Check vendor aliases first before processor database
+		// Check app catalog first — app names take priority over hardware tokens.
+		// Store the canonical name (entry.Name) so aliases resolve uniformly.
+		if entry, ok := catalog.Lookup(word); ok {
+			tokens = append(tokens, Token{Type: TokenApp, Value: entry.Name, Raw: word})
+			continue
+		}
+		// Check vendor aliases before processor database
 		if vendor, ok := metadata.VendorAliases[word]; ok {
 			tokens = append(tokens, Token{Type: TokenVendor, Value: vendor, Raw: word})
 		} else if _, ok := metadata.ProcessorDatabase[word]; ok {
@@ -352,6 +363,15 @@ func (pq *ParsedQuery) ResolveInstanceFamilies() []string {
 		networkFamilies := metadata.GetFamiliesByNetworkSpeed(pq.MinNetworkGbps)
 		for _, family := range networkFamilies {
 			familySet[family] = true
+		}
+	}
+
+	// From app catalog entries
+	for _, appName := range pq.Apps {
+		if entry, ok := catalog.Lookup(appName); ok {
+			for _, family := range entry.InstanceFamilies {
+				familySet[family] = true
+			}
 		}
 	}
 

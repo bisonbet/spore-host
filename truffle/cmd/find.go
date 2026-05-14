@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spore-host/spore-host/pkg/catalog"
 	"github.com/spore-host/spore-host/pkg/i18n"
 	"github.com/spore-host/spore-host/truffle/pkg/aws"
 	"github.com/spore-host/spore-host/truffle/pkg/find"
@@ -20,6 +21,7 @@ var (
 	findSkipAZs   bool
 	findShowQuery bool
 	findTimeout   time.Duration
+	findApp       string // --app flag: application name from catalog
 )
 
 var findCmd = &cobra.Command{
@@ -49,7 +51,7 @@ Examples:
   truffle find "efa graviton"
   truffle find "100gbps intel"
   truffle find "h100 efa"`,
-	Args: cobra.MinimumNArgs(1),
+	Args: cobra.ArbitraryArgs, // 0 args allowed when --app is used
 	RunE: runFind,
 }
 
@@ -59,11 +61,26 @@ func init() {
 	findCmd.Flags().BoolVar(&findSkipAZs, "skip-azs", false, "Skip availability zone lookup (faster)")
 	findCmd.Flags().BoolVar(&findShowQuery, "show-query", false, "Show parsed query details")
 	findCmd.Flags().DurationVar(&findTimeout, "timeout", 5*time.Minute, "Timeout for AWS API calls")
+	findCmd.Flags().StringVar(&findApp, "app", "", "Application name from catalog (e.g. paraview, igv)")
 }
 
 func runFind(cmd *cobra.Command, args []string) error {
 	// Join args to handle multi-word queries
 	queryStr := strings.Join(args, " ")
+
+	// --app flag injects the app name into the query string so it flows
+	// through the normal parse pipeline as a TokenApp.
+	if findApp != "" {
+		if queryStr != "" {
+			queryStr = findApp + " " + queryStr
+		} else {
+			queryStr = findApp
+		}
+	}
+
+	if queryStr == "" {
+		return fmt.Errorf("query or --app required")
+	}
 
 	// Parse query
 	query, err := find.ParseQuery(queryStr)
@@ -154,6 +171,15 @@ func runFind(cmd *cobra.Command, args []string) error {
 func printParsedQuery(query *find.ParsedQuery) {
 	fmt.Fprintf(os.Stderr, "%s Parsed query:\n", i18n.Emoji("magnifying_glass"))
 
+	if len(query.Apps) > 0 {
+		for _, appName := range query.Apps {
+			if entry, ok := catalog.Lookup(appName); ok {
+				fmt.Fprintf(os.Stderr, "   App: %s — %s\n", entry.Name, entry.Description)
+				fmt.Fprintf(os.Stderr, "        Families: %s  Min: %d vCPU / %d GiB RAM\n",
+					strings.Join(entry.InstanceFamilies, ", "), entry.MinVCPUs, entry.MinMemoryGiB)
+			}
+		}
+	}
 	if len(query.Vendors) > 0 {
 		fmt.Fprintf(os.Stderr, "   Vendor: %s\n", strings.Join(query.Vendors, ", "))
 	}

@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/spore-host/spore-host/pkg/catalog"
 	"github.com/spore-host/spore-host/truffle/pkg/aws"
 )
 
@@ -23,6 +24,19 @@ func (pq *ParsedQuery) BuildCriteria() (*SearchCriteria, error) {
 			MinMemory:    pq.MinMemory,
 			Architecture: pq.DeriveArchitecture(),
 		},
+	}
+
+	// Apply hardware minimums from app catalog entries.
+	// Only applied when the user has not specified explicit constraints.
+	for _, appName := range pq.Apps {
+		if entry, ok := catalog.Lookup(appName); ok {
+			if sc.FilterOptions.MinVCPUs == 0 && entry.MinVCPUs > 0 {
+				sc.FilterOptions.MinVCPUs = entry.MinVCPUs
+			}
+			if sc.FilterOptions.MinMemory == 0 && entry.MinMemoryGiB > 0 {
+				sc.FilterOptions.MinMemory = float64(entry.MinMemoryGiB)
+			}
+		}
 	}
 
 	// Build instance type pattern
