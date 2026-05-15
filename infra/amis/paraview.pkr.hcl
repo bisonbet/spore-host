@@ -108,9 +108,13 @@ build {
     inline = [
       # Wait for any background yum processes to finish before installing
       "while sudo fuser /var/run/yum.pid >/dev/null 2>&1; do echo 'Waiting for yum lock...'; sleep 5; done",
-      # NVIDIA Container Toolkit v1.13.5 uses gzip RPMs (pre-Zstd, compatible with AL2).
-      # Zstd support was added in toolkit >= 1.14 which AL2's rpm cannot handle.
-      "BASE=https://github.com/NVIDIA/nvidia-container-toolkit/releases/download/v1.13.5 && sudo rpm -ivh --nodeps $${BASE}/libnvidia-container1-1.13.5-1.x86_64.rpm $${BASE}/libnvidia-container-tools-1.13.5-1.x86_64.rpm $${BASE}/nvidia-container-toolkit-base-1.13.5-1.x86_64.rpm $${BASE}/nvidia-container-toolkit-1.13.5-1.x86_64.rpm",
+      # AL2 rpm doesn't support Zstd (used by nvidia-container-toolkit >= 1.14 RPMs).
+      # Workaround: download RPMs and extract with rpm2cpio + cpio, bypassing rpm installer.
+      "curl -fsSL https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo | sudo tee /etc/yum.repos.d/nvidia-container-toolkit.repo",
+      "sudo yum install -y --downloadonly --downloaddir=/tmp/nctk nvidia-container-toolkit",
+      "for f in /tmp/nctk/*.rpm; do echo \"Extracting $f\"; sudo sh -c \"cd / && rpm2cpio $f | cpio -idmu 2>/dev/null || true\"; done",
+      "sudo ldconfig",
+      "nvidia-ctk --version",
       "sudo nvidia-ctk runtime configure --runtime=docker",
       "sudo systemctl restart docker",
       # Verify GPU passthrough works before building ParaView image
