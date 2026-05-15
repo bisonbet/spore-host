@@ -554,12 +554,22 @@ var sessionHTMLTemplate = `<!DOCTYPE html>
     document.getElementById('spinner').style.display = 'none';
     document.getElementById('title').textContent = reason || 'Session paused';
     document.getElementById('msg').textContent =
-      'The instance is stopped. Run: spawn connect {{.InstanceID}}';
+      '{{.AppName}} stopped due to ' + (reason ? reason.toLowerCase() : 'idle timeout') + '.';
     const btn = document.getElementById('action-btn');
-    btn.textContent = 'Reconnect via CLI';
-    btn.href = '#';
-    btn.onclick = (e) => { e.preventDefault(); alert('Run: spawn connect {{.InstanceID}}'); };
+    btn.textContent = 'Restart Session';
     btn.style.display = 'inline-block';
+    btn.onclick = (e) => {
+      e.preventDefault();
+      btn.textContent = 'Starting…';
+      btn.style.opacity = '0.6';
+      document.getElementById('msg').textContent = 'Waking up the instance…';
+      document.getElementById('spinner').style.display = 'block';
+      // Try spawn:// URL scheme (registered at install time).
+      // Falls back gracefully — browser ignores unknown schemes silently.
+      window.location.href = 'spawn://connect/{{.InstanceID}}';
+      // After attempting the scheme, start polling so we catch the wake-up.
+      pollAndConnect();
+    };
   }
 
   async function tryConnect() {
