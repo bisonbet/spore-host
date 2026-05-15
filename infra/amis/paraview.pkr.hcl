@@ -114,13 +114,14 @@ build {
       "sudo yum install -y --downloadonly --downloaddir=/tmp/nctk nvidia-container-toolkit",
       "for f in /tmp/nctk/*.rpm; do echo \"Extracting $f\"; sudo sh -c \"cd / && rpm2cpio $f | cpio -idmu 2>/dev/null || true\"; done",
       "sudo ldconfig",
-      # Find nvidia-ctk binary (extracted path may vary) and symlink to /usr/local/bin
-      "find / -name nvidia-ctk -type f 2>/dev/null | head -3",
-      "sudo ln -sf $(find / -name nvidia-ctk -type f 2>/dev/null | head -1) /usr/local/bin/nvidia-ctk",
-      "nvidia-ctk --version",
-      "sudo nvidia-ctk runtime configure --runtime=docker",
+      # Find where nvidia-ctk was extracted and add to PATH
+      "NCTK=$(find /usr /etc /opt -name nvidia-ctk -type f 2>/dev/null | head -1); echo \"nvidia-ctk at: $NCTK\"",
+      "sudo ln -sf $(find /usr /etc /opt -name nvidia-ctk -type f 2>/dev/null | head -1) /usr/local/bin/nvidia-ctk 2>/dev/null || true",
+      # Configure Docker to use NVIDIA runtime - write config directly if nvidia-ctk unavailable
+      "sudo mkdir -p /etc/docker",
+      "echo '{\"default-runtime\":\"nvidia\",\"runtimes\":{\"nvidia\":{\"path\":\"/usr/bin/nvidia-container-runtime\",\"runtimeArgs\":[]}}}' | sudo tee /etc/docker/daemon.json",
       "sudo systemctl restart docker",
-      # Verify GPU passthrough works before building ParaView image
+      # Verify GPU passthrough works
       "sudo docker run --rm --gpus all nvidia/cuda:12.0.0-base-ubuntu22.04 nvidia-smi --query-gpu=name --format=csv,noheader",
     ]
     timeout = "10m"
