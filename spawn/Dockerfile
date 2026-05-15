@@ -11,6 +11,7 @@ WORKDIR /build
 # Copy shared dependencies
 COPY pkg/i18n pkg/i18n/
 COPY pkg/pricing pkg/pricing/
+COPY pkg/catalog pkg/catalog/
 
 # Build spawn
 COPY spawn/go.mod spawn/go.sum spawn/
