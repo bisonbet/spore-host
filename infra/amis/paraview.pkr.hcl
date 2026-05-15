@@ -108,6 +108,8 @@ build {
     inline = [
       # Wait for any background yum processes to finish before installing
       "while sudo fuser /var/run/yum.pid >/dev/null 2>&1; do echo 'Waiting for yum lock...'; sleep 5; done",
+      # Update rpm itself first — NVIDIA Container Toolkit requires a newer rpm version
+      "sudo yum update -y rpm",
       "curl -fsSL https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo | sudo tee /etc/yum.repos.d/nvidia-container-toolkit.repo",
       "sudo yum install -y nvidia-container-toolkit",
       "sudo nvidia-ctk runtime configure --runtime=docker",
