@@ -92,33 +92,46 @@ build {
     ]
   }
 
-  # System dependencies for ParaView OpenGL rendering via DCV
+  # Install Docker on AL2 (amazon-linux-extras provides Docker 20.10)
   provisioner "shell" {
     inline = [
-      "sudo yum install -y mesa-libGL mesa-libGLU mesa-dri-drivers libXt libXrender libXext",
+      "sudo amazon-linux-extras install docker -y",
+      "sudo systemctl enable docker",
+      "sudo systemctl start docker",
+      "sudo usermod -aG docker ec2-user",
+      "docker --version",
     ]
   }
 
-  # Download and install ParaView
+  # Install NVIDIA Container Toolkit for GPU passthrough into Docker containers
   provisioner "shell" {
     inline = [
-      "set -ex",
-      "curl -fsSL '${local.pv_url}' -o /tmp/${local.pv_archive}",
-      "sudo tar -xzf /tmp/${local.pv_archive} -C /opt/",
-      "sudo ln -sf /opt/${local.pv_dir}/bin/paraview /usr/local/bin/paraview",
-      "rm /tmp/${local.pv_archive}",
-      # Remove VisRTX — it requires NVIDIA OptiX SDK (separate from driver, not installed here).
-      # Without OptiX, VisRTX crashes ParaView at startup with a segfault.
-      # OpenGL rendering (L4 GPU via standard driver) works fine without it.
-      "sudo rm -f /opt/${local.pv_dir}/lib/libVisRTX.so",
-      "sudo rm -f /opt/${local.pv_dir}/lib/libVisRTX.so.0.1.6",
-      "echo 'ParaView installed and VisRTX disabled'",
+      "curl -fsSL https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo | sudo tee /etc/yum.repos.d/nvidia-container-toolkit.repo",
+      "sudo yum install -y nvidia-container-toolkit",
+      "sudo nvidia-ctk runtime configure --runtime=docker",
+      "sudo systemctl restart docker",
+      # Verify GPU passthrough works before building ParaView image
+      "sudo docker run --rm --gpus all nvidia/cuda:12.0.0-base-ubuntu22.04 nvidia-smi --query-gpu=name --format=csv,noheader",
     ]
-    timeout = "15m"
+    timeout = "10m"
   }
 
-  # Create a wrapper script that sets the correct DCV virtual display environment.
-  # DCV creates the xauth file after the session starts — the wrapper waits for it.
+  # Upload Dockerfile and build ParaView Docker image (cached in AMI — no download at launch)
+  provisioner "file" {
+    source      = "${path.root}/Dockerfile.paraview"
+    destination = "/tmp/Dockerfile.paraview"
+  }
+
+  provisioner "shell" {
+    inline = [
+      "sudo docker build -f /tmp/Dockerfile.paraview -t spore-paraview:${var.paraview_version} /tmp/",
+      "sudo docker images spore-paraview:${var.paraview_version}",
+      "echo 'ParaView Docker image built and cached'",
+    ]
+    timeout = "20m"
+  }
+
+  # Create wrapper that runs ParaView in Docker using DCV's virtual display
   provisioner "shell" {
     inline = [
       "sudo tee /usr/local/bin/start-paraview-dcv > /dev/null << 'WRAPPER'",
@@ -128,12 +141,16 @@ build {
       "  [ -f /run/user/1000/dcv/console.xauth ] && break",
       "  sleep 2",
       "done",
-      "export DISPLAY=:0",
-      "export XAUTHORITY=/run/user/1000/dcv/console.xauth",
-      "exec /usr/local/bin/paraview",
+      "# Run ParaView in Ubuntu 22.04 container with GPU + DCV virtual display",
+      "exec docker run --rm --gpus all \\",
+      "  -e DISPLAY=:0 \\",
+      "  -e XAUTHORITY=/tmp/.xauth \\",
+      "  -v /tmp/.X11-unix:/tmp/.X11-unix \\",
+      "  -v /run/user/1000/dcv/console.xauth:/tmp/.xauth:ro \\",
+      "  spore-paraview:5.13.2",
       "WRAPPER",
       "sudo chmod +x /usr/local/bin/start-paraview-dcv",
-      "echo 'DCV wrapper script created'",
+      "echo 'Docker wrapper script created'",
     ]
   }
 
@@ -150,11 +167,11 @@ build {
     ]
   }
 
-  # Verify installation (offscreen — no display available during build)
+  # Verify installation
   provisioner "shell" {
     inline = [
-      "test -f /usr/local/bin/paraview && echo 'ParaView binary: OK'",
-      "ls /opt/ParaView-${var.paraview_version}-MPI-Linux-Python3.10-x86_64/bin/paraview",
+      "test -f /usr/local/bin/start-paraview-dcv && echo 'Wrapper script: OK'",
+      "sudo docker images spore-paraview:${var.paraview_version}",
       "nvidia-smi --query-gpu=name,driver_version --format=csv,noheader",
       "echo 'Build verification complete'",
     ]
