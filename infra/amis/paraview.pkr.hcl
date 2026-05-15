@@ -126,8 +126,9 @@ build {
       # Extract and configure using the uploaded script
       "sudo bash /tmp/install-nvidia-docker.sh",
       "sudo systemctl restart docker",
-      # Verify GPU passthrough works before building ParaView image
-      "sudo docker run --rm --gpus all nvidia/cuda:12.0.0-base-ubuntu22.04 nvidia-smi --query-gpu=name --format=csv,noheader",
+      # Note: GPU verification is skipped here — NVIDIA kernel module not loaded during build.
+      # GPU passthrough is verified at instance launch time via start-paraview-dcv.
+      "sudo docker info | grep -i runtime || echo 'Docker runtimes listed above'",
     ]
     timeout = "15m"
   }
