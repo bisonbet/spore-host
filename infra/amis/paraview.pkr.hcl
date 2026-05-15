@@ -112,16 +112,16 @@ build {
       # Workaround: download RPMs and extract with rpm2cpio + cpio, bypassing rpm installer.
       "curl -fsSL https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo | sudo tee /etc/yum.repos.d/nvidia-container-toolkit.repo",
       "sudo yum install -y --downloadonly --downloaddir=/tmp/nctk nvidia-container-toolkit",
-      "for f in /tmp/nctk/*.rpm; do echo \"Extracting $f\"; sudo sh -c \"cd / && rpm2cpio $f | cpio -idmu 2>/dev/null || true\"; done",
+      # Extract RPMs to / so binaries land in their proper system paths
+      "for f in /tmp/nctk/*.rpm; do echo \"Extracting $f\"; (cd / && sudo rpm2cpio $f | sudo cpio -idmu 2>/dev/null); done",
       "sudo ldconfig",
-      # Find where nvidia-ctk was extracted and add to PATH
-      "NCTK=$(find /usr /etc /opt -name nvidia-ctk -type f 2>/dev/null | head -1); echo \"nvidia-ctk at: $NCTK\"",
-      "sudo ln -sf $(find /usr /etc /opt -name nvidia-ctk -type f 2>/dev/null | head -1) /usr/local/bin/nvidia-ctk 2>/dev/null || true",
-      # Configure Docker to use NVIDIA runtime - write config directly if nvidia-ctk unavailable
+      # Verify extraction worked
+      "ls -la /usr/bin/nvidia-ctk /usr/bin/nvidia-container-runtime 2>&1 || (echo 'Finding...' && find / -name 'nvidia-ctk' 2>/dev/null | head -5)",
+      # Configure Docker NVIDIA runtime
       "sudo mkdir -p /etc/docker",
       "echo '{\"default-runtime\":\"nvidia\",\"runtimes\":{\"nvidia\":{\"path\":\"/usr/bin/nvidia-container-runtime\",\"runtimeArgs\":[]}}}' | sudo tee /etc/docker/daemon.json",
       "sudo systemctl restart docker",
-      # Verify GPU passthrough works
+      # Verify GPU passthrough
       "sudo docker run --rm --gpus all nvidia/cuda:12.0.0-base-ubuntu22.04 nvidia-smi --query-gpu=name --format=csv,noheader",
     ]
     timeout = "10m"
