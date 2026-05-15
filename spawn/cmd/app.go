@@ -263,7 +263,9 @@ func runAppLaunch(cmd *cobra.Command, args []string) error {
 	authToken := ""
 	if entry.DCVEnabled {
 		fmt.Fprintf(os.Stderr, "Waiting for DCV session URL")
-		for i := 0; i < 40; i++ {
+		// Boot + user-data + DCV start + spored init takes ~3-4 minutes.
+		// Poll for up to 5 minutes (60 × 5s).
+		for i := 0; i < 60; i++ {
 			time.Sleep(5 * time.Second)
 			fmt.Fprintf(os.Stderr, ".")
 			instances, err := client.ListInstances(ctx, region, "running")
