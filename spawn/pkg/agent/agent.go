@@ -480,9 +480,8 @@ func (a *Agent) startDCVAuthVerifier(ctx context.Context) {
 		token := r.FormValue("authenticationToken")
 		a.dcvTokensMu.Lock()
 		username, ok := a.dcvTokens[token]
-		if ok {
-			delete(a.dcvTokens, token) // single-use: consumed on first verify
-		}
+		// Token is kept valid for the session lifetime so reconnects work.
+		// spored generates a new token if it restarts (new spawn:ready-url tag).
 		a.dcvTokensMu.Unlock()
 		w.Header().Set("Content-Type", "text/xml")
 		if ok {

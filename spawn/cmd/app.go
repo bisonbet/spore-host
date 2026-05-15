@@ -501,9 +501,9 @@ func openBrowser(path string) error {
 // ── session HTML template ─────────────────────────────────────────────────────
 
 // sessionHTMLTemplate is the DCV session launcher page.
-// Rather than embedding the DCV SDK (which has file:// mixed-content issues),
-// this page redirects directly to DCV's own web client with the auth token in the URL.
-// DCV's built-in web UI handles the connection — no SDK loading, no cert issues.
+// When the instance is reachable: probes DCV, then redirects to DCV's own web client
+// with the auth token — DCV's built-in UI handles the connection (no SDK/mixed-content issues).
+// When the instance is stopped (idle/TTL): shows "session paused" with a Restart button.
 // Title format "spore:<id> — <app> (<instanceID>)" enables tab reuse by spawn connect.
 var sessionHTMLTemplate = `<!DOCTYPE html>
 <html lang="en">
@@ -523,7 +523,8 @@ var sessionHTMLTemplate = `<!DOCTYPE html>
     h2 { font-size: 1.4rem; font-weight: 600; margin-bottom: 0.5rem; }
     p  { color: #888; font-size: 0.9rem; margin-bottom: 1.5rem; }
     .btn { background: #4059e5; color: #fff; border: none; padding: 0.65rem 1.4rem;
-           border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; text-decoration: none; }
+           border-radius: 8px; font-size: 0.9rem; font-weight: 600;
+           cursor: pointer; text-decoration: none; display: inline-block; }
     .btn:hover { opacity: 0.85; }
     footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 0.4rem 1rem;
              background: rgba(0,0,0,0.6); font-size: 0.75rem; color: #555;
@@ -532,9 +533,9 @@ var sessionHTMLTemplate = `<!DOCTYPE html>
 </head>
 <body>
   <div class="spinner" id="spinner"></div>
-  <h2>Connecting to {{.AppName}}…</h2>
-  <p id="msg">Opening DCV session</p>
-  <a class="btn" id="open-btn" href="#" style="display:none">Open {{.AppName}} →</a>
+  <h2 id="title">Connecting to {{.AppName}}…</h2>
+  <p id="msg">Checking session at {{.Host}}:{{.DCVPort}}</p>
+  <a class="btn" id="action-btn" href="#" style="display:none"></a>
 
   <footer>
     <span>spore:{{.SessionID}} — {{.AppName}} ({{.InstanceType}}) — launched {{.LaunchedAt}}</span>
@@ -542,23 +543,53 @@ var sessionHTMLTemplate = `<!DOCTYPE html>
   </footer>
 
   <script>
-  // Redirect to DCV's own web client with the auth token pre-filled.
-  // DCV serves its own SDK and handles the connection — no mixed-content issues.
-  const dcvURL = 'https://{{.Host}}:{{.DCVPort}}/#console{{if .AuthToken}}?authToken={{.AuthToken}}{{end}}';
+  const DCV_HOST  = '{{.Host}}';
+  const DCV_PORT  = {{.DCVPort}};
+  const AUTH_TOKEN = '{{.AuthToken}}';
+  const APP_NAME  = '{{.AppName}}';
+  const dcvBase   = 'https://' + DCV_HOST + ':' + DCV_PORT;
+  const dcvURL    = dcvBase + '/#console' + (AUTH_TOKEN ? '?authToken=' + AUTH_TOKEN : '');
 
-  // Give the spinner a moment to show, then redirect.
-  setTimeout(() => {
-    window.location.href = dcvURL;
-  }, 800);
-
-  // Fallback button in case redirect is blocked.
-  setTimeout(() => {
+  function showPaused(reason) {
     document.getElementById('spinner').style.display = 'none';
-    document.getElementById('msg').textContent = 'Click below if not redirected automatically:';
-    const btn = document.getElementById('open-btn');
-    btn.href = dcvURL;
+    document.getElementById('title').textContent = reason || 'Session paused';
+    document.getElementById('msg').textContent =
+      'The instance is stopped. Run: spawn connect {{.InstanceID}}';
+    const btn = document.getElementById('action-btn');
+    btn.textContent = 'Reconnect via CLI';
+    btn.href = '#';
+    btn.onclick = (e) => { e.preventDefault(); alert('Run: spawn connect {{.InstanceID}}'); };
     btn.style.display = 'inline-block';
-  }, 3000);
+  }
+
+  async function tryConnect() {
+    // Probe DCV — if reachable, redirect into it. If not, show paused state.
+    try {
+      await fetch(dcvBase + '/favicon.ico', { mode: 'no-cors', signal: AbortSignal.timeout(5000) });
+      // DCV is up — redirect to it with auth token
+      window.location.href = dcvURL;
+    } catch (_) {
+      showPaused('Session paused — instance not reachable');
+    }
+  }
+
+  // Poll every 10s so if the instance comes back up, we redirect automatically
+  async function pollAndConnect() {
+    for (let i = 0; i < 36; i++) {  // up to 6 minutes
+      try {
+        await fetch(dcvBase + '/favicon.ico', { mode: 'no-cors', signal: AbortSignal.timeout(5000) });
+        window.location.href = dcvURL;
+        return;
+      } catch (_) {
+        document.getElementById('msg').textContent =
+          'Waiting for instance to wake up… (' + (i+1) + '/36)';
+        await new Promise(r => setTimeout(r, 10000));
+      }
+    }
+    showPaused('Session paused — timed out waiting for instance');
+  }
+
+  tryConnect();
   </script>
 </body>
 </html>
