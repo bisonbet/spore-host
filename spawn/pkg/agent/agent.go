@@ -608,7 +608,8 @@ func (a *Agent) setupDCVAuth(ctx context.Context) {
 	if a.config.DNSName != "" && a.dnsDomain != "" {
 		host = dns.GetFullDNSName(a.config.DNSName, a.identity.AccountID, a.dnsDomain)
 	}
-	readyURL := fmt.Sprintf("https://%s:8443/#%s?authToken=%s", host, sessionID, token)
+	// DCV 2025.0 uses query string params (?sessionId=...&authToken=...) not hash fragments
+	readyURL := fmt.Sprintf("https://%s:8443/?sessionId=%s&authToken=%s", host, sessionID, token)
 
 	// Read app name from spawn:app-name EC2 tag
 	appName := a.readInstanceTag(ctx, "spawn:app-name")

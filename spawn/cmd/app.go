@@ -580,7 +580,8 @@ var sessionHTMLTemplate = `<!DOCTYPE html>
   const AUTH_TOKEN = '{{.AuthToken}}';
   const APP_NAME  = '{{.AppName}}';
   const dcvBase   = 'https://' + DCV_HOST + ':' + DCV_PORT;
-  const dcvURL    = dcvBase + '/#console' + (AUTH_TOKEN ? '?authToken=' + AUTH_TOKEN : '');
+  // DCV 2025.0 uses query string params (location.search), not hash fragment
+  const dcvURL    = dcvBase + '/?sessionId=console' + (AUTH_TOKEN ? '&authToken=' + AUTH_TOKEN : '');
 
   function showPaused(reason) {
     document.getElementById('spinner').style.display = 'none';
