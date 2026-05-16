@@ -73,14 +73,14 @@ build {
   name    = "spore-dcv-gpu-al2023"
   sources = ["source.amazon-ebs.dcv-gpu-al2023"]
 
-  # 1. Kernel build tools for NVIDIA DKMS (no dnf update — avoids kernel version mismatch)
-  # AL2023 kernel 6.18+ uses prefixed package names: kernel6.18-devel, kernel6.18-headers.
-  # We do NOT run `dnf update -y` before NVIDIA install to avoid building the module against
-  # a kernel that isn't running. DKMS will rebuild the module on kernel updates at runtime.
+  # 1. Kernel build tools + extra modules for NVIDIA DKMS
+  # AL2023 kernel 6.18+ uses prefixed package names. kernel-modules-extra provides DRM (.ko files).
+  # The DRM module is CONFIG_DRM=m but only ships in kernel-modules-extra, not the base kernel pkg.
+  # NVIDIA's grid driver depends on drm_gem_object_free from DRM — must be installed before NVIDIA.
   provisioner "shell" {
     inline = [
       "sudo dnf install -y gcc make dkms",
-      "KVER=$(uname -r); KMAJ=$(uname -r | grep -oP '^[0-9]+\\.[0-9]+'); sudo dnf install -y kernel$${KMAJ}-devel-$${KVER} kernel$${KMAJ}-headers-$${KVER} || sudo dnf install -y kernel-devel-$${KVER} kernel-headers-$${KVER} || echo 'WARNING: kernel-devel not found, DKMS may fail'",
+      "KVER=$(uname -r); KMAJ=$(uname -r | grep -oP '^[0-9]+\\.[0-9]+'); sudo dnf install -y kernel$${KMAJ}-devel-$${KVER} kernel$${KMAJ}-headers-$${KVER} kernel$${KMAJ}-modules-extra-$${KVER} || sudo dnf install -y kernel-devel-$${KVER} kernel-headers-$${KVER} kernel-modules-extra-$${KVER} || echo 'WARNING: kernel packages not found'",
     ]
     timeout = "15m"
   }
@@ -96,13 +96,15 @@ build {
   # 2. NVIDIA 595.71.05 grid-aws driver
   # s3://ec2-linux-nvidia-drivers is a public requester-pays bucket; --no-sign-request works from EC2.
   # --skip-module-load: skip test-loading the kernel module at build time (no physical GPU during Packer build)
-  # The module is compiled into the AMI and loads automatically at instance start when a GPU is present.
+  # The DRM module must load before nvidia at runtime — configure via /etc/modules-load.d/
   provisioner "shell" {
     inline = [
       "aws s3 cp --no-sign-request s3://ec2-linux-nvidia-drivers/latest/NVIDIA-Linux-x86_64-595.71.05-grid-aws.run /tmp/nvidia.run",
       "chmod +x /tmp/nvidia.run",
-      "sudo /tmp/nvidia.run --silent --no-drm --disable-nouveau --skip-module-load",
-      "echo 'NVIDIA driver installed (module load skipped at build time)'",
+      "sudo /tmp/nvidia.run --silent --disable-nouveau --skip-module-load",
+      # Ensure drm loads before nvidia at boot (nvidia depends on drm symbols on AL2023 kernel 6.18)
+      "echo -e 'drm\\ndrm_kms_helper\\nnvidia\\nnvidia_uvm\\nnvidia_drm' | sudo tee /etc/modules-load.d/nvidia.conf",
+      "echo 'NVIDIA driver installed (module load skipped at build time, will load at instance start)'",
     ]
     timeout = "20m"
   }
