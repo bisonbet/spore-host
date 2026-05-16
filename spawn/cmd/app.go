@@ -227,7 +227,7 @@ func runAppLaunch(cmd *cobra.Command, args []string) error {
 		UserData:           dcvUserData,
 		DCVSessionID:       dcvSessionID,
 		AppName:            entry.Name,
-		RootVolumeSizeGiB:  30, // catalog AMIs have 30 GB root (ParaView ~2 GB extracted)
+		RootVolumeSizeGiB:  40, // AL2023 base AMI built with 40 GB root
 	}
 
 	// 12. Launch
@@ -357,7 +357,8 @@ print(r or '0')" 2>/dev/null || echo "")
     aws s3 cp "s3://${CERT_BUCKET}/${ACCOUNT_B36}/cert.pem" "${DCV_CERT_DIR}/dcv.pem" 2>/dev/null && \
     aws s3 cp "s3://${CERT_BUCKET}/${ACCOUNT_B36}/key.pem"  "${DCV_CERT_DIR}/dcv.key" 2>/dev/null && \
     chown dcv:dcv "${DCV_CERT_DIR}/dcv.pem" "${DCV_CERT_DIR}/dcv.key" && \
-    chmod 644 "${DCV_CERT_DIR}/dcv.pem" && chmod 600 "${DCV_CERT_DIR}/dcv.key" && \
+    chmod 600 "${DCV_CERT_DIR}/dcv.pem" "${DCV_CERT_DIR}/dcv.key" && \
+    systemctl restart dcvserver && sleep 5 && \
     echo "DCV TLS cert installed for *.${ACCOUNT_B36}.spore.host" || \
     echo "DCV TLS cert not available — using self-signed"
   fi
