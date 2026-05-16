@@ -533,11 +533,16 @@ func (a *Agent) installDCVCert(ctx context.Context) {
 		return
 	}
 
-	// Append TLS directives to dcv.conf (idempotent check)
-	if dcvConf, _ := os.ReadFile("/etc/dcv/dcv.conf"); !bytes.Contains(dcvConf, []byte("tls-certificate")) {
-		if f, err := os.OpenFile("/etc/dcv/dcv.conf", os.O_APPEND|os.O_WRONLY, 0644); err == nil {
-			fmt.Fprintf(f, "\ntls-certificate=/etc/dcv/dcv.pem\ntls-private-key=/etc/dcv/dcv.key\n")
-			f.Close()
+	// Inject TLS directives into the [security] section of dcv.conf (idempotent).
+	// Must be inside [security] — appending at end of file won't work.
+	if dcvConf, err := os.ReadFile("/etc/dcv/dcv.conf"); err == nil && !bytes.Contains(dcvConf, []byte("tls-certificate")) {
+		const tlsLines = "tls-certificate=/etc/dcv/dcv.pem\ntls-private-key=/etc/dcv/dcv.key\n"
+		updated := bytes.Replace(dcvConf,
+			[]byte("[security]"),
+			[]byte("[security]\n"+tlsLines),
+			1)
+		if !bytes.Equal(updated, dcvConf) {
+			_ = os.WriteFile("/etc/dcv/dcv.conf", updated, 0644)
 		}
 	}
 
