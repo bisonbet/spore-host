@@ -141,8 +141,8 @@ build {
       "sudo sed -i '/^\\[security\\]/a auth-token-verifier=\"http://127.0.0.1:8444\"' /etc/dcv/dcv.conf",
       # enable-client-resize: virtual display resizes dynamically to match the browser viewport
       "sudo sed -i '/^\\[display\\]/a enable-client-resize=true' /etc/dcv/dcv.conf",
-      # Web client: stretch remote display to fill browser window; resize=window for dynamic resizing
-      "sudo sh -c 'echo -e \"\\n[web-client]\\ndefault-layout=stretch\" >> /etc/dcv/dcv.conf'",
+      # Web client: resize mode tells client to request server-side virtual display resize to match browser
+      "sudo sh -c 'echo -e \"\\n[web-client]\\ndefault-layout=resize\" >> /etc/dcv/dcv.conf'",
       # Increase virtual session start timeout to 120s (ms; default 30000ms too short for Docker)
       "sudo sh -c 'echo -e \"\\n[session-management]\\nvirtual-session-start-timeout=120000\" >> /etc/dcv/dcv.conf'",
     ]
