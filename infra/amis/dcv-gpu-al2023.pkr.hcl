@@ -74,10 +74,13 @@ build {
   sources = ["source.amazon-ebs.dcv-gpu-al2023"]
 
   # 1. System update + kernel build tools (required for NVIDIA DKMS)
+  # Note: kernel-devel exact version may lag the running kernel on new AMIs.
+  # Install unversioned package which resolves to current kernel, or fall back to any available.
   provisioner "shell" {
     inline = [
       "sudo dnf update -y",
-      "sudo dnf install -y gcc make dkms kernel-devel-$(uname -r) kernel-headers-$(uname -r)",
+      "sudo dnf install -y gcc make dkms",
+      "sudo dnf install -y kernel-devel-$(uname -r) kernel-headers-$(uname -r) || sudo dnf install -y kernel-devel kernel-headers",
     ]
     timeout = "15m"
   }
