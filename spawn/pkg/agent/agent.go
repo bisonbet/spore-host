@@ -1,11 +1,13 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -19,6 +21,7 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/spore-host/spore-host/pkg/i18n"
 	"github.com/spore-host/spore-host/spawn/pkg/dns"
 	"github.com/spore-host/spore-host/spawn/pkg/plugin"
@@ -497,6 +500,64 @@ func (a *Agent) startDCVAuthVerifier(ctx context.Context) {
 	log.Printf("DCV: auth token verifier listening on 127.0.0.1:8444")
 }
 
+// installDCVCert downloads the wildcard TLS cert for this account from S3 and
+// configures DCV to use it, then restarts dcvserver. Fails gracefully — if the
+// cert is not in S3, DCV continues with its self-signed cert.
+func (a *Agent) installDCVCert(ctx context.Context) {
+	region := a.identity.Region
+	accountBase36 := dns.EncodeAccountID(a.identity.AccountID)
+	bucket := "spawn-certs-" + region
+
+	cfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(region))
+	if err != nil {
+		log.Printf("DCV cert: skipping — cannot load AWS config: %v", err)
+		return
+	}
+	s3c := s3.NewFromConfig(cfg)
+
+	if err := s3GetFile(ctx, s3c, bucket, accountBase36+"/cert.pem", "/etc/dcv/dcv.pem", 0644); err != nil {
+		log.Printf("DCV cert: cert not found in S3 (%v) — using self-signed", err)
+		return
+	}
+	if err := s3GetFile(ctx, s3c, bucket, accountBase36+"/key.pem", "/etc/dcv/dcv.key", 0600); err != nil {
+		log.Printf("DCV cert: key download failed (%v) — reverting", err)
+		os.Remove("/etc/dcv/dcv.pem")
+		return
+	}
+
+	// Append TLS directives to dcv.conf (idempotent check)
+	if dcvConf, _ := os.ReadFile("/etc/dcv/dcv.conf"); !bytes.Contains(dcvConf, []byte("tls-certificate")) {
+		if f, err := os.OpenFile("/etc/dcv/dcv.conf", os.O_APPEND|os.O_WRONLY, 0644); err == nil {
+			fmt.Fprintf(f, "\ntls-certificate=/etc/dcv/dcv.pem\ntls-private-key=/etc/dcv/dcv.key\n")
+			f.Close()
+		}
+	}
+
+	if out, err := exec.CommandContext(ctx, "systemctl", "restart", "dcvserver").CombinedOutput(); err != nil {
+		log.Printf("DCV cert: dcvserver restart failed: %v\n%s", err, out)
+		return
+	}
+	time.Sleep(3 * time.Second)
+	log.Printf("DCV cert: installed wildcard cert for *.%s.spore.host", accountBase36)
+}
+
+// s3GetFile downloads an S3 object and writes it to destPath with the given mode.
+func s3GetFile(ctx context.Context, client *s3.Client, bucket, key, destPath string, mode os.FileMode) error {
+	out, err := client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return err
+	}
+	defer out.Body.Close()
+	data, err := io.ReadAll(out.Body)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(destPath, data, mode)
+}
+
 // setupDCVAuth starts the token verifier, waits for the DCV session to be ready,
 // generates a one-time token, and writes spawn:ready-url to the instance tags.
 // Runs as a goroutine in NewAgent() when spawn:dcv-session-id is set.
@@ -505,6 +566,9 @@ func (a *Agent) setupDCVAuth(ctx context.Context) {
 
 	// Start verifier before DCV is ready (no race possible — DCV connects after boot)
 	a.startDCVAuthVerifier(ctx)
+	// Install wildcard TLS cert if available — eliminates browser self-signed cert warning.
+	// Must run before session poll so dcvserver is already using the new cert when ready-url is written.
+	a.installDCVCert(ctx)
 
 	// Wait for DCV to create the session (up to 3 minutes)
 	log.Printf("DCV: waiting for session %q...", sessionID)

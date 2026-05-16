@@ -1060,6 +1060,11 @@ func (c *Client) SetupSporedIAMRole(ctx context.Context) (string, error) {
           "ec2:ResourceTag/spawn:managed": "true"
         }
       }
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject"],
+      "Resource": "arn:aws:s3:::spawn-certs-*/*"
     }
   ]
 }`
