@@ -23,6 +23,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     libgcc-s1 \
     libxcursor1 \
+    fontconfig \
+    fonts-dejavu-core \
     curl \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
