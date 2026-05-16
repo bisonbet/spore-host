@@ -213,6 +213,7 @@ func runAppLaunch(cmd *cobra.Command, args []string) error {
 	// 14. Build LaunchConfig
 	lc := spawnclient.LaunchConfig{
 		Name:               sessionName,
+		DNSName:            sessionName, // enables FQDN in ready-url → wildcard cert matches
 		InstanceType:       instanceType,
 		Region:             region,
 		AMI:                ami,
