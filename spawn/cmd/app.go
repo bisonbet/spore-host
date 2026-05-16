@@ -336,18 +336,38 @@ func buildDCVUserData(launchCommand, sessionID string) string {
 	script := fmt.Sprintf(`#!/bin/bash
 set -e
 
-# Update spored from S3 to pick up the latest version (AMI may have an older copy).
+# Detect region and architecture
 REGION=$(curl -sf -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' http://169.254.169.254/latest/api/token | xargs -I{} curl -sf -H 'X-aws-ec2-metadata-token: {}' http://169.254.169.254/latest/meta-data/placement/region 2>/dev/null || echo us-east-1)
 ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+
+# Update spored from S3 to pick up the latest version (AMI may have an older copy).
 curl -fsSL "https://spawn-binaries-${REGION}.s3.amazonaws.com/spored-linux-${ARCH}" -o /tmp/spored-new && \
   chmod +x /tmp/spored-new && mv /tmp/spored-new /usr/local/bin/spored || true
+
+# Install wildcard TLS cert for DCV before dcvserver starts (avoids restart race).
+# Cert is under s3://spawn-certs-<region>/<account-base36>/{cert,key}.pem
+ACCOUNT_ID=$(curl -sf -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' http://169.254.169.254/latest/api/token | xargs -I{} curl -sf -H 'X-aws-ec2-metadata-token: {}' http://169.254.169.254/latest/dynamic/instance-identity/document | python3 -c "import sys,json; print(json.load(sys.stdin)['accountId'])" 2>/dev/null || echo "")
+if [ -n "$ACCOUNT_ID" ]; then
+  ACCOUNT_B36=$(python3 -c "import sys; n=int('$ACCOUNT_ID'); r=''; n=n if n else 0
+while n: n,d=divmod(n,36); r=chr(48+d if d<10 else 87+d)+r
+print(r or '0')" 2>/dev/null || echo "")
+  if [ -n "$ACCOUNT_B36" ]; then
+    CERT_BUCKET="spawn-certs-${REGION}"
+    aws s3 cp "s3://${CERT_BUCKET}/${ACCOUNT_B36}/cert.pem" /etc/dcv/dcv.pem 2>/dev/null && \
+    aws s3 cp "s3://${CERT_BUCKET}/${ACCOUNT_B36}/key.pem"  /etc/dcv/dcv.key 2>/dev/null && \
+    chmod 600 /etc/dcv/dcv.key && \
+    sed -i '/^\[security\]/a tls-certificate=/etc/dcv/dcv.pem\ntls-private-key=/etc/dcv/dcv.key' /etc/dcv/dcv.conf && \
+    echo "DCV TLS cert installed for *.${ACCOUNT_B36}.spore.host" || \
+    echo "DCV TLS cert not available — using self-signed"
+  fi
+fi
 
 # Start spored (lifecycle daemon — provides DCV token verifier on :8444, idle detection, DNS)
 # Must start before DCV so the token verifier is ready when DCV initializes.
 nohup /usr/local/bin/spored monitor > /var/log/spored.log 2>&1 &
 echo "spored started (PID: $!)"
 
-# Start NICE DCV server
+# Start NICE DCV server (cert already configured above)
 systemctl enable dcvserver
 systemctl start dcvserver
 

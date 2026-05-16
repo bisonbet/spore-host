@@ -579,9 +579,6 @@ func (a *Agent) setupDCVAuth(ctx context.Context) {
 
 	// Start verifier before DCV is ready (no race possible — DCV connects after boot)
 	a.startDCVAuthVerifier(ctx)
-	// Install wildcard TLS cert if available — eliminates browser self-signed cert warning.
-	// Must run before session poll so dcvserver is already using the new cert when ready-url is written.
-	a.installDCVCert(ctx)
 
 	// Wait for DCV to create the session (up to 3 minutes)
 	log.Printf("DCV: waiting for session %q...", sessionID)
