@@ -286,13 +286,11 @@ func runAppLaunch(cmd *cobra.Command, args []string) error {
 					if idx := strings.Index(readyURL, "authToken="); idx >= 0 {
 						authToken = readyURL[idx+10:]
 					}
-					// Use the host embedded in the ready URL
-					if host == "" {
-						if start := strings.Index(readyURL, "https://"); start >= 0 {
-							rest := readyURL[start+8:]
-							if end := strings.Index(rest, ":8443"); end >= 0 {
-								host = rest[:end]
-							}
+					// Prefer the host embedded in ready-url (may be FQDN, not raw IP)
+					if start := strings.Index(readyURL, "https://"); start >= 0 {
+						rest := readyURL[start+8:]
+						if end := strings.Index(rest, ":8443"); end >= 0 {
+							host = rest[:end]
 						}
 					}
 				}
