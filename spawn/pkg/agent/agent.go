@@ -485,9 +485,10 @@ func (a *Agent) startDCVAuthVerifier(ctx context.Context) {
 		a.dcvTokensMu.Unlock()
 		w.Header().Set("Content-Type", "text/xml")
 		if ok {
-			fmt.Fprintf(w, `<auth result="yes"><username>%s</username></auth>`, username)
+			// username is always an internal system value (e.g. "ec2-user"), not user input.
+			_, _ = w.Write([]byte("<auth result=\"yes\"><username>" + username + "</username></auth>"))
 		} else {
-			fmt.Fprintf(w, `<auth result="no"><message>invalid or expired token</message></auth>`)
+			_, _ = w.Write([]byte("<auth result=\"no\"><message>invalid or expired token</message></auth>"))
 		}
 	})
 	srv := &http.Server{Addr: "127.0.0.1:8444", Handler: mux}

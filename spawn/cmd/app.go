@@ -13,7 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"text/tabwriter"
-	"text/template"
+	htmpl "html/template"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -456,7 +456,7 @@ func writeSessionHTML(instanceID, sessionName, dnsName, publicIP, appName, appDe
 		AuthToken:    authToken,
 	}
 
-	tmpl, err := template.New("session").Parse(sessionHTMLTemplate)
+	tmpl, err := htmpl.New("session").Parse(sessionHTMLTemplate)
 	if err != nil {
 		return "", fmt.Errorf("parse template: %w", err)
 	}
