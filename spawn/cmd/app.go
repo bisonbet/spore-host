@@ -336,6 +336,12 @@ func buildDCVUserData(launchCommand, sessionID string) string {
 	script := fmt.Sprintf(`#!/bin/bash
 set -e
 
+# Update spored from S3 to pick up the latest version (AMI may have an older copy).
+REGION=$(curl -sf -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' http://169.254.169.254/latest/api/token | xargs -I{} curl -sf -H 'X-aws-ec2-metadata-token: {}' http://169.254.169.254/latest/meta-data/placement/region 2>/dev/null || echo us-east-1)
+ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+curl -fsSL "https://spawn-binaries-${REGION}.s3.amazonaws.com/spored-linux-${ARCH}" -o /tmp/spored-new && \
+  chmod +x /tmp/spored-new && mv /tmp/spored-new /usr/local/bin/spored || true
+
 # Start spored (lifecycle daemon — provides DCV token verifier on :8444, idle detection, DNS)
 # Must start before DCV so the token verifier is ready when DCV initializes.
 nohup /usr/local/bin/spored monitor > /var/log/spored.log 2>&1 &
