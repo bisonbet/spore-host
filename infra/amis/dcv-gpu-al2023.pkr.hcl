@@ -101,8 +101,9 @@ build {
     inline = [
       "aws s3 cp --no-sign-request s3://ec2-linux-nvidia-drivers/latest/NVIDIA-Linux-x86_64-595.71.05-grid-aws.run /tmp/nvidia.run",
       "chmod +x /tmp/nvidia.run",
+      # Do NOT use --no-drm: DCV 2025.0 virtual sessions require nvidia-drm for display output
       "sudo /tmp/nvidia.run --silent --disable-nouveau --skip-module-load",
-      # Ensure drm loads before nvidia at boot (nvidia depends on drm symbols on AL2023 kernel 6.18)
+      # Load drm and nvidia modules at boot (drm must load before nvidia on AL2023 kernel 6.18)
       "echo -e 'drm\\ndrm_kms_helper\\nnvidia\\nnvidia_uvm\\nnvidia_drm' | sudo tee /etc/modules-load.d/nvidia.conf",
       "echo 'NVIDIA driver installed (module load skipped at build time, will load at instance start)'",
     ]
@@ -133,12 +134,13 @@ build {
   }
 
   # 4. Configure DCV for application streaming + spored token auth
+  # create-session is left disabled in the base AMI — the app user-data creates the session
+  # explicitly with the correct owner (ec2-user) and init command.
   provisioner "shell" {
     inline = [
-      "sudo sed -i 's/#create-session = true/create-session = true/' /etc/dcv/dcv.conf",
       "sudo sed -i '/^\\[security\\]/a auth-token-verifier=\"http://127.0.0.1:8444\"' /etc/dcv/dcv.conf",
-      # Increase virtual session start timeout to 120s (default 30s is too short for Docker init)
-      "sudo sed -i '/^\\[session-management\\]/a virtual-session-start-timeout=120' /etc/dcv/dcv.conf || sudo sh -c 'echo -e \"\\n[session-management]\\nvirtual-session-start-timeout=120\" >> /etc/dcv/dcv.conf'",
+      # Increase virtual session start timeout to 120s (ms; default 30000ms too short for Docker)
+      "sudo sh -c 'echo -e \"\\n[session-management]\\nvirtual-session-start-timeout=120000\" >> /etc/dcv/dcv.conf'",
     ]
   }
 
