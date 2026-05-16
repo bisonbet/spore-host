@@ -73,14 +73,22 @@ build {
   name    = "spore-dcv-gpu-al2023"
   sources = ["source.amazon-ebs.dcv-gpu-al2023"]
 
-  # 1. System update + kernel build tools (required for NVIDIA DKMS)
-  # AL2023 kernel 6.18+ uses prefixed package names: kernel6.18-devel, kernel6.18-headers
-  # The generic kernel-devel/kernel-headers conflict with the versioned packages.
+  # 1. Kernel build tools for NVIDIA DKMS (no dnf update — avoids kernel version mismatch)
+  # AL2023 kernel 6.18+ uses prefixed package names: kernel6.18-devel, kernel6.18-headers.
+  # We do NOT run `dnf update -y` before NVIDIA install to avoid building the module against
+  # a kernel that isn't running. DKMS will rebuild the module on kernel updates at runtime.
   provisioner "shell" {
     inline = [
-      "sudo dnf update -y",
       "sudo dnf install -y gcc make dkms",
       "KVER=$(uname -r); KMAJ=$(uname -r | grep -oP '^[0-9]+\\.[0-9]+'); sudo dnf install -y kernel$${KMAJ}-devel-$${KVER} kernel$${KMAJ}-headers-$${KVER} || sudo dnf install -y kernel-devel-$${KVER} kernel-headers-$${KVER} || echo 'WARNING: kernel-devel not found, DKMS may fail'",
+    ]
+    timeout = "15m"
+  }
+
+  # Security updates (after NVIDIA — safe since kernel itself doesn't update separately)
+  provisioner "shell" {
+    inline = [
+      "sudo dnf update -y --exclude='kernel*'",
     ]
     timeout = "15m"
   }
