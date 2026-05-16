@@ -79,9 +79,9 @@ certbot certonly --non-interactive --agree-tos \
 # certbot uses the base domain (without wildcard prefix) as the directory name
 CERT_DIR="$WORK_DIR/config/live/${ACCOUNT_B36}.spore.host"
 
-# Upload cert + key with server-side encryption
-aws s3 cp "$CERT_DIR/fullchain.pem" "s3://${BUCKET}/${ACCOUNT_B36}/cert.pem"
-aws s3 cp "$CERT_DIR/privkey.pem"   "s3://${BUCKET}/${ACCOUNT_B36}/key.pem" --sse aws:kms
+# Upload cert + key with SSE-S3 (not KMS — KMS requires cross-account key policy for instances in other accounts)
+aws s3 cp "$CERT_DIR/fullchain.pem" "s3://${BUCKET}/${ACCOUNT_B36}/cert.pem" --sse AES256
+aws s3 cp "$CERT_DIR/privkey.pem"   "s3://${BUCKET}/${ACCOUNT_B36}/key.pem"  --sse AES256
 
 echo "==> Uploaded to s3://${BUCKET}/${ACCOUNT_B36}/{cert,key}.pem"
 echo "==> Cert valid for 90 days — re-run this script in 60 days"
