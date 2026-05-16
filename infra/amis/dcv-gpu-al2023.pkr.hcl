@@ -118,7 +118,7 @@ build {
   #   nice-dcv-web-viewer-2025.0.20103-1.amzn2023.x86_64.rpm
   provisioner "shell" {
     inline = [
-      "sudo dnf install -y pulseaudio pulseaudio-utils xorg-x11-server-Xvfb mesa-libGL mesa-libEGL libX11 libXext libXrandr",
+      "sudo dnf install -y pulseaudio pulseaudio-utils xorg-x11-server-Xvfb mesa-libGL mesa-libEGL libX11 libXext libXrandr xterm xsetroot",
       "sudo rpm --import https://d1uj6qtbmh3dt5.cloudfront.net/NICE-GPG-KEY",
       "curl -fsSL https://d1uj6qtbmh3dt5.cloudfront.net/2025.0/Servers/nice-dcv-2025.0-20103-amzn2023-x86_64.tgz -o /tmp/nice-dcv.tgz",
       "tar -xzf /tmp/nice-dcv.tgz -C /tmp/",

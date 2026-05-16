@@ -17,7 +17,25 @@
       "artifact_id": "us-east-1:ami-0350047b2de3630f2",
       "packer_run_uuid": "95b6af58-993d-d831-c59f-9486dde8d31e",
       "custom_data": null
+    },
+    {
+      "name": "dcv-gpu-al2023",
+      "builder_type": "amazon-ebs",
+      "build_time": 1778960544,
+      "files": null,
+      "artifact_id": "us-east-1:ami-0080e2fc6b05892e7",
+      "packer_run_uuid": "c36f1662-ba82-e12c-0d62-01374f46c415",
+      "custom_data": null
+    },
+    {
+      "name": "dcv-gpu-al2023",
+      "builder_type": "amazon-ebs",
+      "build_time": 1778962211,
+      "files": null,
+      "artifact_id": "us-east-1:ami-0b37473fe300d80a5",
+      "packer_run_uuid": "6d1017c2-88f3-5e73-474c-250b9916910c",
+      "custom_data": null
     }
   ],
-  "last_run_uuid": "95b6af58-993d-d831-c59f-9486dde8d31e"
+  "last_run_uuid": "6d1017c2-88f3-5e73-474c-250b9916910c"
 }
