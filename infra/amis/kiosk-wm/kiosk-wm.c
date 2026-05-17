@@ -54,16 +54,14 @@ static int is_main_window(Window win) {
         return 0; /* transient = dialog/popup, don't fill */
     }
 
-    /* No type hints — check WM_CLASS to skip DCV internal windows */
+    /* Must have WM_CLASS — windows without it are internal compositor/DCV windows */
     XClassHint class_hint;
-    if (XGetClassHint(dpy, win, &class_hint)) {
-        int skip = (class_hint.res_class && strncmp(class_hint.res_class, "Dcv", 3) == 0) ||
-                   (class_hint.res_name  && strncmp(class_hint.res_name,  "dcv", 3) == 0);
-        XFree(class_hint.res_name);
-        XFree(class_hint.res_class);
-        if (skip) return 0;
-    }
-    return 1;
+    if (!XGetClassHint(dpy, win, &class_hint)) return 0;
+    int skip = (class_hint.res_class && strncmp(class_hint.res_class, "Dcv", 3) == 0) ||
+               (class_hint.res_name  && strncmp(class_hint.res_name,  "dcv", 3) == 0);
+    XFree(class_hint.res_name);
+    XFree(class_hint.res_class);
+    return skip ? 0 : 1;
 }
 
 static void fill_window(Window win) {
@@ -143,8 +141,18 @@ int main(void) {
         fd_set fds;
         FD_ZERO(&fds);
         FD_SET(xfd, &fds);
-        struct timeval tv = { 10, 0 };
+        /* Poll every 1s to detect Xdcv display resize (RandR events unreliable) */
+        struct timeval tv = { 1, 0 };
         select(xfd + 1, &fds, NULL, NULL, &tv);
+        /* Check if display was resized */
+        int new_w = DisplayWidth(dpy, screen);
+        int new_h = DisplayHeight(dpy, screen);
+        if (new_w != width || new_h != height) {
+            width = new_w; height = new_h;
+            fprintf(stderr, "kiosk-wm: resized to %dx%d (poll)\n", width, height);
+            fill_all();
+            touch_activity();
+        }
 
         while (XPending(dpy)) {
             XEvent ev;
