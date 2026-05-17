@@ -54,7 +54,15 @@ static int is_main_window(Window win) {
         return 0; /* transient = dialog/popup, don't fill */
     }
 
-    /* No type hints — assume it's a normal window */
+    /* No type hints — check WM_CLASS to skip DCV internal windows */
+    XClassHint class_hint;
+    if (XGetClassHint(dpy, win, &class_hint)) {
+        int skip = (class_hint.res_class && strncmp(class_hint.res_class, "Dcv", 3) == 0) ||
+                   (class_hint.res_name  && strncmp(class_hint.res_name,  "dcv", 3) == 0);
+        XFree(class_hint.res_name);
+        XFree(class_hint.res_class);
+        if (skip) return 0;
+    }
     return 1;
 }
 
