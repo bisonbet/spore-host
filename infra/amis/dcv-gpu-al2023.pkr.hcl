@@ -133,6 +133,46 @@ build {
     timeout = "15m"
   }
 
+  # 4a. Install Xorg and set up first-boot DCV-GL configuration service
+  # DCV-GL needs: (1) NVIDIA Xorg on :0 as '3D X server', (2) dcvgladmin enable.
+  # This can only run after NVIDIA kernel modules load (at boot, not build time).
+  # A oneshot systemd service handles this on first boot.
+  provisioner "shell" {
+    inline = [
+      "sudo dnf install -y xorg-x11-server-Xorg",
+      # First-boot setup: generate xorg.conf, enable dcv-gl, start Xorg service
+      "sudo tee /usr/local/bin/dcv-gl-setup.sh > /dev/null << 'SCRIPT'",
+      "#!/bin/bash",
+      "set -e",
+      "# Generate headless NVIDIA xorg.conf (requires NVIDIA modules loaded)",
+      "nvidia-xconfig --virtual=1280x1024 --allow-empty-initial-configuration",
+      "# Enable DCV-GL GLVND interception",
+      "dcvgladmin enable",
+      "# Start NVIDIA Xorg on :0 for DCV-GL rendering backend",
+      "nohup /usr/libexec/Xorg :0 -config /etc/X11/xorg.conf -noreset -background none &>/var/log/xorg-dcv.log &",
+      "sleep 2",
+      "echo 'DCV-GL setup complete'",
+      "SCRIPT",
+      "sudo chmod +x /usr/local/bin/dcv-gl-setup.sh",
+      # Systemd oneshot that runs before dcvserver on every boot
+      "sudo tee /etc/systemd/system/dcv-gl-setup.service > /dev/null << 'SERVICE'",
+      "[Unit]",
+      "Description=DCV-GL NVIDIA Xorg setup",
+      "Before=dcvserver.service",
+      "After=sysinit.target",
+      "[Service]",
+      "Type=oneshot",
+      "ExecStart=/usr/local/bin/dcv-gl-setup.sh",
+      "RemainAfterExit=yes",
+      "[Install]",
+      "WantedBy=multi-user.target",
+      "SERVICE",
+      "sudo systemctl daemon-reload",
+      "sudo systemctl enable dcv-gl-setup.service",
+      "echo 'DCV-GL setup service installed — runs on each boot before dcvserver'",
+    ]
+  }
+
   # 4. Configure DCV for application streaming + spored token auth
   # create-session is left disabled in the base AMI — the app user-data creates the session
   # explicitly with the correct owner (ec2-user) and init command.
