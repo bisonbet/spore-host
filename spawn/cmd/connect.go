@@ -220,32 +220,100 @@ func connectDCV(ctx context.Context, client *aws.Client, instance *aws.InstanceI
 	instanceRunning:
 	}
 
+	// Wait for spored to write a fresh spawn:ready-url (new token after restart)
+	fmt.Fprintf(os.Stderr, "Waiting for DCV session")
+	var readyURL, authToken string
+	for i := 0; i < 60; i++ {
+		time.Sleep(5 * time.Second)
+		fmt.Fprintf(os.Stderr, ".")
+		instances, err := client.ListInstances(ctx, instance.Region, "running")
+		if err != nil {
+			continue
+		}
+		for idx := range instances {
+			if instances[idx].InstanceID != instance.InstanceID {
+				continue
+			}
+			instance = &instances[idx]
+			if url := instance.Tags["spawn:ready-url"]; url != "" {
+				if idx2 := strings.Index(url, "authToken="); idx2 >= 0 {
+					authToken = url[idx2+10:]
+					// strip any trailing fragment
+					if amp := strings.Index(authToken, "&"); amp >= 0 {
+						authToken = authToken[:amp]
+					}
+					if hash := strings.Index(authToken, "#"); hash >= 0 {
+						authToken = authToken[:hash]
+					}
+				}
+				readyURL = url
+			}
+		}
+		if authToken != "" {
+			fmt.Fprintf(os.Stderr, " ready\n")
+			break
+		}
+	}
+	if authToken == "" {
+		fmt.Fprintf(os.Stderr, " (timed out)\n")
+	}
+
 	// Try to focus an existing browser tab containing this instance ID.
 	if focusDCVTab(instance.InstanceID) {
 		fmt.Fprintf(os.Stdout, "✓ Reconnected to %s session.\n", appName)
 		return nil
 	}
 
-	// Find and open the session HTML file.
+	// Find the session HTML file and update it with the new token, then open it.
 	sessionsDir, err := getSessionsDir()
 	if err == nil {
 		if path := findSessionFile(sessionsDir, instance.InstanceID); path != "" {
+			if authToken != "" {
+				// Rewrite with fresh token so the page redirects with valid auth
+				if err := updateSessionHTMLToken(path, authToken, instance); err == nil {
+					fmt.Fprintf(os.Stderr, "Opening session: %s\n", path)
+					return openBrowser(path)
+				}
+			}
 			fmt.Fprintf(os.Stderr, "Opening session: %s\n", path)
 			return openBrowser(path)
 		}
 	}
 
-	// Final fallback: open DCV URL directly.
+	// Final fallback: open DCV URL directly with the new token.
+	if readyURL != "" {
+		fmt.Fprintf(os.Stderr, "Opening DCV: %s\n", readyURL)
+		return openBrowser(readyURL)
+	}
 	host := instance.PublicIP
 	if dns := instance.Tags["spawn:dns-name"]; dns != "" {
-		host = dns
+		host = dns + ".c0zxr0ao.spore.host"
 	}
 	if host == "" {
-		return fmt.Errorf("instance has no public IP or DNS name — cannot open DCV session")
+		return fmt.Errorf("instance has no public IP or DNS name")
 	}
-	dcvURL := fmt.Sprintf("https://%s:8443", host)
-	fmt.Fprintf(os.Stderr, "Opening DCV at %s\n", dcvURL)
-	return openBrowser(dcvURL)
+	return openBrowser(fmt.Sprintf("https://%s:8443", host))
+}
+
+// updateSessionHTMLToken rewrites the AUTH_TOKEN constant in a session HTML file.
+func updateSessionHTMLToken(path, token string, instance *aws.InstanceInfo) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	content := string(data)
+	// Replace AUTH_TOKEN value
+	start := strings.Index(content, "const AUTH_TOKEN = '")
+	if start < 0 {
+		return fmt.Errorf("AUTH_TOKEN not found in session file")
+	}
+	start += len("const AUTH_TOKEN = '")
+	end := strings.Index(content[start:], "'")
+	if end < 0 {
+		return fmt.Errorf("AUTH_TOKEN end not found")
+	}
+	content = content[:start] + token + content[start+end:]
+	return os.WriteFile(path, []byte(content), 0644)
 }
 
 // focusDCVTab tries to bring an existing browser tab containing instanceID to
