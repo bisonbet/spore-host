@@ -180,8 +180,8 @@ build {
       # Web client: inject CSS so the DCV display fills the entire browser viewport
       "sudo python3 -c \"\nimport re\nhtml = open('/usr/share/dcv/www/index.html').read()\ncss = '<style>\\n    body {margin: 0}\\n    html, body, #root { width: 100vw !important; height: 100vh !important; overflow: hidden !important; }\\n    #dcv-display { position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; }\\n  </style>'\nnew = html.replace('<style>\\n    body {margin: 0}\\n  </style>', css)\nopen('/usr/share/dcv/www/index.html', 'w').write(new)\n\"",
       # session-management: disable DCV's own idle timeout (spored owns idle via X11 activity file)
-      # virtual-session-start-timeout=120000ms (2min) for Docker-based apps that take time to init
-      "sudo sh -c 'echo -e \"\\n[session-management]\\nvirtual-session-start-timeout=120000\\nidle-timeout=0\" >> /etc/dcv/dcv.conf'",
+      # virtual-session-start-timeout=120000ms, large initial display avoids resize-on-connect
+      "sudo sh -c 'echo -e \"\\n[session-management]\\nvirtual-session-start-timeout=120000\\nidle-timeout=0\\nvirtual-session-xdcv-args=\\\"-output 1920x1080+0+0\\\"\" >> /etc/dcv/dcv.conf'",
     ]
   }
 
