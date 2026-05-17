@@ -751,14 +751,29 @@ func (a *Agent) writeReadyTags(ctx context.Context, tags map[string]string) {
 	a.dcvReadyURLWritten = true
 }
 
+// x11ActivityFile is written by kiosk-wm on every key/mouse event.
+// spored reads its mtime to detect genuine user activity in DCV sessions.
+const x11ActivityFile = "/run/spore/x11-last-activity"
+
 func (a *Agent) isIdle() bool {
-	// DCV application streaming: client connectivity is the authoritative idle signal.
-	// Checked first — DCV streaming itself generates CPU, network, and session activity
-	// that would otherwise block idle detection even when no user is present.
+	// DCV application streaming: use X11 activity file (written by kiosk-wm on
+	// key/mouse events) as the authoritative idle signal. Falls back to DCV
+	// connection count if the file doesn't exist (pre-kiosk-wm instances).
 	if a.config.DCVSessionID != "" {
+		// Check X11 activity file first (most accurate — actual input events)
+		if info, err := os.Stat(x11ActivityFile); err == nil {
+			idleTime := time.Since(info.ModTime())
+			if idleTime < a.config.IdleTimeout {
+				log.Printf("Not idle: X11 activity %v ago (threshold %v)",
+					idleTime.Round(time.Second), a.config.IdleTimeout)
+				return false
+			}
+			log.Printf("DCV/X11 idle: no activity for %v", idleTime.Round(time.Second))
+			return true
+		}
+		// Fallback: use DCV connection count when activity file not present
 		count := a.getDCVConnectionCount()
 		if count < 0 {
-			// DCV server not yet ready — conservatively not idle (startup grace period)
 			log.Printf("Not idle: DCV server not yet ready (session %s)", a.config.DCVSessionID)
 			return false
 		}
@@ -767,7 +782,6 @@ func (a *Agent) isIdle() bool {
 				a.config.DCVSessionID, count)
 			return false
 		}
-		// Zero clients connected — idle regardless of all other signals
 		log.Printf("DCV session %s: no connected clients — idle", a.config.DCVSessionID)
 		return true
 	}
