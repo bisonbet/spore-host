@@ -389,19 +389,96 @@ func countActivePortConnections(ports []int) int {
 	return count
 }
 
-// countActiveSessions returns the number of active login sessions from `who`.
+// countActiveSessions returns the number of login sessions with recent keyboard activity.
+// Uses `w -h -s` (no header, short format) and checks the IDLE column.
+// A session must have had input within the last 5 minutes to count as active.
+// This prevents idle SSH connections (e.g. an admin checking in) from blocking
+// idle detection — only sessions where someone is actively typing count.
 func countActiveSessions() int {
-	out, err := exec.Command("who").Output()
+	out, err := exec.Command("w", "-h", "-s").Output()
 	if err != nil {
-		return 0
+		// Fall back to who if w is not available
+		who, werr := exec.Command("who").Output()
+		if werr != nil {
+			return 0
+		}
+		count := 0
+		for _, line := range strings.Split(strings.TrimSpace(string(who)), "\n") {
+			if strings.TrimSpace(line) != "" {
+				count++
+			}
+		}
+		return count
 	}
-	count := 0
+	active := 0
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		if strings.TrimSpace(line) != "" {
-			count++
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		// w -s output: USER TTY FROM IDLE WHAT
+		// IDLE format: Xdays, HH:MMm, MM:SS, or Xs (seconds)
+		fields := strings.Fields(line)
+		if len(fields) < 4 {
+			continue
+		}
+		idle := fields[3]
+		if isRecentActivity(idle, 5*time.Minute) {
+			active++
 		}
 	}
-	return count
+	return active
+}
+
+// isRecentActivity returns true if the idle duration string from `w` is less than maxIdle.
+func isRecentActivity(idle string, maxIdle time.Duration) bool {
+	// "?" means no tty activity measured — treat as not active
+	if idle == "?" {
+		return false
+	}
+	// Seconds only: "Xs"
+	if strings.HasSuffix(idle, "s") {
+		secs, err := strconv.ParseFloat(strings.TrimSuffix(idle, "s"), 64)
+		if err == nil {
+			return time.Duration(secs)*time.Second < maxIdle
+		}
+	}
+	// Minutes:seconds "MM:SS"
+	if strings.Contains(idle, ":") && !strings.Contains(idle, "m") {
+		parts := strings.Split(idle, ":")
+		if len(parts) == 2 {
+			mins, e1 := strconv.ParseFloat(parts[0], 64)
+			secs, e2 := strconv.ParseFloat(parts[1], 64)
+			if e1 == nil && e2 == nil {
+				d := time.Duration(mins)*time.Minute + time.Duration(secs)*time.Second
+				return d < maxIdle
+			}
+		}
+	}
+	// Minutes with suffix "MMm" or "HH:MMm"
+	if strings.HasSuffix(idle, "m") {
+		s := strings.TrimSuffix(idle, "m")
+		if strings.Contains(s, ":") {
+			parts := strings.Split(s, ":")
+			if len(parts) == 2 {
+				hrs, e1 := strconv.ParseFloat(parts[0], 64)
+				mins, e2 := strconv.ParseFloat(parts[1], 64)
+				if e1 == nil && e2 == nil {
+					d := time.Duration(hrs)*time.Hour + time.Duration(mins)*time.Minute
+					return d < maxIdle
+				}
+			}
+		}
+		mins, err := strconv.ParseFloat(s, 64)
+		if err == nil {
+			return time.Duration(mins)*time.Minute < maxIdle
+		}
+	}
+	// "Xdays" — definitely not recent
+	if strings.Contains(idle, "day") {
+		return false
+	}
+	// Unknown format — conservatively treat as recent to avoid false idle
+	return true
 }
 
 // findActiveProcess returns the first configured process name that is currently running,
@@ -922,22 +999,8 @@ func (a *Agent) getDCVConnectionCount() int {
 }
 
 func (a *Agent) hasLoggedInUsers() bool {
-	// Use 'who' command to check for logged-in users
-	cmd := exec.Command("who")
-	output, err := cmd.Output()
-	if err != nil {
-		return false
-	}
-
-	// If output is not empty, users are logged in
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	for _, line := range lines {
-		if strings.TrimSpace(line) != "" {
-			return true
-		}
-	}
-
-	return false
+	// Delegate to countActiveSessions which checks for recent keyboard activity, not just presence
+	return countActiveSessions() > 0
 }
 
 func (a *Agent) hasRecentUserActivity() bool {
