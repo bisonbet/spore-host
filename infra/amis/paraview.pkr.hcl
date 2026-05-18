@@ -139,7 +139,7 @@ build {
       "printf '[GeneralSettings]\\nShowWelcomeDialog=0\\n' > $HOME/.config/ParaView/ParaView.ini",
       "printf '[GeneralSettings]\\nShowWelcomeDialog=0\\n' > $HOME/.config/ParaView/ParaView5.13.2.ini",
       "xsetroot -solid black",
-      "# metacity honors --maximize; kiosk-wm breaks DCV input injection",
+      "# metacity: honors --maximize, keeps window maximized, no input interference",
       "metacity --sm-disable &",
       "sleep 1",
       "exec /opt/ParaView-${var.paraview_version}/bin/paraview --maximize",
