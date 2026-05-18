@@ -310,11 +310,7 @@ brews:
       bin.install "spawn"
     post_install: |
       system "#{bin}/spawn", "_register-install"
-    caveats: |
-      spore.host has registered this installation. Run `spawn _unregister-install` before removing manually.
-    def uninstall
-      system "#{bin}/spawn", "_unregister-install"
-    end
+    pre_uninstall: "spawn _unregister-install"
 
   - name: lagotto
     ids:
