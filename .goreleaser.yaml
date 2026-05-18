@@ -310,7 +310,6 @@ brews:
       bin.install "spawn"
     post_install: |
       system "#{bin}/spawn", "_register-install"
-    pre_uninstall: "spawn _unregister-install"
 
   - name: lagotto
     ids:
@@ -376,8 +375,8 @@ scoops:
     license: Apache-2.0
     depends:
       - spore-host/truffle
-    post_install: "spawn _register-install"
-    pre_uninstall: "spawn _unregister-install"
+    post_install:
+      - "spawn _register-install"
 
   - name: lagotto
     ids:
