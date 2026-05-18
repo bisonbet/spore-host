@@ -586,7 +586,7 @@ var sessionHTMLTemplate = `<!DOCTYPE html>
   const dcvBase   = 'https://' + DCV_HOST + ':' + DCV_PORT;
   // DCV: sessionId in URL hash (#console), authToken in page query string
   // CSS injected into DCV index.html handles viewport filling
-  const dcvURL    = dcvBase + '/?' + (AUTH_TOKEN ? 'authToken=' + AUTH_TOKEN : '') + '#console';
+  const dcvURL    = dcvBase + '/?' + (AUTH_TOKEN ? 'authToken=' + AUTH_TOKEN + '&' : '') + 'fullscreen=true#console';
 
   function showPaused(reason) {
     document.getElementById('spinner').style.display = 'none';

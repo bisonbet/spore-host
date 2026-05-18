@@ -128,10 +128,19 @@ build {
   # kiosk-wm forces all windows to fill the display with no title bar
   provisioner "shell" {
     inline = [
+      # Disable ParaView welcome dialog (steals focus on startup)
+      # Key: GeneralSettings.ShowWelcomeDialog=0 in ~/.config/ParaView/ParaView.ini
+      "sudo -u ec2-user mkdir -p /home/ec2-user/.config/ParaView",
+      "sudo -u ec2-user sh -c 'printf \"[GeneralSettings]\\nShowWelcomeDialog=0\\n\" > /home/ec2-user/.config/ParaView/ParaView.ini'",
       "sudo tee /usr/local/bin/start-paraview-dcv > /dev/null << 'WRAPPER'",
       "#!/bin/bash",
       "# DCV provides DISPLAY and XAUTHORITY",
+      "# Ensure welcome dialog is disabled (key: ShowWelcomeDialog=0)",
+      "mkdir -p $HOME/.config/ParaView",
+      "grep -q ShowWelcomeDialog $HOME/.config/ParaView/ParaView.ini 2>/dev/null || printf '[GeneralSettings]\\nShowWelcomeDialog=0\\n' > $HOME/.config/ParaView/ParaView.ini",
+      "xsetroot -solid black",
       "kiosk-wm &",
+      "sleep 1",
       "exec /opt/ParaView-${var.paraview_version}/bin/paraview",
       "WRAPPER",
       "sudo chmod +x /usr/local/bin/start-paraview-dcv",
