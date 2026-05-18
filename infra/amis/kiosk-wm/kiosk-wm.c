@@ -105,12 +105,7 @@ int main(void) {
     int has_rr = XRRQueryExtension(dpy, &rr_base, &rr_err);
     if (has_rr) XRRSelectInput(dpy, root, RRScreenChangeNotifyMask);
 
-    /* SubstructureNotify + ButtonPress/Motion required for DCV input injection.
-     * DCV's XTest injector needs these masks on the root window. */
-    XSelectInput(dpy, root,
-        SubstructureNotifyMask |
-        ButtonPressMask | ButtonReleaseMask |
-        PointerMotionMask);
+    XSelectInput(dpy, root, SubstructureNotifyMask);
 
     /* XInput2 for passive activity monitoring */
     int xi_op, xi_ev, xi_err;
