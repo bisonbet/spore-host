@@ -41,6 +41,12 @@ features:
     link: /tools/spore-bot
     linkText: Learn more
 
+  - icon: ⚙️
+    title: Spored
+    details: The lifecycle daemon that runs on every instance. Watches TTL, idle timeout, Spot interruption notices, and completion signals — terminating cleanly so nothing leaks.
+    link: /tools/spawn
+    linkText: Learn more
+
   - icon: 🤖
     title: MCP Server
     details: Use Claude, Cursor, or any MCP-compatible AI assistant to manage compute through natural conversation.
