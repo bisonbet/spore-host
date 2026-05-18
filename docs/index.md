@@ -44,7 +44,7 @@ features:
   - icon: ⚙️
     title: Spored
     details: The lifecycle daemon that runs on every instance. Watches TTL, idle timeout, Spot interruption notices, and completion signals — terminating cleanly so nothing leaks.
-    link: /tools/spawn
+    link: /tools/spored
     linkText: Learn more
 
   - icon: 🤖

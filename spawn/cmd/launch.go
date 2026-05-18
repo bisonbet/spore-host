@@ -1665,6 +1665,9 @@ func buildLaunchConfig(truffleInput *input.TruffleInput) (*aws.LaunchConfig, err
 	if costLimit > 0 {
 		config.CostLimit = costLimit
 	}
+	if command != "" {
+		config.JobArrayCommand = command
+	}
 
 	// Validate FSx flags
 	if fsxCreate && fsxID != "" {

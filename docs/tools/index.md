@@ -1,11 +1,12 @@
 # Tools
 
-spore.host is five tools that work together. Each has exactly one job.
+spore.host is six tools that work together. Each has exactly one job.
 
 | Tool | Role | Install |
 |------|------|---------|
 | [Truffle](/tools/truffle) | Find instance types, compare prices, check quotas | `brew install spore-host/tap/truffle` |
 | [Spawn](/tools/spawn) | Launch and manage instances | `brew install spore-host/tap/spawn` |
+| [Spored](/tools/spored) | Lifecycle daemon — enforces TTL, idle, completion on each instance | provisioned automatically by spawn |
 | [Lagotto](/tools/lagotto) | Watch for capacity, act when it appears | `brew install spore-host/tap/lagotto` |
 | [Spore-bot](/tools/spore-bot) | Slack and Teams control | [Setup guide](/guides/slack-setup) |
 | [MCP Server](/tools/mcp-server) | AI assistant integration | `brew install spore-host/tap/spore-host-mcp` |

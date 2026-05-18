@@ -419,6 +419,9 @@ func buildTags(config LaunchConfig, accountID string, userARN string) []types.Ta
 	if config.ActiveProcessesRaw != "" {
 		tags = append(tags, types.Tag{Key: aws.String("spawn:active-processes"), Value: aws.String(config.ActiveProcessesRaw)})
 	}
+	if config.JobArrayCommand != "" {
+		tags = append(tags, types.Tag{Key: aws.String("spawn:command"), Value: aws.String(config.JobArrayCommand)})
+	}
 	if config.DCVSessionID != "" {
 		tags = append(tags, types.Tag{Key: aws.String("spawn:dcv-session-id"), Value: aws.String(config.DCVSessionID)})
 	}

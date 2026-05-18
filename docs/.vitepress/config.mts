@@ -5,15 +5,8 @@ export default defineConfig({
   description: 'Ephemeral compute for researchers and data scientists.',
   lang: 'en-US',
 
-  // Exclude legacy docs dirs and internal files from the build.
-  // These are kept in the repo as source material to incorporate into
-  // the new VitePress structure over time.
   srcExclude: [
-    'user-guide/**',
-    'guide/**',
-    'features/**',
     'research/**',
-    'AWS_ACCOUNT_STRUCTURE.md',
     'DNSSEC_CONFIGURATION.md',
     'gen/**',
   ],
@@ -99,6 +92,7 @@ export default defineConfig({
             { text: 'Overview', link: '/tools/' },
             { text: 'Truffle', link: '/tools/truffle' },
             { text: 'Spawn', link: '/tools/spawn' },
+            { text: 'Spored', link: '/tools/spored' },
             { text: 'Lagotto', link: '/tools/lagotto' },
             { text: 'Spore-bot', link: '/tools/spore-bot' },
             { text: 'MCP Server', link: '/tools/mcp-server' },

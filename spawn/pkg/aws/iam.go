@@ -289,6 +289,12 @@ func (c *Client) CreateOrGetInstanceProfile(ctx context.Context, config IAMRoleC
 		if err := c.createIAMRole(ctx, iamClient, roleName, config); err != nil {
 			return "", fmt.Errorf("failed to create IAM role: %w", err)
 		}
+	} else if len(config.Policies) > 0 || config.PolicyFile != "" {
+		// Role exists but caller specified policies — update the inline policy so that
+		// re-using a cached role (same hash) still picks up any new policy additions.
+		if err := c.updateInlinePolicy(ctx, iamClient, roleName, config); err != nil {
+			return "", fmt.Errorf("failed to update IAM role policy: %w", err)
+		}
 	}
 
 	// Ensure instance profile exists
@@ -329,11 +335,13 @@ func (c *Client) CreateOrGetInstanceProfile(ctx context.Context, config IAMRoleC
 		return "", fmt.Errorf("failed to retrieve instance profile: %w", err)
 	}
 
-	if profile.InstanceProfile == nil || profile.InstanceProfile.Arn == nil {
-		return "", fmt.Errorf("instance profile ARN not available")
+	if profile.InstanceProfile == nil {
+		return "", fmt.Errorf("instance profile not available")
 	}
 
-	return *profile.InstanceProfile.Arn, nil
+	// Return the profile name, not the ARN — EC2 RunInstances iamInstanceProfile.name
+	// expects the bare name, not "arn:aws:iam::ACCOUNT:instance-profile/NAME".
+	return profileName, nil
 }
 
 // generateRoleName creates a deterministic role name based on policies
@@ -428,6 +436,21 @@ func (c *Client) createIAMRole(ctx context.Context, iamClient *iam.Client, roleN
 	}
 
 	return nil
+}
+
+// updateInlinePolicy replaces the inline policy on an existing role.
+func (c *Client) updateInlinePolicy(ctx context.Context, iamClient *iam.Client, roleName string, config IAMRoleConfig) error {
+	policy := c.buildInlinePolicy(config.Policies)
+	policyJSON, err := json.Marshal(policy)
+	if err != nil {
+		return fmt.Errorf("failed to marshal inline policy: %w", err)
+	}
+	_, err = iamClient.PutRolePolicy(ctx, &iam.PutRolePolicyInput{
+		RoleName:       aws.String(roleName),
+		PolicyName:     aws.String("spawn-inline-policy"),
+		PolicyDocument: aws.String(string(policyJSON)),
+	})
+	return err
 }
 
 // buildTrustPolicy creates an assume role policy document (legacy, no account condition)

@@ -72,6 +72,16 @@ func NewAgent(ctx context.Context, prov provider.Provider) (*Agent, error) {
 		return nil, fmt.Errorf("failed to get config: %w", err)
 	}
 
+	// If TTL is set but TTLDeadline was not written (pre-deadline instances), synthesize
+	// an absolute deadline from LaunchTime so the TTL is never reset by a spored restart.
+	if config.TTL > 0 && config.TTLDeadline.IsZero() {
+		anchor := config.LaunchTime
+		if anchor.IsZero() {
+			anchor = time.Now()
+		}
+		config.TTLDeadline = anchor.Add(config.TTL)
+	}
+
 	agent := &Agent{
 		provider:           prov,
 		identity:           identity,
