@@ -1,24 +1,27 @@
 #include <X11/Xlib.h>
-#include <X11/Xatom.h>
 #include <X11/extensions/Xrandr.h>
 #include <X11/extensions/XInput2.h>
+#include <X11/Xatom.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/select.h>
-#include <string.h>
 
 #define ACTIVITY_FILE "/run/spore/x11-last-activity"
 
 static int width, height;
 static Display *dpy;
 static Window root;
+static Atom net_wm_state;
+static Atom net_wm_state_max_vert;
+static Atom net_wm_state_max_horz;
+static Atom net_wm_state_fullscreen;
 static Atom motif_hints;
+static Atom wm_window_type;
 static Atom wm_type_normal;
 static Atom wm_type_dialog;
-static Atom wm_window_type;
-static Atom wm_transient_for;
+static Atom wm_transient_for_atom;
 
 static void touch_activity(void) {
     mkdir("/run/spore", 0755);
@@ -27,68 +30,70 @@ static void touch_activity(void) {
     utimes(ACTIVITY_FILE, NULL);
 }
 
-/* Return 1 if this is a normal top-level application window, not a dialog/popup */
+/* Return 1 if this is a main app window (not a dialog/internal window) */
 static int is_main_window(Window win) {
-    Atom actual_type;
-    int actual_format;
-    unsigned long nitems, bytes_after;
-    unsigned char *data = NULL;
+    if (!win || win == root) return 0;
 
-    /* Check _NET_WM_WINDOW_TYPE */
-    if (XGetWindowProperty(dpy, win, wm_window_type, 0, 32, False,
-                           XA_ATOM, &actual_type, &actual_format,
-                           &nitems, &bytes_after, &data) == Success && data) {
-        Atom *types = (Atom *)data;
-        int result = 0;
-        for (unsigned long i = 0; i < nitems; i++) {
-            if (types[i] == wm_type_normal) { result = 1; break; }
-            if (types[i] == wm_type_dialog) { result = 0; break; }
-        }
-        XFree(data);
-        if (nitems > 0) return result;
+    /* Must have WM_CLASS */
+    XClassHint hint;
+    if (!XGetClassHint(dpy, win, &hint)) return 0;
+    int skip = 0;
+    if (hint.res_class) {
+        if (strncmp(hint.res_class, "Dcv", 3) == 0) skip = 1;
     }
+    if (hint.res_name) {
+        if (strncmp(hint.res_name, "dcv", 3) == 0) skip = 1;
+        XFree(hint.res_name);
+    }
+    if (hint.res_class) XFree(hint.res_class);
+    if (skip) return 0;
 
-    /* No _NET_WM_WINDOW_TYPE — check if it has WM_TRANSIENT_FOR (dialog indicator) */
+    /* Skip transient (dialog) windows */
     Window transient = 0;
-    if (XGetTransientForHint(dpy, win, &transient) && transient != 0) {
-        return 0; /* transient = dialog/popup, don't fill */
-    }
+    XGetTransientForHint(dpy, win, &transient);
+    if (transient && transient != root) return 0;
 
-    /* Must have WM_CLASS — windows without it are internal compositor/DCV windows */
-    XClassHint class_hint;
-    if (!XGetClassHint(dpy, win, &class_hint)) return 0;
-    int skip = (class_hint.res_class && strncmp(class_hint.res_class, "Dcv", 3) == 0) ||
-               (class_hint.res_name  && strncmp(class_hint.res_name,  "dcv", 3) == 0);
-    XFree(class_hint.res_name);
-    XFree(class_hint.res_class);
-    return skip ? 0 : 1;
+    return 1;
 }
 
-static void fill_window(Window win) {
-    if (!win || win == root) return;
+/* Ask metacity to maximize this window via EWMH (no direct resize) */
+static void maximize_window(Window win) {
     if (!is_main_window(win)) return;
+
+    /* Remove decorations */
     long hints[5] = { 2, 0, 0, 0, 0 };
     XChangeProperty(dpy, win, motif_hints, motif_hints, 32,
                     PropModeReplace, (unsigned char *)hints, 5);
-    XMoveResizeWindow(dpy, win, 0, 0, width, height);
-    XRaiseWindow(dpy, win);
-    fprintf(stderr, "kiosk-wm: filled window %lu\n", win);
+
+    /* Send _NET_WM_STATE message to ask WM to maximize */
+    XEvent ev = {0};
+    ev.type = ClientMessage;
+    ev.xclient.window = win;
+    ev.xclient.message_type = net_wm_state;
+    ev.xclient.format = 32;
+    ev.xclient.data.l[0] = 1; /* _NET_WM_STATE_ADD */
+    ev.xclient.data.l[1] = (long)net_wm_state_max_vert;
+    ev.xclient.data.l[2] = (long)net_wm_state_max_horz;
+    ev.xclient.data.l[3] = 1;
+    XSendEvent(dpy, root, False,
+               SubstructureNotifyMask | SubstructureRedirectMask, &ev);
+    XFlush(dpy);
+    fprintf(stderr, "kiosk-wm: maximize requested for window %lu\n", win);
 }
 
-static void fill_all(void) {
+static void maximize_all(void) {
     Window parent, *children;
     unsigned int n;
     if (!XQueryTree(dpy, root, &root, &parent, &children, &n)) return;
-    int filled = 0;
+    int count = 0;
     for (unsigned int i = 0; i < n; i++) {
         if (is_main_window(children[i])) {
-            fill_window(children[i]);
-            filled++;
+            maximize_window(children[i]);
+            count++;
         }
     }
     if (children) XFree(children);
-    fprintf(stderr, "kiosk-wm: filled %d/%u main windows at %dx%d\n",
-            filled, n, width, height);
+    if (count) fprintf(stderr, "kiosk-wm: maximized %d windows\n", count);
 }
 
 int main(void) {
@@ -107,10 +112,9 @@ int main(void) {
 
     XSelectInput(dpy, root, SubstructureNotifyMask);
 
-    /* XInput2 for passive activity monitoring */
+    /* XInput2 for activity tracking */
     int xi_op, xi_ev, xi_err;
-    int has_xi2 = XQueryExtension(dpy, "XInputExtension", &xi_op, &xi_ev, &xi_err);
-    if (has_xi2) {
+    if (XQueryExtension(dpy, "XInputExtension", &xi_op, &xi_ev, &xi_err)) {
         int major = 2, minor = 0;
         if (XIQueryVersion(dpy, &major, &minor) == Success) {
             XIEventMask mask;
@@ -122,17 +126,20 @@ int main(void) {
             XISetMask(bits, XI_RawKeyPress);
             XISetMask(bits, XI_RawButtonPress);
             XISelectEvents(dpy, root, &mask, 1);
-            fprintf(stderr, "kiosk-wm: XInput2 activity monitoring enabled\n");
         }
     }
 
-    motif_hints    = XInternAtom(dpy, "_MOTIF_WM_HINTS", False);
-    wm_type_normal = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_NORMAL", False);
-    wm_type_dialog = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG", False);
-    wm_window_type = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
-    wm_transient_for = XInternAtom(dpy, "WM_TRANSIENT_FOR", False);
+    motif_hints          = XInternAtom(dpy, "_MOTIF_WM_HINTS", False);
+    net_wm_state         = XInternAtom(dpy, "_NET_WM_STATE", False);
+    net_wm_state_max_vert = XInternAtom(dpy, "_NET_WM_STATE_MAXIMIZED_VERT", False);
+    net_wm_state_max_horz = XInternAtom(dpy, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
+    net_wm_state_fullscreen = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False);
+    wm_window_type       = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
+    wm_type_normal       = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_NORMAL", False);
+    wm_type_dialog       = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG", False);
+    wm_transient_for_atom = XInternAtom(dpy, "WM_TRANSIENT_FOR", False);
 
-    fill_all();
+    maximize_all();
     touch_activity();
 
     int xfd = ConnectionNumber(dpy);
@@ -141,16 +148,16 @@ int main(void) {
         fd_set fds;
         FD_ZERO(&fds);
         FD_SET(xfd, &fds);
-        /* Poll every 1s to detect Xdcv display resize (RandR events unreliable) */
         struct timeval tv = { 1, 0 };
         select(xfd + 1, &fds, NULL, NULL, &tv);
-        /* Check if display was resized */
+
+        /* Poll for display resize */
         int new_w = DisplayWidth(dpy, screen);
         int new_h = DisplayHeight(dpy, screen);
         if (new_w != width || new_h != height) {
             width = new_w; height = new_h;
-            fprintf(stderr, "kiosk-wm: resized to %dx%d (poll)\n", width, height);
-            fill_all();
+            fprintf(stderr, "kiosk-wm: resized to %dx%d\n", width, height);
+            maximize_all();
             touch_activity();
         }
 
@@ -162,13 +169,13 @@ int main(void) {
                 XRRUpdateConfiguration(&ev);
                 width  = DisplayWidth(dpy, screen);
                 height = DisplayHeight(dpy, screen);
-                fprintf(stderr, "kiosk-wm: resized to %dx%d\n", width, height);
-                fill_all();
+                fprintf(stderr, "kiosk-wm: RandR resize to %dx%d\n", width, height);
+                maximize_all();
                 touch_activity();
                 continue;
             }
 
-            if (has_xi2 && ev.type == GenericEvent && ev.xcookie.extension == xi_op) {
+            if (ev.type == GenericEvent) {
                 if (XGetEventData(dpy, &ev.xcookie)) {
                     touch_activity();
                     XFreeEventData(dpy, &ev.xcookie);
@@ -176,12 +183,11 @@ int main(void) {
                 continue;
             }
 
-            /* Only act on new windows appearing — not on every configure event
-             * (configure events cause resize loops with Qt apps) */
             Window win = 0;
             if (ev.type == MapNotify)         win = ev.xmap.window;
             else if (ev.type == CreateNotify) win = ev.xcreatewindow.window;
-            if (win && win != root) fill_window(win);
+
+            if (win) maximize_window(win);
         }
     }
     return 0;
