@@ -23,10 +23,10 @@ var (
 )
 
 var connectCmd = &cobra.Command{
-	Use:     "connect <instance-id>",
+	Use:     "connect <instance-id> [-- <command>...]",
 	RunE:    runConnect,
 	Aliases: []string{"ssh"},
-	Args:    cobra.ExactArgs(1),
+	Args:    cobra.MinimumNArgs(1),
 	// Short and Long will be set after i18n initialization
 }
 
@@ -107,6 +107,13 @@ func runConnect(cmd *cobra.Command, args []string) error {
 		"-o", "UserKnownHostsFile=/dev/null",
 		"-p", fmt.Sprintf("%d", connectPort),
 		fmt.Sprintf("%s@%s", user, instance.PublicIP),
+	}
+
+	// One-shot mode: args[1:] (after --) are appended as the remote command.
+	// Interactive mode: no remote command, allocate a PTY as normal.
+	remoteCmd := args[1:]
+	if len(remoteCmd) > 0 {
+		sshArgs = append(sshArgs, remoteCmd...)
 	}
 
 	fmt.Fprintf(os.Stderr, "%s\n\n", i18n.Tf("spawn.connect.connecting_ssh", map[string]interface{}{

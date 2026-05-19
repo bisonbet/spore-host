@@ -89,13 +89,19 @@ func (c *Client) CreateFSxLustreFilesystem(ctx context.Context, config FSxConfig
 	cfg.Region = config.Region
 	fsxClient := fsx.NewFromConfig(cfg)
 
+	// Use PERSISTENT_2 — runs Lustre server 2.15, compatible with the AL2023
+	// lustre-client (2.15.x). SCRATCH_2 runs 2.10 which AL2023 clients reject
+	// with an incompatible-version error (fixes #310).
+	// NOTE: PERSISTENT_2 does not support inline ImportPath/ExportPath in
+	// CreateFileSystem — S3 integration requires a separate
+	// CreateDataRepositoryAssociation call after the filesystem is AVAILABLE.
 	input := &fsx.CreateFileSystemInput{
 		FileSystemType:   types.FileSystemTypeLustre,
 		StorageCapacity:  aws.Int32(config.StorageCapacity),
 		SubnetIds:        []string{subnetID}, // FSx Lustre requires single subnet
 		SecurityGroupIds: config.SecurityGroupIDs,
 		LustreConfiguration: &types.CreateFileSystemLustreConfiguration{
-			DeploymentType:      types.LustreDeploymentTypeScratch2,
+			DeploymentType:      types.LustreDeploymentTypePersistent2,
 			DataCompressionType: types.DataCompressionTypeLz4,
 		},
 		Tags: []types.Tag{
@@ -109,18 +115,13 @@ func (c *Client) CreateFSxLustreFilesystem(ctx context.Context, config FSxConfig
 		},
 	}
 
-	// Add import/export paths if S3 bucket specified
 	if importPath != "" {
-		input.LustreConfiguration.ImportPath = aws.String(importPath)
-		input.LustreConfiguration.AutoImportPolicy = types.AutoImportPolicyTypeNewChanged
 		input.Tags = append(input.Tags, types.Tag{
 			Key:   aws.String("spawn:fsx-s3-import-path"),
 			Value: aws.String(importPath),
 		})
 	}
-
 	if exportPath != "" {
-		input.LustreConfiguration.ExportPath = aws.String(exportPath)
 		input.Tags = append(input.Tags, types.Tag{
 			Key:   aws.String("spawn:fsx-s3-export-path"),
 			Value: aws.String(exportPath),
@@ -168,7 +169,41 @@ func (c *Client) CreateFSxLustreFilesystem(ctx context.Context, config FSxConfig
 		time.Sleep(30 * time.Second)
 	}
 
-	// 6. Get filesystem details
+	// 6. Create Data Repository Association for S3 integration (PERSISTENT_2 only).
+	// PERSISTENT_2 does not support inline ImportPath/ExportPath; S3 linking
+	// requires a separate CreateDataRepositoryAssociation call once the FS is AVAILABLE.
+	if importPath != "" || exportPath != "" {
+		dra := &fsx.CreateDataRepositoryAssociationInput{
+			FileSystemId:       aws.String(filesystemID),
+			FileSystemPath:     aws.String("/"),
+			DataRepositoryPath: aws.String(importPath),
+			BatchImportMetaDataOnCreate: aws.Bool(true),
+			S3: &types.S3DataRepositoryConfiguration{
+				AutoImportPolicy: &types.AutoImportPolicy{
+					Events: []types.EventType{
+						types.EventTypeNew,
+						types.EventTypeChanged,
+						types.EventTypeDeleted,
+					},
+				},
+				AutoExportPolicy: &types.AutoExportPolicy{
+					Events: []types.EventType{
+						types.EventTypeNew,
+						types.EventTypeChanged,
+						types.EventTypeDeleted,
+					},
+				},
+			},
+		}
+		if exportPath != "" {
+			dra.DataRepositoryPath = aws.String(exportPath)
+		}
+		if _, err := fsxClient.CreateDataRepositoryAssociation(ctx, dra); err != nil {
+			return nil, fmt.Errorf("create data repository association for %s: %w", filesystemID, err)
+		}
+	}
+
+	// 7. Get filesystem details
 	describeResult, err := fsxClient.DescribeFileSystems(ctx, &fsx.DescribeFileSystemsInput{
 		FileSystemIds: []string{filesystemID},
 	})
@@ -182,7 +217,7 @@ func (c *Client) CreateFSxLustreFilesystem(ctx context.Context, config FSxConfig
 
 	fs := describeResult.FileSystems[0]
 
-	// 7. Return filesystem info
+	// 8. Return filesystem info
 	return &FSxInfo{
 		FileSystemID:    *fs.FileSystemId,
 		DNSName:         *fs.DNSName,
