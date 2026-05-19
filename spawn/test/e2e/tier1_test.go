@@ -7,6 +7,7 @@ package e2e
 // Run: go test -v -tags=e2e_tier1 ./test/e2e/ -run TestTier1 -timeout 5m
 
 import (
+	"context"
 	"os/exec"
 	"strings"
 	"testing"
