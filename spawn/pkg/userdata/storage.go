@@ -44,19 +44,26 @@ func GenerateStorageUserData(config StorageConfig) (string, error) {
 const storageUserDataTemplate = `
 {{if .FSxLustreEnabled}}
 # FSx Lustre mounting
-amazon-linux-extras install -y lustre2.12
+# Install Lustre 2.15 client from the standard AL2023 repo.
+# amazon-linux-extras (AL2 only) is not available on AL2023.
+# FSx PERSISTENT_2 runs Lustre server 2.15; the client must match (fixes #316).
+dnf install -y lustre-client
+modprobe lustre
 mkdir -p {{.FSxMountPoint | shellEscape}}
-mount -t lustre {{.FSxFilesystemDNS | shellEscape}}@tcp:/{{.FSxMountName | shellEscape}} {{.FSxMountPoint | shellEscape}}
-echo "{{.FSxFilesystemDNS}}@tcp:/{{.FSxMountName}} {{.FSxMountPoint}} lustre defaults,noatime,flock,_netdev 0 0" >> /etc/fstab
+# MountName is the filesystem-specific path component assigned by FSx at
+# creation time (e.g. "q5pdvb4v") — NOT "/fsx". Using the wrong name causes
+# "client profile could not be read from MGS, rc=-22 EINVAL".
+mount -t lustre -o noatime,flock {{.FSxFilesystemDNS | shellEscape}}@tcp:/{{.FSxMountName | shellEscape}} {{.FSxMountPoint | shellEscape}}
+echo "{{.FSxFilesystemDNS}}@tcp:/{{.FSxMountName}} {{.FSxMountPoint}} lustre noatime,flock,_netdev 0 0" >> /etc/fstab
 echo "export FSX_MOUNT={{.FSxMountPoint | shellEscape}}" >> /etc/profile.d/fsx.sh
 {{end}}
 
 {{if .EFSEnabled}}
 # EFS mounting
-yum install -y nfs-utils
+dnf install -y nfs-utils
 mkdir -p {{.EFSMountPoint | shellEscape}}
 mount -t nfs4 -o {{.EFSMountOptions | shellEscape}} {{.EFSFilesystemDNS | shellEscape}}:/ {{.EFSMountPoint | shellEscape}}
-echo "{{.EFSFilesystemDNS}}:/ {{.EFSMountPoint}} nfs4 {{.EFSMountOptions}} 0 0" >> /etc/fstab
+echo "{{.EFSFilesystemDNS}}:/ {{.EFSMountPoint}} nfs4 {{.EFSMountOptions}},_netdev 0 0" >> /etc/fstab
 echo "export EFS_MOUNT={{.EFSMountPoint | shellEscape}}" >> /etc/profile.d/efs.sh
 {{end}}
 `
