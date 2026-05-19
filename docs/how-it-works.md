@@ -15,9 +15,9 @@ spore.host solves this with a simple contract: **every instance has a lifecycle 
 Before you launch anything, you need to know what's available and what it costs. Truffle searches EC2 instance types across regions using plain language or filters, compares Spot prices in real time, and checks your service quotas so you don't get a launch failure after waiting for capacity.
 
 ```sh
-truffle find "nvidia h100 8gpu" --region us-east-1
+truffle find "nvidia h100 8gpu" --regions us-east-1
 truffle spot g5.2xlarge --regions us-east-1,us-west-2
-truffle quota --instance-type p4d.24xlarge --region us-east-1
+truffle quotas --regions us-east-1 --family P
 ```
 
 Truffle doesn't launch anything — it's read-only. Think of it as the search and research tool.
@@ -44,7 +44,7 @@ spawn launch --name training --instance-type g5.2xlarge --ttl 24h
 Some instance types — particularly high-demand GPU families — aren't always available. Lagotto runs as a serverless Lambda function that polls for capacity on a schedule and acts when something appears. You configure what to watch for, and Lagotto handles the rest.
 
 ```sh
-lagotto watch --instance-type p5.48xlarge --region us-east-1 --notify slack
+lagotto watch "p5.48xlarge" --regions us-east-1 --action notify
 lagotto list   # see active watches
 ```
 
@@ -56,7 +56,7 @@ Once an instance is running, you might not want to open a terminal to manage it.
 
 Lifecycle events from spored are routed through spore-bot to your Slack DMs:
 
-- *⏱️ training will terminate in 10 minutes* — with time to extend if you need more
+- *⏱️ training will terminate in 5 minutes* — with time to extend if you need more
 - *✅ training has completed* — your job finished and the instance is terminating
 - *⏹️ training has stopped — idle timeout reached — nothing was happening, so compute was paused
 

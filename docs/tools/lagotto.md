@@ -18,37 +18,66 @@ Lagotto automates the waiting.
 
 ### `lagotto watch`
 
-Create a watch for an instance type in one or more regions:
+Create a watch for an instance type pattern in one or more regions:
 
 ```sh
-# Watch for a p5.48xlarge and notify Slack when available
-lagotto watch \
-  --instance-type p5.48xlarge \
-  --region us-east-1,us-west-2 \
-  --action notify \
-  --slack-workspace T03NE3GTY
+# Watch for any p5 instance and notify when available
+lagotto watch "p5.*" --ttl 7d
 
-# Watch and auto-launch when available
-lagotto watch \
-  --instance-type p5.48xlarge \
-  --region us-east-1 \
-  --action launch \
-  --launch-name my-training \
-  --launch-ttl 24h
+# Limit to specific regions
+lagotto watch "p5.48xlarge" --regions us-east-1,us-west-2
+
+# Watch and notify via email or webhook
+lagotto watch "p5.48xlarge" --action notify \
+  --notify email:you@example.com
+
+# Watch and auto-launch when capacity appears
+lagotto watch "g5.xlarge" --action spawn \
+  --spawn-config my-job.yaml
+
+# Watch for Spot capacity under a price ceiling
+lagotto watch "p4d.24xlarge" --spot --max-price 10.00
 ```
 
 ### `lagotto list`
 
 ```sh
-lagotto list        # all active watches
-lagotto list --json # machine-readable
+lagotto list              # active watches only
+lagotto list --all        # include expired and cancelled
+lagotto list --output json
+```
+
+### `lagotto status`
+
+```sh
+lagotto status <watch-id>
 ```
 
 ### `lagotto cancel`
 
 ```sh
 lagotto cancel <watch-id>
-lagotto cancel --all
+```
+
+### `lagotto extend`
+
+```sh
+lagotto extend <watch-id> --ttl 48h
+```
+
+### `lagotto history`
+
+```sh
+lagotto history                        # all your matches
+lagotto history --watch-id <watch-id>  # one watch
+```
+
+### `lagotto poll`
+
+Manually trigger one polling cycle (useful for testing):
+
+```sh
+lagotto poll
 ```
 
 ## Actions
@@ -57,23 +86,17 @@ When capacity appears, Lagotto can:
 
 | Action | What happens |
 |--------|-------------|
-| `notify` | Sends a Slack/Teams message with region and AZ |
-| `launch` | Immediately launches the instance using your configured defaults |
-| `webhook` | POSTs a JSON payload to a URL you specify |
+| `notify` | Sends a notification via `--notify` channels (email, webhook, SNS) |
+| `spawn` | Launches an instance using the config file given in `--spawn-config` |
+| `hold` | Records the match but takes no automatic action |
 
 ## How it works
 
-Lagotto deploys as an AWS Lambda function with an EventBridge schedule trigger. Each tick (configurable — default 5 minutes) it calls `DescribeInstanceTypeOfferings` for each watched type and region. When the type appears in an AZ, it fires the configured action and optionally cancels itself.
+Lagotto deploys as an AWS Lambda function with an EventBridge schedule trigger. Each tick (default 5 minutes) it calls `DescribeInstanceTypeOfferings` for each watched type and region. When the type appears in an AZ, it fires the configured action.
 
 ## Deploy
 
-Lagotto deploys to your AWS account (the one you'll launch instances in):
-
-```sh
-lagotto deploy --region us-east-1
-```
-
-This creates the Lambda function, EventBridge rule, and IAM role needed to run the watches. The cost is negligible — well under $1/month for typical usage.
+Lagotto is deployed via CloudFormation — not through the CLI. See the [deployment guide](https://github.com/spore-host/spore-host/blob/main/lagotto/DEPLOYMENT.md) for the full setup: Lambda, EventBridge schedule, DynamoDB tables, and IAM role. Once deployed, the `lagotto` CLI manages watches in that infrastructure.
 
 ## Full command reference
 

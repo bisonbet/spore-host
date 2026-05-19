@@ -352,6 +352,57 @@ spawn cancel --sweep-id <sweep-id>
 
 ---
 
+## spawn sweep
+
+Manage parameter sweeps after they have been launched.
+
+```
+spawn sweep <subcommand>
+```
+
+| Subcommand | Usage | Description |
+|------------|-------|-------------|
+| `list` | `spawn sweep list` | List parameter sweeps |
+| `status` | `spawn sweep status <sweep-id>` | Show sweep progress and instance breakdown |
+| `cancel` | `spawn sweep cancel <sweep-id>` | Cancel and terminate all sweep instances |
+| `resume` | `spawn sweep resume <sweep-id>` | Resume an interrupted sweep from checkpoint |
+| `collect` | `spawn sweep collect <sweep-id>` | Download and aggregate results |
+
+**`spawn sweep list` flags:**
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--status` | string | (all) | Filter by status: `RUNNING`, `COMPLETED`, `FAILED`, `CANCELLED` |
+| `--last` | int | `20` | Show last N sweeps |
+| `--since` | string | | Show sweeps created after date (`YYYY-MM-DD`) |
+| `--region` | string | | Filter by region |
+
+**`spawn sweep status` flags:**
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--check-complete` | bool | `false` | Exit with standardized codes: `0`=complete, `1`=failed, `2`=running, `3`=error |
+
+**`spawn sweep resume` flags:**
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--max-concurrent` | int | `0` | Override max concurrent instances (`0` = use original) |
+| `--detach` | bool | `false` | Run orchestration in Lambda |
+
+**`spawn sweep collect` flags:**
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--output-file` | `-f` | string | `results.json` | Output file path |
+| `--format` | | string | `json` | Output format: `json`, `csv`, `jsonl` |
+| `--s3-prefix` | | string | | Custom S3 prefix |
+| `--metric` | | string | | Metric field for ranking |
+| `--best` | | int | `0` | Show top N results (`0` = all) |
+| `--regions` | | string | | Comma-separated regions to collect from |
+
+---
+
 ## spawn collect-results
 
 Collect and aggregate results from a parameter sweep.
@@ -722,6 +773,65 @@ Manage launch defaults stored in `~/.spawn/config.yaml`.
 ```
 spawn defaults <subcommand>
 ```
+
+---
+
+## spawn ami
+
+Manage spawn-managed AMIs.
+
+```
+spawn ami <subcommand>
+```
+
+| Subcommand | Usage | Description |
+|------------|-------|-------------|
+| `list` | `spawn ami list` | List spawn-managed AMIs |
+| `create` | `spawn ami create <instance-id-or-name>` | Create an AMI from a running instance |
+
+**`spawn ami list` flags:**
+
+| Flag | Type | Description |
+|------|------|-------------|
+| `--region` | string | AWS region (default: current region) |
+| `--stack` | string | Filter by `spawn:stack` tag |
+| `--version` | string | Filter by `spawn:version` tag |
+| `--arch` | string | Filter by architecture: `x86_64`, `arm64` |
+| `--gpu` | string | Filter by GPU support: `true`, `false` |
+| `--deprecated` | bool | Include deprecated AMIs |
+
+**`spawn ami create` flags:**
+
+| Flag | Type | Description |
+|------|------|-------------|
+| `--name` | string | (required) Name for the AMI |
+| `--description` | string | Description |
+| `--tag` | strings | Tags in `key=value` format (repeatable) |
+| `--reboot` | bool | Reboot instance before creating (default: no-reboot) |
+| `--wait` | bool | Wait for AMI to become available |
+
+---
+
+## spawn fsx
+
+Manage spawn-managed FSx Lustre filesystems.
+
+```
+spawn fsx <subcommand>
+```
+
+| Subcommand | Usage | Description |
+|------------|-------|-------------|
+| `list` | `spawn fsx list` | List all spawn-managed FSx filesystems |
+| `info` | `spawn fsx info <filesystem-id>` | Show filesystem details and cost estimate |
+| `delete` | `spawn fsx delete <filesystem-id>` | Delete a filesystem |
+
+**`spawn fsx delete` flags:**
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--export-first` | bool | `false` | Export data to S3 before deleting |
+| `--yes` | bool | `false` | Skip confirmation prompt |
 
 ---
 

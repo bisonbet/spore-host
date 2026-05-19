@@ -18,7 +18,7 @@ Connecting spore.host to Microsoft Teams gives you `/spore` commands in any chan
 ```
 
 **Proactive DM notifications** for lifecycle events:
-- *rstudio terminates in 10 minutes*
+- *rstudio terminates in 5 minutes*
 - *bert-finetune has completed*
 - *analysis has hibernated — idle timeout reached*
 - *training received a Spot interruption notice*

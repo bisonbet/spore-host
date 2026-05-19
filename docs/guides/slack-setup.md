@@ -18,7 +18,7 @@ Connecting spore.host to Slack gives you `/spore` commands in any channel and di
 ```
 
 **Direct message notifications** for lifecycle events:
-- ⏱️ *rstudio terminates in 10 minutes*
+- ⏱️ *rstudio terminates in 5 minutes*
 - ✅ *bert-finetune has completed*
 - 💤 *analysis has hibernated — idle timeout reached*
 - ⚠️ *training received a Spot interruption notice*
@@ -58,7 +58,7 @@ https://awdzf7fbbsvqcrnrzusqjsuybm0iiyvf.lambda-url.us-east-1.on.aws/spore/oauth
 ### Manual registration
 
 ```sh
-spawn bot workspace-add \
+spawn notify workspace-add \
   --platform slack \
   --workspace-id T03NE3GTY \
   --workspace-name "My Workspace" \
@@ -73,7 +73,7 @@ Your workspace ID appears in your Slack URL: `https://app.slack.com/client/T03NE
 Once the workspace is connected, register your instances so spore-bot can find them:
 
 ```sh
-spawn bot register \
+spawn notify register \
   --platform slack \
   --user you@university.edu \
   --workspace-id T03NE3GTY \
@@ -81,7 +81,7 @@ spawn bot register \
   --nickname rstudio \
   --allow start,stop,status,hibernate,url
 
-spawn bot enable \
+spawn notify enable \
   --platform slack \
   --user you@university.edu \
   --workspace-id T03NE3GTY \
@@ -114,7 +114,7 @@ Give a collaborator access to an instance without giving them AWS credentials. T
 
 ```sh
 # Register a collaborator by email
-spawn bot register \
+spawn notify register \
   --platform slack \
   --user collaborator@partner.edu \
   --workspace-id T03NE3GTY \
@@ -122,7 +122,7 @@ spawn bot register \
   --nickname rstudio \
   --allow status,start,stop
 
-spawn bot enable \
+spawn notify enable \
   --platform slack \
   --user collaborator@partner.edu \
   --workspace-id T03NE3GTY \
@@ -138,7 +138,7 @@ Alternatively, generate a one-time connect code that the collaborator uses thems
 Share the code with the collaborator. They run:
 
 ```sh
-spawn bot register --connect-code SPORE-XXXXXX --nickname rstudio
+spawn notify register --connect-code SPORE-XXXXXX --nickname rstudio
 ```
 
 ## Notification-only subscriptions
@@ -158,7 +158,7 @@ To unsubscribe: `/spore unnotify rstudio`
 **Commands return "workspace not found"** — check that the signing secret in your Slack app matches what was registered. Signing secrets are regenerated if you change your app's scopes. Re-register with the new secret:
 
 ```sh
-spawn bot workspace-add --platform slack --workspace-id T0... --signing-secret <new-secret>
+spawn notify workspace-add --platform slack --workspace-id T0... --signing-secret <new-secret>
 ```
 
 **Not receiving DM notifications** — make sure the instance was launched with `--slack-workspace` and that you've run `/spore notify <nickname>` for your user.

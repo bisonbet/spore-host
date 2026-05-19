@@ -26,7 +26,7 @@ Without a subscription, events are posted to the channel webhook (if configured)
 
 ## Warning thresholds
 
-The 10-minute warning is fixed. If you need to respond (extend TTL, save work), you have at least that window. The warning fires once — subsequent checks within the same warning window don't re-trigger it.
+The 5-minute warning is fixed. If you need to respond (extend TTL, save work), you have that window. The warning fires once — subsequent checks within the same warning window don't re-trigger it.
 
 ## Completion events
 

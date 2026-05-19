@@ -14,7 +14,7 @@ go get github.com/spore-host/spore-host/truffle
 go get github.com/spore-host/spore-host/spawn
 ```
 
-Both modules require Go 1.21+ and load AWS credentials from the standard chain (`AWS_*` environment variables, `~/.aws/credentials`, or EC2/ECS metadata).
+Both modules require Go 1.26+ and load AWS credentials from the standard chain (`AWS_*` environment variables, `~/.aws/credentials`, or EC2/ECS metadata).
 
 ## Authentication
 

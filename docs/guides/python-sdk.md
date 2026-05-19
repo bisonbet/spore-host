@@ -16,7 +16,7 @@ pip install ./truffle/bindings/python
 ## Requirements
 
 - Python 3.8+
-- Go 1.22+ compiler (required at install time — the build compiles `libtruffle.so`/`.dylib`)
+- Go 1.26+ compiler (required at install time — the build compiles `libtruffle.so`/`.dylib`)
 - AWS credentials configured (same credential chain as the CLI)
 
 Install Go if needed:

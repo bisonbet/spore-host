@@ -71,7 +71,7 @@ The `--pre-stop` command runs before any lifecycle-triggered shutdown — whethe
 
 With `--slack-workspace` set, you'll receive DMs for:
 
-- **⏱️ llm-training terminates in 10 minutes** — with time to extend if you need more
+- **⏱️ llm-training terminates in 5 minutes** — with time to extend if you need more
 - **✅ llm-training has completed** — job done, instance terminating
 - **⚠️ llm-training received a Spot interruption notice** — 2 minutes until shutdown
 

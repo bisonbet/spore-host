@@ -63,9 +63,9 @@ spawn launch \
 
 For interactive sessions, the most useful notifications are TTL warnings — you want to know before the instance terminates so you can extend it or save your work:
 
-With `--slack-workspace` set, you'll receive a DM 10 minutes before the TTL expires:
+With `--slack-workspace` set, you'll receive a DM 5 minutes before the TTL expires:
 
-> *⏱️ rstudio terminates in 10 minutes*
+> *⏱️ rstudio terminates in 5 minutes*
 
 Respond directly in Slack: `/spore extend rstudio 4h`
 
