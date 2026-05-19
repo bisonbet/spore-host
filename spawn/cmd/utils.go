@@ -49,9 +49,26 @@ func resolveInstance(ctx context.Context, client *aws.Client, identifier string)
 		return &matches[0], nil
 	}
 
-	// Multiple matches - show them and ask user to be more specific
-	fmt.Fprintf(os.Stderr, "\nMultiple instances found with name '%s':\n\n", identifier)
+	// Multiple matches — prefer running over stopped/terminated (fixes #313).
+	// When a cluster is re-launched, old stopped instances share names with
+	// the new running ones. Connect/status should target the running instance.
+	var running []aws.InstanceInfo
 	for _, inst := range matches {
+		if inst.State == "running" {
+			running = append(running, inst)
+		}
+	}
+	if len(running) == 1 {
+		return &running[0], nil
+	}
+
+	// Still ambiguous — show only running instances if any, else all
+	candidates := running
+	if len(candidates) == 0 {
+		candidates = matches
+	}
+	fmt.Fprintf(os.Stderr, "\nMultiple instances found with name '%s':\n\n", identifier)
+	for _, inst := range candidates {
 		fmt.Fprintf(os.Stderr, "  %s (%s in %s, state: %s)\n",
 			inst.InstanceID, inst.InstanceType, inst.Region, inst.State)
 	}

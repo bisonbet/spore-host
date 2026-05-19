@@ -433,6 +433,25 @@ func buildTags(config LaunchConfig, accountID string, userARN string) []types.Ta
 		tags = append(tags, types.Tag{Key: aws.String("spawn:app-name"), Value: aws.String(config.AppName)})
 	}
 
+	// Storage filesystem tags — written so instance scripts can auto-mount
+	// without needing the filesystem ID hardcoded (fixes #314).
+	if config.FSxLustreID != "" {
+		tags = append(tags, types.Tag{Key: aws.String("spawn:fsx-id"), Value: aws.String(config.FSxLustreID)})
+		mp := config.FSxMountPoint
+		if mp == "" {
+			mp = "/fsx"
+		}
+		tags = append(tags, types.Tag{Key: aws.String("spawn:fsx-mount-point"), Value: aws.String(mp)})
+	}
+	if config.EFSID != "" {
+		tags = append(tags, types.Tag{Key: aws.String("spawn:efs-id"), Value: aws.String(config.EFSID)})
+		mp := config.EFSMountPoint
+		if mp == "" {
+			mp = "/efs"
+		}
+		tags = append(tags, types.Tag{Key: aws.String("spawn:efs-mount-point"), Value: aws.String(mp)})
+	}
+
 	if config.IdleTimeout != "" {
 		tags = append(tags, types.Tag{Key: aws.String("spawn:idle-timeout"), Value: aws.String(config.IdleTimeout)})
 	}
