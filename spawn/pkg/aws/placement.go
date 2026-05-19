@@ -74,11 +74,16 @@ func (c *Client) ValidateInstanceTypeForPlacementGroup(ctx context.Context, inst
 	return fmt.Errorf("instance type %s does not support cluster placement groups", instanceType)
 }
 
-// ValidateInstanceTypeForEFA checks if instance type supports EFA by querying
-// the EC2 API directly. This avoids false negatives from a static allowlist
-// as AWS adds EFA support to new instance types over time (e.g. hpc6a, hpc7a).
-func (c *Client) ValidateInstanceTypeForEFA(ctx context.Context, instanceType string) error {
-	ec2Client := ec2.NewFromConfig(c.cfg)
+// ValidateInstanceTypeForEFAInRegion checks if instance type supports EFA by
+// querying the EC2 API in the specified launch region. Some instance types
+// (e.g. hpc6a.48xlarge) only exist in certain regions and DescribeInstanceTypes
+// returns InvalidInstanceType when queried from a different region.
+func (c *Client) ValidateInstanceTypeForEFAInRegion(ctx context.Context, instanceType, region string) error {
+	cfg := c.cfg.Copy()
+	if region != "" {
+		cfg.Region = region
+	}
+	ec2Client := ec2.NewFromConfig(cfg)
 
 	output, err := ec2Client.DescribeInstanceTypes(ctx, &ec2.DescribeInstanceTypesInput{
 		InstanceTypes: []types.InstanceType{types.InstanceType(instanceType)},

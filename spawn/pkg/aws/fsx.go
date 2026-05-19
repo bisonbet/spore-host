@@ -32,7 +32,8 @@ type FSxConfig struct {
 	ImportPath       string
 	ExportPath       string
 	AutoCreateBucket bool
-	SubnetID         string // Optional: specify subnet, otherwise uses default VPC
+	SubnetID         string   // Optional: specify subnet, otherwise uses default VPC
+	SecurityGroupIDs []string // Security groups to associate with FSx; must allow port 988 (Lustre)
 }
 
 // CreateFSxLustreFilesystem creates an FSx for Lustre filesystem with S3 backing
@@ -89,9 +90,10 @@ func (c *Client) CreateFSxLustreFilesystem(ctx context.Context, config FSxConfig
 	fsxClient := fsx.NewFromConfig(cfg)
 
 	input := &fsx.CreateFileSystemInput{
-		FileSystemType:  types.FileSystemTypeLustre,
-		StorageCapacity: aws.Int32(config.StorageCapacity),
-		SubnetIds:       []string{subnetID}, // FSx Lustre requires single subnet
+		FileSystemType:   types.FileSystemTypeLustre,
+		StorageCapacity:  aws.Int32(config.StorageCapacity),
+		SubnetIds:        []string{subnetID}, // FSx Lustre requires single subnet
+		SecurityGroupIds: config.SecurityGroupIDs,
 		LustreConfiguration: &types.CreateFileSystemLustreConfiguration{
 			DeploymentType:      types.LustreDeploymentTypeScratch2,
 			DataCompressionType: types.DataCompressionTypeLz4,
@@ -132,9 +134,10 @@ func (c *Client) CreateFSxLustreFilesystem(ctx context.Context, config FSxConfig
 
 	filesystemID := *result.FileSystem.FileSystemId
 
-	// 5. Wait for filesystem to be AVAILABLE (~5-8 minutes)
-	// Poll until filesystem is available
-	maxWaitTime := 15 * time.Minute
+	// 5. Wait for filesystem to be AVAILABLE. FSx Lustre takes 5-25 minutes.
+	// Use a 30-minute timeout (AWS documents up to 20 min; 30 gives headroom).
+	// On timeout, return the filesystem ID so the caller can retry with --fsx-id.
+	maxWaitTime := 30 * time.Minute
 	startTime := time.Now()
 	for {
 		describeResult, err := fsxClient.DescribeFileSystems(ctx, &fsx.DescribeFileSystemsInput{
@@ -150,12 +153,16 @@ func (c *Client) CreateFSxLustreFilesystem(ctx context.Context, config FSxConfig
 				break
 			}
 			if fs.Lifecycle == types.FileSystemLifecycleFailed {
-				return nil, fmt.Errorf("FSx filesystem creation failed")
+				return nil, fmt.Errorf("FSx filesystem %s creation failed", filesystemID)
 			}
 		}
 
 		if time.Since(startTime) > maxWaitTime {
-			return nil, fmt.Errorf("FSx filesystem creation timeout after %v", maxWaitTime)
+			return nil, fmt.Errorf(
+				"FSx filesystem creation timeout after %v (filesystem %s is still creating)\n"+
+					"Retry with: spawn launch ... --fsx-id %s",
+				maxWaitTime, filesystemID, filesystemID,
+			)
 		}
 
 		time.Sleep(30 * time.Second)

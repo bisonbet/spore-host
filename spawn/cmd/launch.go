@@ -575,6 +575,41 @@ func runLaunch(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "   This can result in unexpected costs from zombie instances.\n\n")
 	}
 
+	// CRITICAL SAFETY CHECK: Prevent zombie instances
+	// If neither --ttl nor --idle-timeout are set, default to 1h idle timeout
+	// This prevents instances from running indefinitely if CLI disconnects
+	if config.TTL == "" && config.IdleTimeout == "" && !noTimeout {
+		config.IdleTimeout = "1h"
+		fmt.Fprintf(os.Stderr, "\n⚠️  Auto-setting --idle-timeout=1h to prevent zombie instances\n")
+		fmt.Fprintf(os.Stderr, "   Instance will terminate after 1 hour of inactivity.\n")
+		fmt.Fprintf(os.Stderr, "   Override with --ttl, --idle-timeout, or --no-timeout\n")
+		fmt.Fprintf(os.Stderr, "   See: https://github.com/spore-host/spore-host/blob/main/spawn/docs/lifecycle.md\n\n")
+	} else if noTimeout {
+		// User explicitly disabled timeout - warn about zombie risk
+		fmt.Fprintf(os.Stderr, "\n⚠️  WARNING: --no-timeout specified\n")
+		fmt.Fprintf(os.Stderr, "   Instance will run indefinitely until manually terminated.\n")
+		fmt.Fprintf(os.Stderr, "   If CLI disconnects, you must track and terminate manually.\n")
+		fmt.Fprintf(os.Stderr, "   This can result in unexpected costs from zombie instances.\n\n")
+	}
+
+	// --estimate-only: print a cost summary and exit without launching (fixes #305).
+	if estimateOnly {
+		odPrice := pricing.GetEC2HourlyRate(config.Region, config.InstanceType)
+		if odPrice == 0 {
+			fmt.Fprintf(os.Stderr, "💰 Cost estimate: pricing data unavailable for %s in %s\n", config.InstanceType, config.Region)
+		} else {
+			fmt.Fprintf(os.Stderr, "💰 Cost estimate for %s in %s\n", config.InstanceType, config.Region)
+			fmt.Fprintf(os.Stderr, "   On-demand:  $%.4f/hr\n", odPrice)
+			if config.TTL != "" {
+				if d, err := time.ParseDuration(config.TTL); err == nil {
+					fmt.Fprintf(os.Stderr, "   TTL cost:   $%.2f (%.0f hr)\n", odPrice*d.Hours(), d.Hours())
+				}
+			}
+		}
+		fmt.Fprintf(os.Stderr, "✅ Estimate complete — no instances launched (--estimate-only)\n")
+		return nil
+	}
+
 	// Launch with progress display
 	return launchWithProgress(ctx, awsClient, config, plat, auditLog)
 }
@@ -1226,6 +1261,7 @@ func launchWithProgress(ctx context.Context, awsClient *aws.Client, config *aws.
 			ImportPath:       importPath,
 			ExportPath:       exportPath,
 			AutoCreateBucket: true,
+			SecurityGroupIDs: config.SecurityGroupIDs, // port 988 (Lustre) must be allowed within this SG (fixes #309)
 		}
 
 		fsxInfo, err = awsClient.CreateFSxLustreFilesystem(ctx, fsxConfig)
@@ -1385,8 +1421,10 @@ func launchWithProgress(ctx context.Context, awsClient *aws.Client, config *aws.
 
 		// Validate EFA requirements
 		if efaEnabled {
-			// EFA requires instance type validation
-			if err := awsClient.ValidateInstanceTypeForEFA(ctx, config.InstanceType); err != nil {
+			// Validate in the launch region — some HPC instance types only exist
+			// in specific regions and DescribeInstanceTypes returns InvalidInstanceType
+			// when queried from a different region (fixes #307).
+			if err := awsClient.ValidateInstanceTypeForEFAInRegion(ctx, config.InstanceType, config.Region); err != nil {
 				return fmt.Errorf("EFA validation: %w", err)
 			}
 

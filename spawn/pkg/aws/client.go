@@ -283,17 +283,21 @@ func (c *Client) Launch(ctx context.Context, launchConfig LaunchConfig) (*Launch
 		}
 
 		input.NetworkInterfaces = []types.InstanceNetworkInterfaceSpecification{netInterface}
-	} else if launchConfig.SubnetID != "" {
-		input.NetworkInterfaces = []types.InstanceNetworkInterfaceSpecification{
-			{
-				AssociatePublicIpAddress: aws.Bool(true),
-				DeviceIndex:              aws.Int32(0),
-				SubnetId:                 aws.String(launchConfig.SubnetID),
-				Groups:                   launchConfig.SecurityGroupIDs,
-			},
+	} else {
+		// Always request a public IP via a NetworkInterface spec — this works
+		// even when the subnet has MapPublicIpOnLaunch=false (fixes #308).
+		ni := types.InstanceNetworkInterfaceSpecification{
+			AssociatePublicIpAddress: aws.Bool(true),
+			DeviceIndex:              aws.Int32(0),
+			DeleteOnTermination:      aws.Bool(true),
 		}
-	} else if len(launchConfig.SecurityGroupIDs) > 0 {
-		input.SecurityGroupIds = launchConfig.SecurityGroupIDs
+		if launchConfig.SubnetID != "" {
+			ni.SubnetId = aws.String(launchConfig.SubnetID)
+		}
+		if len(launchConfig.SecurityGroupIDs) > 0 {
+			ni.Groups = launchConfig.SecurityGroupIDs
+		}
+		input.NetworkInterfaces = []types.InstanceNetworkInterfaceSpecification{ni}
 	}
 
 	// Add placement (AZ, placement group, and reservation)
