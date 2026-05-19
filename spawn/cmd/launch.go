@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -792,7 +794,7 @@ func launchParameterSweep(ctx context.Context, baseConfig *aws.LaunchConfig, pla
 		if err != nil {
 			return fmt.Errorf("failed to build user data: %w", err)
 		}
-		cfg.UserData = base64.StdEncoding.EncodeToString([]byte(userDataScript))
+		cfg.UserData = encodeUserData(userDataScript)
 	}
 
 	// Launch instances with rolling queue or all at once
@@ -1349,7 +1351,7 @@ func launchWithProgress(ctx context.Context, awsClient *aws.Client, config *aws.
 		userDataScript += "\n" + storageScript
 	}
 
-	config.UserData = base64.StdEncoding.EncodeToString([]byte(userDataScript))
+	config.UserData = encodeUserData(userDataScript)
 
 	// Validate MPI requirements
 	if mpiEnabled {
@@ -1782,6 +1784,18 @@ func setupSSHKey(ctx context.Context, awsClient *aws.Client, region string, plat
 	}
 
 	return keyName, nil
+}
+
+// encodeUserData gzip-compresses the script and base64-encodes the result.
+// cloud-init on Amazon Linux 2023 and Ubuntu supports gzip+base64 user-data,
+// which keeps the payload well under EC2's 16 KB limit even when combining
+// spored bootstrap + MPI + FSx mount scripts (fixes #304).
+func encodeUserData(script string) string {
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	_, _ = gz.Write([]byte(script))
+	_ = gz.Close()
+	return base64.StdEncoding.EncodeToString(buf.Bytes())
 }
 
 func buildUserData(plat *platform.Platform, config *aws.LaunchConfig) (string, error) {
@@ -2669,8 +2683,8 @@ func launchJobArray(ctx context.Context, awsClient *aws.Client, baseConfig *aws.
 					combinedUserData += "\n" + storageScript
 				}
 
-				// Re-encode
-				instanceConfig.UserData = base64.StdEncoding.EncodeToString([]byte(combinedUserData))
+				// Re-encode with gzip compression
+				instanceConfig.UserData = encodeUserData(combinedUserData)
 			}
 
 			// Launch the instance

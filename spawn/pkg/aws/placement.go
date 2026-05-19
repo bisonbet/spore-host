@@ -74,43 +74,24 @@ func (c *Client) ValidateInstanceTypeForPlacementGroup(ctx context.Context, inst
 	return fmt.Errorf("instance type %s does not support cluster placement groups", instanceType)
 }
 
-// ValidateInstanceTypeForEFA checks if instance type supports EFA
+// ValidateInstanceTypeForEFA checks if instance type supports EFA by querying
+// the EC2 API directly. This avoids false negatives from a static allowlist
+// as AWS adds EFA support to new instance types over time (e.g. hpc6a, hpc7a).
 func (c *Client) ValidateInstanceTypeForEFA(ctx context.Context, instanceType string) error {
-	// EFA-supported instance types:
-	// - c5n.18xlarge, c5n.metal
-	// - c6gn.16xlarge
-	// - g4dn.8xlarge, g4dn.12xlarge, g4dn.metal
-	// - g5.8xlarge, g5.12xlarge, g5.16xlarge, g5.24xlarge, g5.48xlarge
-	// - i3en.12xlarge, i3en.24xlarge, i3en.metal
-	// - inf1.24xlarge
-	// - m5dn.24xlarge, m5n.24xlarge
-	// - m6i.32xlarge
-	// - p3dn.24xlarge
-	// - p4d.24xlarge, p4de.24xlarge
-	// - p5.48xlarge
-	// - r5dn.24xlarge, r5n.24xlarge
-	// - r6i.32xlarge
-	// - trn1.32xlarge
+	ec2Client := ec2.NewFromConfig(c.cfg)
 
-	efaSupported := map[string]bool{
-		"c5n.18xlarge": true, "c5n.metal": true,
-		"c6gn.16xlarge": true,
-		"g4dn.8xlarge":  true, "g4dn.12xlarge": true, "g4dn.metal": true,
-		"g5.8xlarge": true, "g5.12xlarge": true, "g5.16xlarge": true,
-		"g5.24xlarge": true, "g5.48xlarge": true,
-		"i3en.12xlarge": true, "i3en.24xlarge": true, "i3en.metal": true,
-		"inf1.24xlarge": true,
-		"m5dn.24xlarge": true, "m5n.24xlarge": true,
-		"m6i.32xlarge":  true,
-		"p3dn.24xlarge": true,
-		"p4d.24xlarge":  true, "p4de.24xlarge": true,
-		"p5.48xlarge":   true,
-		"r5dn.24xlarge": true, "r5n.24xlarge": true,
-		"r6i.32xlarge":  true,
-		"trn1.32xlarge": true,
+	output, err := ec2Client.DescribeInstanceTypes(ctx, &ec2.DescribeInstanceTypesInput{
+		InstanceTypes: []types.InstanceType{types.InstanceType(instanceType)},
+	})
+	if err != nil {
+		return fmt.Errorf("describe instance type %s: %w", instanceType, err)
+	}
+	if len(output.InstanceTypes) == 0 {
+		return fmt.Errorf("instance type %s not found", instanceType)
 	}
 
-	if !efaSupported[instanceType] {
+	info := output.InstanceTypes[0]
+	if info.NetworkInfo == nil || !aws.ToBool(info.NetworkInfo.EfaSupported) {
 		return fmt.Errorf("instance type %s does not support EFA", instanceType)
 	}
 
