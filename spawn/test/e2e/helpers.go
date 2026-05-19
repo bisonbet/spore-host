@@ -1,0 +1,242 @@
+// Package e2e contains end-to-end integration tests for spawn, truffle, and lagotto.
+//
+// Tests are split into three independently runnable tiers:
+//
+//	Tier 1 — API-only (no EC2 instances, ~free):
+//	  go test -v -tags=e2e_tier1 ./test/e2e/ -run TestTier1
+//
+//	Tier 2 — Single instance (~$0.50, 15–20 min):
+//	  go test -v -tags=e2e_tier2 ./test/e2e/ -run TestTier2 -timeout 30m
+//
+//	Tier 3 — Multi-instance ($2–$5, 20–35 min):
+//	  go test -v -tags=e2e_tier3 ./test/e2e/ -run TestTier3 -timeout 60m
+//
+// All tiers require AWS credentials via AWS_PROFILE=spore-host-dev or
+// the standard credential chain. A compiled spawn binary must be on PATH
+// or at ./bin/spawn relative to the spawn/ module root.
+package e2e
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+	"time"
+
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+)
+
+// ── Configuration ─────────────────────────────────────────────────────────────
+
+const (
+	testRegion      = "us-east-1"
+	testInstanceType = "t3.small" // cheap, available everywhere
+	testTagKey      = "spawn:e2e-test-run"
+	defaultTTL      = "15m"
+)
+
+// spawnBin returns the path to the spawn binary.
+// Looks for ./bin/spawn first, then falls back to PATH.
+func spawnBin(t *testing.T) string {
+	t.Helper()
+	// Walk up to find the spawn module root (contains go.mod with module spawn)
+	_, file, _, _ := runtime.Caller(0)
+	// file is .../spawn/test/e2e/helpers.go
+	spawnRoot := filepath.Join(filepath.Dir(file), "..", "..")
+	candidate := filepath.Join(spawnRoot, "bin", "spawn")
+	if _, err := os.Stat(candidate); err == nil {
+		return candidate
+	}
+	// Fall back to PATH
+	p, err := exec.LookPath("spawn")
+	if err != nil {
+		t.Fatalf("spawn binary not found at %s or in PATH; run 'make build' first", candidate)
+	}
+	return p
+}
+
+// runID returns a per-test unique run ID for tagging resources.
+func runID(t *testing.T) string {
+	t.Helper()
+	return fmt.Sprintf("e2e-%d", time.Now().UnixMilli())
+}
+
+// ── AWS helpers ───────────────────────────────────────────────────────────────
+
+func loadAWSConfig(t *testing.T) aws.Config {
+	t.Helper()
+	ctx := context.Background()
+	profile := os.Getenv("AWS_PROFILE")
+	if profile == "" && os.Getenv("AWS_ACCESS_KEY_ID") == "" {
+		profile = "spore-host-dev"
+	}
+	var opts []func(*awsconfig.LoadOptions) error
+	opts = append(opts, awsconfig.WithRegion(testRegion))
+	if profile != "" && os.Getenv("AWS_ACCESS_KEY_ID") == "" {
+		opts = append(opts, awsconfig.WithSharedConfigProfile(profile))
+	}
+	cfg, err := awsconfig.LoadDefaultConfig(ctx, opts...)
+	if err != nil {
+		t.Fatalf("load AWS config: %v", err)
+	}
+	return cfg
+}
+
+// ── spawn CLI wrapper ─────────────────────────────────────────────────────────
+
+// spawn runs the spawn CLI and returns combined output.
+func spawn(t *testing.T, args ...string) string {
+	t.Helper()
+	cmd := exec.Command(spawnBin(t), args...)
+	cmd.Env = os.Environ()
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("spawn %s failed: %v\n%s", strings.Join(args, " "), err, out)
+	}
+	return string(out)
+}
+
+// spawnMayFail runs spawn and returns output + error without failing the test.
+func spawnMayFail(t *testing.T, args ...string) (string, error) {
+	t.Helper()
+	cmd := exec.Command(spawnBin(t), args...)
+	cmd.Env = os.Environ()
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+// ── Instance lifecycle helpers ────────────────────────────────────────────────
+
+// InstanceJSON is the minimal shape returned by spawn list --output json.
+type InstanceJSON struct {
+	InstanceID      string `json:"instance_id"`
+	Name            string `json:"name"`
+	InstanceType    string `json:"instance_type"`
+	State           string `json:"state"`
+	Region          string `json:"region"`
+	PublicIP        string `json:"public_ip"`
+	Tags            map[string]string `json:"tags"`
+}
+
+// launchInstance launches a single t3.small test instance and registers cleanup.
+// Returns the launched InstanceJSON once the instance is running.
+func launchInstance(t *testing.T, name string, extraArgs ...string) InstanceJSON {
+	t.Helper()
+	rid := runID(t)
+
+	args := []string{
+		"launch", name,
+		"--instance-type", testInstanceType,
+		"--region", testRegion,
+		"--ttl", defaultTTL, // hard safety ceiling
+		"--tag", fmt.Sprintf("%s=%s", testTagKey, rid),
+	}
+	args = append(args, extraArgs...)
+
+	spawn(t, args...)
+
+	// Register cleanup — always terminate regardless of test outcome.
+	t.Cleanup(func() { terminateByTag(t, testTagKey, rid) })
+
+	return waitForRunning(t, name, 3*time.Minute)
+}
+
+// waitForRunning polls until an instance named `name` is running or the timeout fires.
+func waitForRunning(t *testing.T, name string, timeout time.Duration) InstanceJSON {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		out, err := spawnMayFail(t, "list", "--output", "json")
+		if err == nil {
+			var instances []InstanceJSON
+			if json.Unmarshal([]byte(out), &instances) == nil {
+				for _, inst := range instances {
+					if inst.Name == name && inst.State == "running" {
+						return inst
+					}
+				}
+			}
+		}
+		time.Sleep(10 * time.Second)
+	}
+	t.Fatalf("instance %q did not reach running state within %v", name, timeout)
+	return InstanceJSON{}
+}
+
+// waitForState polls until the named instance reaches the target state.
+func waitForState(t *testing.T, name, state string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		out, err := spawnMayFail(t, "list", "--output", "json")
+		if err == nil {
+			var instances []InstanceJSON
+			if json.Unmarshal([]byte(out), &instances) == nil {
+				for _, inst := range instances {
+					if inst.Name == name && inst.State == state {
+						return
+					}
+				}
+				// Instance not in list at all → terminated
+				if state == "terminated" {
+					return
+				}
+			}
+		}
+		time.Sleep(10 * time.Second)
+	}
+	t.Fatalf("instance %q did not reach state %q within %v", name, state, timeout)
+}
+
+// sshExec runs a command on the instance via spawn connect one-shot mode.
+func sshExec(t *testing.T, name, cmd string) string {
+	t.Helper()
+	out := spawn(t, "connect", name, "--", cmd)
+	return out
+}
+
+// terminateByTag force-terminates all EC2 instances tagged with key=value in all regions.
+// Used as cleanup; errors are logged but do not fail the test.
+func terminateByTag(t *testing.T, key, value string) {
+	t.Helper()
+	cfg := loadAWSConfig(t)
+	ctx := context.Background()
+	ec2Client := ec2.NewFromConfig(cfg)
+
+	result, err := ec2Client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+		Filters: []ec2types.Filter{
+			{Name: stringPtr("tag:" + key), Values: []string{value}},
+			{Name: stringPtr("instance-state-name"), Values: []string{"pending", "running", "stopping", "stopped"}},
+		},
+	})
+	if err != nil {
+		t.Logf("cleanup: describe instances: %v", err)
+		return
+	}
+	var ids []string
+	for _, r := range result.Reservations {
+		for _, inst := range r.Instances {
+			ids = append(ids, *inst.InstanceId)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+	if _, err := ec2Client.TerminateInstances(ctx, &ec2.TerminateInstancesInput{
+		InstanceIds: ids,
+	}); err != nil {
+		t.Logf("cleanup: terminate instances %v: %v", ids, err)
+	} else {
+		t.Logf("cleanup: terminated %v", ids)
+	}
+}
+
+func stringPtr(s string) *string { return &s }

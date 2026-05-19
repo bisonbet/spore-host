@@ -1,0 +1,141 @@
+name: E2E Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: 'Which tier to run'
+        required: true
+        type: choice
+        options:
+          - tier1
+          - tier2
+          - tier3
+          - all
+        default: tier1
+
+jobs:
+  # ── Tier 1 — API-only, no instances, ~free ────────────────────────────────
+  e2e-tier1:
+    if: ${{ inputs.tier == 'tier1' || inputs.tier == 'all' }}
+    name: 'E2E Tier 1 — API only'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_INTEGRATION_TEST_ROLE }}
+          role-session-name: e2e-tier1
+          aws-region: us-east-1
+
+      - name: Build spawn and truffle binaries
+        run: |
+          cd spawn && go build -o bin/spawn . && cd ..
+          cd truffle && go build -o bin/truffle . && cd ..
+          cd lagotto && go build -o bin/lagotto . && cd ..
+          echo "$PWD/spawn/bin:$PWD/truffle/bin:$PWD/lagotto/bin" >> $GITHUB_PATH
+
+      - name: Run E2E Tier 1
+        run: |
+          cd spawn
+          go test -v -tags=e2e_tier1 -run TestTier1 -timeout 10m ./test/e2e/
+
+  # ── Tier 2 — Single instance per test, ~$0.50 ────────────────────────────
+  e2e-tier2:
+    if: ${{ inputs.tier == 'tier2' || inputs.tier == 'all' }}
+    name: 'E2E Tier 2 — Single instance'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_INTEGRATION_TEST_ROLE }}
+          role-session-name: e2e-tier2
+          aws-region: us-east-1
+
+      - name: Build spawn binary
+        run: cd spawn && go build -o bin/spawn .
+
+      - name: Run E2E Tier 2
+        run: |
+          cd spawn
+          go test -v -tags=e2e_tier2 -run TestTier2 -timeout 30m ./test/e2e/
+
+      - name: Emergency cleanup — terminate stray instances
+        if: always()
+        run: |
+          aws ec2 describe-instances \
+            --filters "Name=tag-key,Values=spawn:e2e-test-run" \
+                      "Name=instance-state-name,Values=pending,running,stopping,stopped" \
+            --query 'Reservations[].Instances[].InstanceId' \
+            --output text \
+          | tr '\t' '\n' | grep -v '^$' \
+          | xargs -r aws ec2 terminate-instances --instance-ids 2>/dev/null || true
+
+  # ── Tier 3 — Multi-instance, ~$2-5 ──────────────────────────────────────
+  e2e-tier3:
+    if: ${{ inputs.tier == 'tier3' || inputs.tier == 'all' }}
+    name: 'E2E Tier 3 — Multi-instance'
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_INTEGRATION_TEST_ROLE }}
+          role-session-name: e2e-tier3
+          aws-region: us-east-1
+
+      - name: Build spawn binary
+        run: cd spawn && go build -o bin/spawn .
+
+      - name: Run E2E Tier 3
+        run: |
+          cd spawn
+          go test -v -tags=e2e_tier3 -run TestTier3 -timeout 60m ./test/e2e/
+
+      - name: Emergency cleanup — terminate stray instances
+        if: always()
+        run: |
+          aws ec2 describe-instances \
+            --filters "Name=tag-key,Values=spawn:e2e-test-run" \
+                      "Name=instance-state-name,Values=pending,running,stopping,stopped" \
+            --query 'Reservations[].Instances[].InstanceId' \
+            --output text \
+          | tr '\t' '\n' | grep -v '^$' \
+          | xargs -r aws ec2 terminate-instances --instance-ids 2>/dev/null || true

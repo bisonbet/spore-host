@@ -1,4 +1,4 @@
-.PHONY: all build build-spawn build-spored build-all clean install test test-coverage test-short test-integration test-integration-scheduler test-integration-queue check vuln
+.PHONY: all build build-spawn build-spored build-all clean install test test-coverage test-short test-integration test-integration-scheduler test-integration-queue test-e2e test-e2e-tier1 test-e2e-tier2 test-e2e-tier3 check vuln
 
 # Version
 VERSION ?= 0.1.0
@@ -112,6 +112,28 @@ test-integration-queue:
 	@echo "Running queue integration tests..."
 	@echo "Note: Requires AWS credentials (spore-host-dev profile)"
 	go test -v -tags=integration -run TestQueue -timeout 20m ./...
+
+# E2E test suite — three independently runnable tiers.
+# All tiers require: AWS credentials (AWS_PROFILE=spore-host-dev or env vars)
+# and a compiled spawn binary at ./bin/spawn (run 'make build' first).
+
+# Tier 1 — AWS API-only, no instances launched, ~free, ~5 min
+test-e2e-tier1: build
+	@echo "Running E2E tier 1 (API-only, no instances)..."
+	go test -v -tags=e2e_tier1 -run TestTier1 -timeout 10m ./test/e2e/
+
+# Tier 2 — Single instance per test, ~$0.50 total, ~20 min
+test-e2e-tier2: build
+	@echo "Running E2E tier 2 (single-instance tests, ~\$$0.50)..."
+	go test -v -tags=e2e_tier2 -run TestTier2 -timeout 30m ./test/e2e/
+
+# Tier 3 — Multi-instance (job arrays, sweeps, FSx, MPI), ~$2-5 total, ~35 min
+test-e2e-tier3: build
+	@echo "Running E2E tier 3 (multi-instance tests, ~\$$2-5)..."
+	go test -v -tags=e2e_tier3 -run TestTier3 -timeout 60m ./test/e2e/
+
+# Run all E2E tiers sequentially
+test-e2e: test-e2e-tier1 test-e2e-tier2 test-e2e-tier3
 
 # Go vulnerability check
 vuln:

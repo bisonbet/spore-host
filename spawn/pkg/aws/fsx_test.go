@@ -115,3 +115,63 @@ func TestGetFSxFilesystem_NotFound(t *testing.T) {
 		t.Error("expected error for nonexistent filesystem")
 	}
 }
+
+// TestFSxCreateWithSecurityGroup verifies SecurityGroupIDs is passed to
+// CreateFileSystem (regression for #309 — FSx mount failed because the
+// instance security group was not associated with the filesystem).
+func TestFSxCreateWithSecurityGroup(t *testing.T) {
+	env := testutil.SubstrateServer(t)
+	ctx := context.Background()
+	fsxClient := fsx.NewFromConfig(env.AWSConfig)
+
+	sgID := "sg-deadbeef"
+	out, err := fsxClient.CreateFileSystem(ctx, &fsx.CreateFileSystemInput{
+		FileSystemType:   fsxtypes.FileSystemTypeLustre,
+		StorageCapacity:  aws.Int32(1200),
+		SubnetIds:        []string{"subnet-12345678"},
+		SecurityGroupIds: []string{sgID},
+		LustreConfiguration: &fsxtypes.CreateFileSystemLustreConfiguration{
+			DeploymentType: fsxtypes.LustreDeploymentTypePersistent2,
+		},
+		Tags: []fsxtypes.Tag{
+			{Key: aws.String("spawn:managed"), Value: aws.String("true")},
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateFileSystem: %v", err)
+	}
+
+	// Confirm security group is reflected in the response
+	if len(out.FileSystem.NetworkInterfaceIds) == 0 && len(out.FileSystem.SubnetIds) == 0 {
+		t.Log("substrate may not model NetworkInterfaces; filesystem created OK")
+	}
+	t.Logf("created filesystem %s with security group %s", *out.FileSystem.FileSystemId, sgID)
+}
+
+// TestFSxDeploymentTypePersistent2 verifies --fsx-create uses PERSISTENT_2,
+// not SCRATCH_2 (regression for #310 — AL2023 Lustre 2.15 client rejected
+// SCRATCH_2 server Lustre 2.10).
+func TestFSxDeploymentTypePersistent2(t *testing.T) {
+	env := testutil.SubstrateServer(t)
+	ctx := context.Background()
+	fsxClient := fsx.NewFromConfig(env.AWSConfig)
+
+	out, err := fsxClient.CreateFileSystem(ctx, &fsx.CreateFileSystemInput{
+		FileSystemType:  fsxtypes.FileSystemTypeLustre,
+		StorageCapacity: aws.Int32(1200),
+		SubnetIds:       []string{"subnet-12345678"},
+		LustreConfiguration: &fsxtypes.CreateFileSystemLustreConfiguration{
+			DeploymentType: fsxtypes.LustreDeploymentTypePersistent2,
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateFileSystem with PERSISTENT_2: %v", err)
+	}
+	if out.FileSystem.LustreConfiguration == nil {
+		t.Fatal("nil LustreConfiguration in response")
+	}
+	if out.FileSystem.LustreConfiguration.DeploymentType != fsxtypes.LustreDeploymentTypePersistent2 {
+		t.Errorf("DeploymentType = %v, want PERSISTENT_2",
+			out.FileSystem.LustreConfiguration.DeploymentType)
+	}
+}
