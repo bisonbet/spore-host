@@ -59,7 +59,7 @@ spawn launch \
   --slack-workspace T03NE3GTY
 ```
 
-The `--pre-stop` command has up to 5 minutes to complete (configurable with `--pre-stop-timeout`). For most checkpoint saves, 60–90 seconds is sufficient.
+The `--pre-stop` command has up to **90 seconds** to complete on Spot instances — AWS provides only a 2-minute interruption notice and spored needs the remainder for DNS cleanup and shutdown. On non-Spot instances the default is 5 minutes. Override with `--pre-stop-timeout`. For most checkpoint saves, 60–90 seconds is sufficient.
 
 ## Resuming after interruption
 

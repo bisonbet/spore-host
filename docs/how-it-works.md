@@ -1,6 +1,6 @@
 # How It Works
 
-spore.host is a collection of five tools that cover the full lifecycle of ephemeral compute — from finding the right instance to cleaning it up when the work is done. This page explains how they fit together.
+spore.host is a collection of six tools that cover the full lifecycle of ephemeral compute — from finding the right instance to cleaning it up when the work is done. This page explains how they fit together.
 
 ## The core idea
 
@@ -8,7 +8,7 @@ The biggest problem with cloud compute isn't launching instances — it's managi
 
 spore.host solves this with a simple contract: **every instance has a lifecycle that manages itself**. When you launch with spore.host, the instance knows when it should stop. You don't have to remember.
 
-## The five tools
+## The six tools
 
 ### <span class="tool-badge truffle">Truffle</span> — Find
 
