@@ -14,6 +14,10 @@ function.zip
 **/lambda/*/bootstrap
 **/lambda/*-orchestrator
 **/lambda/*-handler
+**/lambda/*/dns-updater
+
+# Tool build output
+lagotto/bin/
 
 # Test binary, built with `go test -c`
 *.test
