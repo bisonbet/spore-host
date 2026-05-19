@@ -31,7 +31,7 @@ spawn launch --name training --slack-workspace T03NE3GTY --ttl 8h
 
 Or subscribe via CLI:
 ```sh
-spawn bot register --platform slack --user you@lab.edu --workspace-id T03NE3GTY \
+spawn notify register --platform slack --user you@lab.edu --workspace-id T03NE3GTY \
   --instance i-0abc123 --nickname training
 ```
 
@@ -40,7 +40,7 @@ spawn bot register --platform slack --user you@lab.edu --workspace-id T03NE3GTY 
 Posts lifecycle events to a shared Slack channel — useful for team visibility. The webhook URL is captured automatically during the OAuth flow (Add to Slack), or set manually:
 
 ```sh
-spawn bot workspace-add --platform slack --workspace-id T03NE3GTY \
+spawn notify workspace-add --platform slack --workspace-id T03NE3GTY \
   --webhook-url https://hooks.slack.com/services/...
 ```
 

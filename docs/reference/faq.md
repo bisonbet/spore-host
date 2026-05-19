@@ -117,8 +117,8 @@ No. Slack and Teams integration is optional. spore.host works fully without it â
 
 ### Can multiple people control the same instance from Slack?
 
-Yes. Register each user separately with `spawn bot register`, granting them the actions they need. Each person can then use `/spore status`, `/spore stop`, etc. on that instance.
+Yes. Register each user separately with `spawn notify register`, granting them the actions they need. Each person can then use `/spore status`, `/spore stop`, etc. on that instance.
 
 ### Something stopped working after I updated the Slack app scopes.
 
-Updating app scopes regenerates the signing secret. Re-register with the new secret: `spawn bot workspace-add --platform slack --workspace-id T0... --signing-secret <new-secret>`
+Updating app scopes regenerates the signing secret. Re-register with the new secret: `spawn notify workspace-add --platform slack --workspace-id T0... --signing-secret <new-secret>`

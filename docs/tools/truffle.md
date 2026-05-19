@@ -32,16 +32,17 @@ truffle spot p4d.24xlarge
 truffle spot g5.2xlarge --regions us-east-1,us-west-2,eu-west-1
 ```
 
-### `truffle quota`
+### `truffle quotas`
 
 Check your service quotas before launching:
 
 ```sh
-truffle quota --instance-type p4d.24xlarge --region us-east-1
-truffle quota --instance-type g5.xlarge --spot
+truffle quotas --regions us-east-1 --family P
+truffle quotas --regions us-east-1,us-west-2
+truffle quotas --family P --request
 ```
 
-Returns current quota, current usage, and whether a launch would be allowed.
+Returns current quota, usage, and available headroom per instance family. Use `--request` to generate `aws service-quotas` increase commands for near-full families.
 
 ### `truffle capacity`
 

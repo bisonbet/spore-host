@@ -126,15 +126,15 @@ This shows state, IP, type, uptime, and time remaining before auto-termination.
 
 ---
 
-## 7. Terminate
+## 7. Clean up
 
 When you're done:
 
 ```sh
-spawn terminate my-first-instance
+spawn stop my-first-instance
 ```
 
-Or just leave it — it auto-terminates after 1 hour.
+Or just leave it — it auto-terminates after 1 hour (the default idle timeout).
 
 ---
 
