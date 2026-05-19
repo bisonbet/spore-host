@@ -87,10 +87,19 @@ spore.host tags every instance it launches with `spawn:*` tags. These tags drive
 
 | Tag | Example | Description |
 |-----|---------|-------------|
-| `spawn:fsx-stack-name` | `spawn-fsx-abc` | CloudFormation stack managing the FSx filesystem. |
+| `spawn:fsx-id` | `fs-0abc1234` | FSx filesystem ID — written at launch so instance scripts can auto-mount without hardcoding the ID. |
+| `spawn:fsx-mount-point` | `/fsx` | Mount point for the FSx filesystem. |
+| `spawn:fsx-stack-name` | `spawn-fsx-abc` | CloudFormation stack managing the FSx filesystem (set by `--fsx-create`). |
 | `spawn:fsx-storage-capacity` | `1200` | FSx storage size in GiB. |
 | `spawn:fsx-import-path` | `s3://bucket/input/` | S3 path FSx imports from. |
 | `spawn:fsx-export-path` | `s3://bucket/output/` | S3 path FSx exports to. |
+
+## EFS integration
+
+| Tag | Example | Description |
+|-----|---------|-------------|
+| `spawn:efs-id` | `fs-0def5678` | EFS filesystem ID — written at launch so instance scripts can auto-mount. |
+| `spawn:efs-mount-point` | `/efs` | Mount point for the EFS filesystem. |
 
 ## Filtering instances
 

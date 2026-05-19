@@ -282,19 +282,25 @@ spawn ssh <instance-id-or-name>
 
 Resolves the instance by ID or name, finds the SSH key automatically from `~/.ssh/`, and invokes `ssh`. Falls back to AWS Session Manager if no public IP is available or `--session-manager` is set. For DCV app streaming instances, opens the browser session instead.
 
-Pass `-- <command>` to run a single command non-interactively (one-shot mode). The `--` separator is required to distinguish the remote command from spawn flags.
+Pass `-- <command>` to run a single command non-interactively (one-shot mode). The command tokens are joined and passed to the remote shell as a single argument — compound operators (`&&`, `;`, `&`, pipes) are interpreted by the remote shell, not the local one.
+
+When multiple instances share the same name, connect prefers the `running` instance. If multiple running instances share the name, the command fails with a list of the running instances so you can specify an ID.
 
 **Examples:**
 ```sh
-spawn connect my-job                                         # interactive shell
+spawn connect my-job                                               # interactive shell
 spawn ssh i-0abc123
 spawn connect my-job --user ubuntu --port 2222
 spawn connect my-job --session-manager
 
-# One-shot mode — run a command and return
+# One-shot mode — single command
 spawn connect my-job -- 'tail -20 /tmp/run.log'
-spawn connect my-job -- 'nohup bash /tmp/run.sh > /tmp/run.log 2>&1 &'
 spawn connect my-job -- 'aws s3 cp s3://bucket/run.sh /tmp/run.sh'
+
+# Compound commands work — remote shell interprets && ; & etc.
+spawn connect my-job -- 'cmd1 && cmd2'
+spawn connect my-job -- 'nohup bash /tmp/run.sh > /tmp/run.log 2>&1 &'
+spawn connect my-job -- 'aws s3 cp s3://bucket/run.sh /tmp/ && bash /tmp/run.sh'
 ```
 
 **Flags:**

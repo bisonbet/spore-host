@@ -71,3 +71,31 @@ spawn launch \
 ::: tip
 Write the completion file only from the head node (rank 0). MPI programs run on all nodes, so guard the `touch` with `if [ $OMPI_COMM_WORLD_RANK -eq 0 ]; then touch /tmp/SPAWN_COMPLETE; fi`.
 :::
+
+## Shared storage with FSx Lustre
+
+For large datasets that all cluster nodes need to read, attach an FSx Lustre filesystem:
+
+```sh
+# Create a new FSx filesystem backed by S3
+spawn launch sim \
+  --count 8 --mpi --efa \
+  --instance-type hpc6a.48xlarge \
+  --fsx-create \
+  --fsx-s3-bucket my-data-bucket \
+  --fsx-import-path s3://my-data-bucket/inputs/ \
+  --fsx-export-path s3://my-data-bucket/outputs/ \
+  --fsx-mount-point /fsx
+
+# Or attach an existing filesystem
+spawn launch sim \
+  --count 8 --mpi --efa \
+  --fsx-id fs-0abc1234 \
+  --fsx-mount-point /fsx
+```
+
+FSx Lustre is mounted at `/fsx` on every node. The filesystem ID and mount point are written as instance tags (`spawn:fsx-id`, `spawn:fsx-mount-point`) so boot scripts can auto-mount without hardcoding the ID.
+
+::: info FSx compatibility
+spore.host creates FSx `PERSISTENT_2` filesystems (Lustre 2.15 server). This is compatible with the standard Amazon Linux 2023 Lustre client (`dnf install -y lustre-client`). The mount uses port 988 and dynamic ports 1018–1023 — spawn automatically opens these in the instance security group so no manual SG configuration is needed.
+:::
