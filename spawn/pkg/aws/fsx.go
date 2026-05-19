@@ -33,7 +33,8 @@ type FSxConfig struct {
 	ExportPath       string
 	AutoCreateBucket bool
 	SubnetID         string   // Optional: specify subnet, otherwise uses default VPC
-	SecurityGroupIDs []string // Security groups to associate with FSx; must allow port 988 (Lustre)
+	SecurityGroupIDs         []string // Security groups to associate with FSx; must allow port 988 (Lustre)
+	PerUnitStorageThroughput int32    // MB/s/TiB — required for PERSISTENT_2; valid values: 125, 250, 500, 1000
 }
 
 // CreateFSxLustreFilesystem creates an FSx for Lustre filesystem with S3 backing
@@ -101,8 +102,9 @@ func (c *Client) CreateFSxLustreFilesystem(ctx context.Context, config FSxConfig
 		SubnetIds:        []string{subnetID}, // FSx Lustre requires single subnet
 		SecurityGroupIds: config.SecurityGroupIDs,
 		LustreConfiguration: &types.CreateFileSystemLustreConfiguration{
-			DeploymentType:      types.LustreDeploymentTypePersistent2,
-			DataCompressionType: types.DataCompressionTypeLz4,
+			DeploymentType:           types.LustreDeploymentTypePersistent2,
+			DataCompressionType:      types.DataCompressionTypeLz4,
+			PerUnitStorageThroughput: aws.Int32(config.PerUnitStorageThroughput),
 		},
 		Tags: []types.Tag{
 			{Key: aws.String("Name"), Value: aws.String(config.StackName)},

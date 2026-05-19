@@ -123,6 +123,7 @@ spawn launch analysis --instance-type r7i.4xlarge --ttl 8h \
 | `--fsx-create` | bool | `false` | Create new FSx Lustre (`PERSISTENT_2`, Lustre 2.15, compatible with AL2023) with S3 backing via Data Repository Association |
 | `--fsx-recall` | string | | Recall FSx by CloudFormation stack name |
 | `--fsx-storage-capacity` | int | `1200` | FSx storage in GB (1200, 2400, or multiples of 2400) |
+| `--fsx-throughput` | int | `125` | PERSISTENT_2 throughput in MB/s/TiB — valid values: `125`, `250`, `500`, `1000` |
 | `--fsx-s3-bucket` | string | | S3 bucket for FSx (required with `--fsx-create`) |
 | `--fsx-import-path` | string | | S3 import path |
 | `--fsx-export-path` | string | | S3 export path |

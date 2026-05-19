@@ -110,14 +110,15 @@ var (
 	efsMountOptions string
 
 	// FSx Lustre
-	fsxCreate          bool
-	fsxID              string
-	fsxRecall          string
-	fsxStorageCapacity int32
-	fsxS3Bucket        string
-	fsxImportPath      string
-	fsxExportPath      string
-	fsxMountPoint      string
+	fsxCreate                bool
+	fsxID                    string
+	fsxRecall                string
+	fsxStorageCapacity       int32
+	fsxThroughput            int32
+	fsxS3Bucket              string
+	fsxImportPath            string
+	fsxExportPath            string
+	fsxMountPoint            string
 
 	// Parameter sweep
 	paramFile              string
@@ -265,6 +266,7 @@ func init() {
 	launchCmd.Flags().StringVar(&fsxID, "fsx-id", "", "Existing FSx Lustre filesystem ID to mount (fs-xxx)")
 	launchCmd.Flags().StringVar(&fsxRecall, "fsx-recall", "", "Recall FSx filesystem by stack name (recreate from S3)")
 	launchCmd.Flags().Int32Var(&fsxStorageCapacity, "fsx-storage-capacity", 1200, "FSx storage capacity in GB (1200, 2400, or increments of 2400)")
+	launchCmd.Flags().Int32Var(&fsxThroughput, "fsx-throughput", 125, "FSx PERSISTENT_2 throughput in MB/s/TiB (125, 250, 500, or 1000; default: 125)")
 	launchCmd.Flags().StringVar(&fsxS3Bucket, "fsx-s3-bucket", "", "S3 bucket for FSx import/export (required with --fsx-create)")
 	launchCmd.Flags().StringVar(&fsxImportPath, "fsx-import-path", "", "S3 path to import from (e.g., s3://bucket/prefix)")
 	launchCmd.Flags().StringVar(&fsxExportPath, "fsx-export-path", "", "S3 path to export to (e.g., s3://bucket/prefix)")
@@ -1253,15 +1255,20 @@ func launchWithProgress(ctx context.Context, awsClient *aws.Client, config *aws.
 			exportPath = fmt.Sprintf("s3://%s/", fsxS3Bucket)
 		}
 
+		throughput := fsxThroughput
+		if throughput == 0 {
+			throughput = 125 // PERSISTENT_2 minimum; valid values: 125, 250, 500, 1000
+		}
 		fsxConfig := aws.FSxConfig{
-			StackName:        stackName,
-			Region:           config.Region,
-			StorageCapacity:  fsxStorageCapacity,
-			S3Bucket:         fsxS3Bucket,
-			ImportPath:       importPath,
-			ExportPath:       exportPath,
-			AutoCreateBucket: true,
-			SecurityGroupIDs: config.SecurityGroupIDs, // port 988 (Lustre) must be allowed within this SG (fixes #309)
+			StackName:                stackName,
+			Region:                   config.Region,
+			StorageCapacity:          fsxStorageCapacity,
+			PerUnitStorageThroughput: throughput,
+			S3Bucket:                 fsxS3Bucket,
+			ImportPath:               importPath,
+			ExportPath:               exportPath,
+			AutoCreateBucket:         true,
+			SecurityGroupIDs:         config.SecurityGroupIDs,
 		}
 
 		fsxInfo, err = awsClient.CreateFSxLustreFilesystem(ctx, fsxConfig)
