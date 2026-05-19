@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -382,14 +383,44 @@ func runQueueResults(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// sshReadFile reads a file from a remote host via SSH
+// sshReadFile reads a file from a remote instance via SSH.
+// Uses the same key-discovery logic as spawn connect.
 func sshReadFile(host, remotePath string) (string, error) {
-	// Use standard SSH with ec2-user
-	// This assumes SSH keys are properly configured
+	// Try to find a usable SSH key
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("get home dir: %w", err)
+	}
+	sshDir := filepath.Join(homeDir, ".ssh")
+	candidates := []string{
+		filepath.Join(sshDir, "id_ed25519"),
+		filepath.Join(sshDir, "id_rsa"),
+		filepath.Join(sshDir, "id_ecdsa"),
+	}
+	var keyPath string
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			keyPath = p
+			break
+		}
+	}
 
-	// For now, return a helpful error message
-	// In production, this would use golang.org/x/crypto/ssh or exec ssh
-	return "", fmt.Errorf("SSH file read not yet implemented - please SSH manually to %s and cat %s", host, remotePath)
+	args := []string{
+		"-o", "StrictHostKeyChecking=no",
+		"-o", "UserKnownHostsFile=/dev/null",
+		"-o", "ConnectTimeout=10",
+		"-o", "LogLevel=ERROR",
+	}
+	if keyPath != "" {
+		args = append(args, "-i", keyPath)
+	}
+	args = append(args, fmt.Sprintf("ec2-user@%s", host), "cat "+remotePath)
+
+	out, err := exec.Command("ssh", args...).Output()
+	if err != nil {
+		return "", fmt.Errorf("ssh to %s failed: %w", host, err)
+	}
+	return string(out), nil
 }
 
 func runQueueTemplateList(cmd *cobra.Command, args []string) error {

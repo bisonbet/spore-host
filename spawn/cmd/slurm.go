@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/spf13/cobra"
 	"github.com/spore-host/spore-host/spawn/pkg/slurm"
@@ -278,17 +280,30 @@ func runSlurmSubmit(cmd *cobra.Command, args []string) error {
 	}
 	_ = tmpFile.Close()
 
-	// Launch using spawn launch command
+	// Hand off to spawn launch by invoking the current binary with
+	// the converted param file. This keeps launch logic in one place and
+	// respects all global flags (--output, --lang, etc.) already parsed.
 	fmt.Fprintf(os.Stderr, "Launching via spawn...\n\n")
 
-	// Note: This would integrate with the launch command
-	// For now, print the command that would be run
-	fmt.Fprintf(os.Stderr, "TODO: Integration with spawn launch --params %s\n", tmpFile.Name())
-	fmt.Fprintf(os.Stderr, "\nFor now, run manually:\n")
-	fmt.Fprintf(os.Stderr, "  spawn slurm convert %s --output params.yaml\n", scriptPath)
-	fmt.Fprintf(os.Stderr, "  spawn launch --params params.yaml\n")
+	self, err := os.Executable()
+	if err != nil {
+		self = "spawn"
+	}
 
-	return nil
+	launchArgs := []string{"launch", "--param-file", tmpFile.Name()}
+	if slurmForceYes {
+		launchArgs = append(launchArgs, "--yes")
+	}
+	// Propagate the spot flag if set
+	if spot {
+		launchArgs = append(launchArgs, "--spot")
+	}
+
+	launchCmd := exec.CommandContext(context.Background(), self, launchArgs...)
+	launchCmd.Stdin = os.Stdin
+	launchCmd.Stdout = os.Stdout
+	launchCmd.Stderr = os.Stderr
+	return launchCmd.Run()
 }
 
 // printJobSummary prints a summary of the parsed Slurm job

@@ -479,7 +479,7 @@ spawn queue <subcommand>
 
 ## spawn autoscale
 
-Manage auto-scaling job arrays.
+Manage auto-scaling job arrays that grow and shrink in response to queue depth or custom metrics.
 
 ```
 spawn autoscale <subcommand>
@@ -488,11 +488,64 @@ spawn autoscale <subcommand>
 | Subcommand | Usage | Description |
 |------------|-------|-------------|
 | `launch` | `spawn autoscale launch` | Launch an auto-scaling group |
-| `update` | `spawn autoscale update <name>` | Update scaling parameters |
-| `status` | `spawn autoscale status <name>` | Show scaling status |
-| `delete` | `spawn autoscale delete <name>` | Delete the auto-scaling group |
+| `update` | `spawn autoscale update <name>` | Update desired/min/max capacity |
+| `status` | `spawn autoscale status [name]` | Show group status (omit name for all) |
+| `health` | `spawn autoscale health <name>` | Show instance health details |
+| `pause` | `spawn autoscale pause <name>` | Pause reconciliation (keep instances running) |
+| `resume` | `spawn autoscale resume <name>` | Resume reconciliation |
+| `terminate` | `spawn autoscale terminate <name>` | Terminate group and all instances |
+| `set-policy` | `spawn autoscale set-policy <name>` | Set or update queue-depth scaling policy |
+| `set-metric-policy` | `spawn autoscale set-metric-policy <name>` | Set metric-based scaling policy |
+| `scaling-activity` | `spawn autoscale scaling-activity <name>` | Show recent scaling events |
+| `metric-activity` | `spawn autoscale metric-activity <name>` | Show recent metric-based events |
+| `add-schedule` | `spawn autoscale add-schedule <name>` | Add a scheduled scaling action |
+| `remove-schedule` | `spawn autoscale remove-schedule <name> <schedule-name>` | Remove a scheduled action |
+| `list-schedules` | `spawn autoscale list-schedules <name>` | List all scheduled actions |
 
-**`spawn autoscale launch` key flags:** `--name`, `--job-array-id`, `--instance-type`, `--spot`, `--desired`, `--min`, `--max`
+**Persistent flags** (all subcommands):
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--table` | string | `spawn-autoscale-groups` | DynamoDB table name |
+| `--env` | string | `production` | Environment: `production` or `staging` |
+
+**`spawn autoscale launch` flags:**
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--name` | string | (required) | Group name |
+| `--instance-type` | string | (required) | EC2 instance type |
+| `--ami` | string | (required) | AMI ID |
+| `--desired-capacity` | int | (required) | Initial desired instance count |
+| `--min-capacity` | int | `0` | Minimum instance count |
+| `--max-capacity` | int | (desired×2) | Maximum instance count |
+| `--spot` | bool | `false` | Use Spot instances |
+| `--job-array-id` | string | (auto) | Job array ID |
+| `--key-name` | string | | SSH key pair name |
+| `--subnet-id` | string | | Subnet ID |
+| `--security-groups` | strings | | Security group IDs |
+| `--iam-profile` | string | | IAM instance profile |
+| `--user-data` | string | | User data script (base64) |
+| `--tags` | key=value | | Additional EC2 tags |
+| `--scaling-policy` | string | | `queue-depth` or `metric` |
+| `--queue-url` | string | | SQS queue URL for queue-depth scaling |
+| `--target-messages-per-instance` | int | `10` | Scale up when queue exceeds this per instance |
+| `--scale-up-cooldown` | int | `60` | Seconds between scale-up actions |
+| `--scale-down-cooldown` | int | `300` | Seconds between scale-down actions |
+| `--metric-policy` | string | | Metric name for metric-based scaling |
+| `--target-value` | float | | Target metric value |
+| `--metric-name` | string | | CloudWatch metric name |
+| `--metric-namespace` | string | | CloudWatch metric namespace |
+| `--metric-statistic` | string | `Average` | CloudWatch statistic |
+| `--metric-period` | int | `300` | Metric evaluation period (seconds) |
+
+**`spawn autoscale update` flags:** `--desired-capacity`, `--min-capacity`, `--max-capacity`
+
+**`spawn autoscale set-policy` flags:** `--scaling-policy`, `--queue-url`, `--queue` (multiple), `--queue-weight`, `--target-messages-per-instance`, `--scale-up-cooldown`, `--scale-down-cooldown`, `--none` (remove policy)
+
+**`spawn autoscale set-metric-policy` flags:** `--metric-policy`, `--target-value`, `--metric-name`, `--metric-namespace`, `--metric-statistic`, `--metric-period`, `--none`
+
+**`spawn autoscale add-schedule` flags:** `--name`, `--schedule` (cron expression), `--desired-capacity`, `--min-capacity`, `--max-capacity`
 
 ---
 
@@ -832,6 +885,37 @@ spawn fsx <subcommand>
 |------|------|---------|-------------|
 | `--export-first` | bool | `false` | Export data to S3 before deleting |
 | `--yes` | bool | `false` | Skip confirmation prompt |
+
+---
+
+## spawn app
+
+Launch and manage catalog applications via NICE DCV browser streaming.
+
+```
+spawn app <subcommand>
+```
+
+| Subcommand | Usage | Description |
+|------------|-------|-------------|
+| `list` | `spawn app list` | List all streamable applications in the catalog |
+| `launch` | `spawn app launch <app-name>` | Launch a catalog application in a browser tab |
+
+**`spawn app list`** prints each app's name, description, GPU requirement, recommended instance families, and license type.
+
+**`spawn app launch` flags:**
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--name` | string | `<app>-<timestamp>` | Session name |
+| `--instance-type` | string | (catalog default) | Override instance type |
+| `--region` | string | (AWS config) | AWS region |
+| `--spot` | bool | `false` | Use Spot pricing |
+| `--ttl` | string | | Hard termination deadline (e.g. `8h`) |
+| `--idle-timeout` | string | (catalog default) | Stop when DCV has no clients for this duration |
+| `--no-open` | bool | `false` | Write session file but do not open browser automatically |
+
+After launch, `spawn connect <name>` reconnects to an existing session — waking the instance if stopped and opening the browser tab.
 
 ---
 
