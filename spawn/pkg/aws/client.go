@@ -1312,6 +1312,37 @@ func (c *Client) CreateOrGetMPISecurityGroup(ctx context.Context, region, vpcID,
 	return sgID, nil
 }
 
+// EnsureLustrePorts adds self-referencing inbound rules for the Lustre protocol
+// to the specified security group if they are not already present.
+// Lustre requires port 988 (MGS/MDS/OSS) and 1018–1023 (dynamic OST traffic)
+// to be open between all nodes that share a filesystem (fixes #316).
+func (c *Client) EnsureLustrePorts(ctx context.Context, region, sgID string) error {
+	cfg := c.cfg.Copy()
+	cfg.Region = region
+	ec2Client := ec2.NewFromConfig(cfg)
+
+	selfRef := []types.UserIdGroupPair{{GroupId: aws.String(sgID), Description: aws.String("Lustre inter-node (self)")}}
+
+	perms := []types.IpPermission{
+		{IpProtocol: aws.String("tcp"), FromPort: aws.Int32(988), ToPort: aws.Int32(988), UserIdGroupPairs: selfRef},
+		{IpProtocol: aws.String("tcp"), FromPort: aws.Int32(1018), ToPort: aws.Int32(1023), UserIdGroupPairs: selfRef},
+	}
+
+	_, err := ec2Client.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
+		GroupId:       aws.String(sgID),
+		IpPermissions: perms,
+	})
+	if err != nil {
+		// Duplicate rule error is fine — rules already exist
+		errStr := err.Error()
+		if strings.Contains(errStr, "InvalidPermission.Duplicate") || strings.Contains(errStr, "already exists") {
+			return nil
+		}
+		return fmt.Errorf("ensure lustre ports on %s: %w", sgID, err)
+	}
+	return nil
+}
+
 // GetDefaultVPC returns the default VPC ID for the region
 func (c *Client) GetDefaultVPC(ctx context.Context, region string) (string, error) {
 	cfg := c.cfg.Copy()

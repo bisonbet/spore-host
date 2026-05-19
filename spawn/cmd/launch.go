@@ -1277,6 +1277,16 @@ func launchWithProgress(ctx context.Context, awsClient *aws.Client, config *aws.
 			return fmt.Errorf("failed to create FSx filesystem: %w", err)
 		}
 
+		// Ensure Lustre ports (988, 1018–1023) are open self-referencing on each
+		// SG used by both FSx and instances. Without this, the MGS connection on
+		// 988 succeeds but the follow-on dynamic-port traffic is blocked, causing
+		// "client profile could not be read from MGS, rc=-22 EINVAL" (fixes #316).
+		for _, sgID := range config.SecurityGroupIDs {
+			if err := awsClient.EnsureLustrePorts(ctx, config.Region, sgID); err != nil {
+				fmt.Fprintf(os.Stderr, "⚠️  Warning: could not ensure Lustre ports on %s: %v\n", sgID, err)
+			}
+		}
+
 		prog.Complete("Creating FSx Lustre filesystem")
 		time.Sleep(300 * time.Millisecond)
 
