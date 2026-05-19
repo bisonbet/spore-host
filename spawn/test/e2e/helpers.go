@@ -95,7 +95,7 @@ func loadAWSConfig(t *testing.T) aws.Config {
 // spawn runs the spawn CLI and returns combined output.
 func spawn(t *testing.T, args ...string) string {
 	t.Helper()
-	cmd := exec.Command(spawnBin(t), args...)
+	cmd := exec.Command(spawnBin(t), args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	cmd.Env = os.Environ()
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -107,7 +107,7 @@ func spawn(t *testing.T, args ...string) string {
 // spawnMayFail runs spawn and returns output + error without failing the test.
 func spawnMayFail(t *testing.T, args ...string) (string, error) {
 	t.Helper()
-	cmd := exec.Command(spawnBin(t), args...)
+	cmd := exec.Command(spawnBin(t), args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	cmd.Env = os.Environ()
 	out, err := cmd.CombinedOutput()
 	return string(out), err

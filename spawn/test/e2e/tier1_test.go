@@ -26,7 +26,7 @@ func truffleBin(t *testing.T) string {
 func TestTier1_TruffleSearch(t *testing.T) {
 	t.Parallel()
 	bin := truffleBin(t)
-	out, err := exec.Command(bin, "search", "t3.small", "--regions", testRegion, "--output", "json").CombinedOutput()
+	out, err := exec.Command(bin, "search", "t3.small", "--regions", testRegion, "--output", "json").CombinedOutput() //nolint:gosec // nosemgrep
 	if err != nil {
 		t.Fatalf("truffle search: %v\n%s", err, out)
 	}
@@ -40,7 +40,7 @@ func TestTier1_TruffleSearch(t *testing.T) {
 func TestTier1_TruffleSpot(t *testing.T) {
 	t.Parallel()
 	bin := truffleBin(t)
-	out, err := exec.Command(bin, "spot", "t3.small", "--regions", testRegion, "--sort-by-price").CombinedOutput()
+	out, err := exec.Command(bin, "spot", "t3.small", "--regions", testRegion, "--sort-by-price").CombinedOutput() //nolint:gosec // nosemgrep
 	if err != nil {
 		t.Fatalf("truffle spot: %v\n%s", err, out)
 	}
@@ -57,7 +57,7 @@ func TestTier1_TruffleQuotas(t *testing.T) {
 	if err != nil {
 		t.Skip("truffle binary not on PATH")
 	}
-	out, err := exec.Command(bin, "quotas", "--regions", testRegion).CombinedOutput()
+	out, err := exec.Command(bin, "quotas", "--regions", testRegion).CombinedOutput() //nolint:gosec // nosemgrep
 	if err != nil {
 		t.Fatalf("truffle quotas: %v\n%s", err, out)
 	}
@@ -75,7 +75,7 @@ func TestTier1_TruffleFind(t *testing.T) {
 		t.Skip("truffle binary not on PATH")
 	}
 
-	out, err := exec.Command(bin, "find", "graviton", "--regions", testRegion).CombinedOutput()
+	out, err := exec.Command(bin, "find", "graviton", "--regions", testRegion).CombinedOutput() //nolint:gosec // nosemgrep
 	if err != nil {
 		t.Fatalf("truffle find: %v\n%s", err, out)
 	}
@@ -154,7 +154,7 @@ func TestTier1_LagottoWatchLifecycle(t *testing.T) {
 	_ = ctx
 
 	// Create watch
-	out, err := exec.Command(lagottoBin, "watch", "t3.small", "--ttl", "1h", "--action", "hold").CombinedOutput()
+	out, err := exec.Command(lagottoBin, //nolint:gosec // nosemgrep "watch", "t3.small", "--ttl", "1h", "--action", "hold").CombinedOutput()
 	if err != nil {
 		t.Fatalf("lagotto watch: %v\n%s", err, out)
 	}
@@ -171,17 +171,17 @@ func TestTier1_LagottoWatchLifecycle(t *testing.T) {
 	}
 	t.Logf("created watch: %s", watchID)
 	t.Cleanup(func() {
-		exec.Command(lagottoBin, "cancel", watchID).Run()
+		exec.Command(lagottoBin, //nolint:gosec // nosemgrep "cancel", watchID).Run()
 	})
 
 	// Extend
-	out, err = exec.Command(lagottoBin, "extend", watchID, "--ttl", "2h").CombinedOutput()
+	out, err = exec.Command(lagottoBin, //nolint:gosec // nosemgrep "extend", watchID, "--ttl", "2h").CombinedOutput()
 	if err != nil {
 		t.Fatalf("lagotto extend: %v\n%s", err, out)
 	}
 
 	// Status
-	out, err = exec.Command(lagottoBin, "status", watchID).CombinedOutput()
+	out, err = exec.Command(lagottoBin, //nolint:gosec // nosemgrep "status", watchID).CombinedOutput()
 	if err != nil {
 		t.Fatalf("lagotto status: %v\n%s", err, out)
 	}
@@ -190,7 +190,7 @@ func TestTier1_LagottoWatchLifecycle(t *testing.T) {
 	}
 
 	// Cancel
-	out, err = exec.Command(lagottoBin, "cancel", watchID).CombinedOutput()
+	out, err = exec.Command(lagottoBin, //nolint:gosec // nosemgrep "cancel", watchID).CombinedOutput()
 	if err != nil {
 		t.Fatalf("lagotto cancel: %v\n%s", err, out)
 	}

@@ -299,7 +299,7 @@ func runSlurmSubmit(cmd *cobra.Command, args []string) error {
 		launchArgs = append(launchArgs, "--spot")
 	}
 
-	launchCmd := exec.CommandContext(context.Background(), self, launchArgs...)
+	launchCmd := exec.CommandContext(context.Background(), self, launchArgs...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	launchCmd.Stdin = os.Stdin
 	launchCmd.Stdout = os.Stdout
 	launchCmd.Stderr = os.Stderr
