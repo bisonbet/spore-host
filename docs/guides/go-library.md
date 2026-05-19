@@ -12,9 +12,12 @@ go get github.com/spore-host/spore-host/truffle
 
 # Instance lifecycle management
 go get github.com/spore-host/spore-host/spawn
+
+# Capacity watching
+go get github.com/spore-host/spore-host/lagotto
 ```
 
-Both modules require Go 1.26+ and load AWS credentials from the standard chain (`AWS_*` environment variables, `~/.aws/credentials`, or EC2/ECS metadata).
+All modules require Go 1.26+ and load AWS credentials from the standard chain (`AWS_*` environment variables, `~/.aws/credentials`, or EC2/ECS metadata).
 
 ## Authentication
 
@@ -195,6 +198,89 @@ r, _ := sc.Launch(ctx, spawnclient.LaunchConfig{
 fmt.Printf("Running: %s\n", r.InstanceID)
 ```
 
+## lagotto — capacity watching
+
+Embed capacity watches into your own tools without shelling out to the CLI.
+
+```go
+import (
+    "github.com/spore-host/spore-host/lagotto/pkg/watcher"
+    truffleaws "github.com/spore-host/spore-host/truffle/pkg/aws"
+    "github.com/aws/aws-sdk-go-v2/config"
+)
+
+cfg, _ := config.LoadDefaultConfig(ctx)
+store := watcher.NewStore(cfg, "lagotto-watches", "lagotto-match-history")
+```
+
+### Create a watch
+
+```go
+import "time"
+
+now := time.Now().UTC()
+w := &watcher.Watch{
+    WatchID:             "w-mywatch01",
+    UserID:              "arn:aws:iam::123456789012:user/alice",
+    Status:              watcher.StatusActive,
+    InstanceTypePattern: "p5.*",
+    Regions:             []string{"us-east-1", "us-west-2"},
+    Spot:                false,
+    MaxPrice:            0, // no price ceiling
+    Action:              watcher.ActionNotify,
+    NotifyChannels: []watcher.NotifyChannel{
+        {Type: "email", Target: "alice@lab.edu"},
+    },
+    CreatedAt:    now,
+    UpdatedAt:    now,
+    ExpiresAt:    now.Add(7 * 24 * time.Hour),
+    TTLTimestamp: now.Add(7 * 24 * time.Hour).Unix(),
+}
+
+err = store.PutWatch(ctx, w)
+```
+
+### Poll manually
+
+```go
+tc, _ := truffleaws.NewClient(ctx)
+poller := watcher.NewPoller(tc, store, false /* verbose */)
+
+matches, err := poller.PollAll(ctx)
+for _, m := range matches {
+    fmt.Printf("Capacity found: %s in %s (%s)\n",
+        m.InstanceType, m.Region, m.AvailabilityZone)
+}
+```
+
+### List and manage watches
+
+```go
+// List active watches for a user
+watches, err := store.ListWatchesByUser(ctx, userARN, watcher.StatusActive)
+
+// Get a specific watch
+w, err := store.GetWatch(ctx, "w-mywatch01")
+
+// Extend TTL
+newExpiry := time.Now().Add(48 * time.Hour)
+err = store.ExtendWatch(ctx, "w-mywatch01", newExpiry, false)
+
+// Cancel
+err = store.UpdateWatchStatus(ctx, "w-mywatch01", watcher.WatchStatusCancelled)
+
+// Retrieve match history
+matches, err := store.ListMatchHistory(ctx, "w-mywatch01")
+```
+
+### Action modes
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `watcher.ActionNotify` | `"notify"` | Fire notifications, do not launch |
+| `watcher.ActionSpawn` | `"spawn"` | Launch instance using `LaunchConfigJSON` |
+| `watcher.ActionHold` | `"hold"` | Record match, take no action |
+
 ## API reference
 
 Full API documentation is on pkg.go.dev:
@@ -203,6 +289,7 @@ Full API documentation is on pkg.go.dev:
 - [truffle/pkg/find](https://pkg.go.dev/github.com/spore-host/spore-host/truffle/pkg/find) — `ParseQuery`, `ParsedQuery`, `SearchCriteria`, `FindResult`, `ExplainMatch`
 - [truffle/pkg/quotas](https://pkg.go.dev/github.com/spore-host/spore-host/truffle/pkg/quotas) — `Client`, `QuotaInfo`, `CanLaunch`, `GetQuotaFamily`
 - [spawn/pkg/aws](https://pkg.go.dev/github.com/spore-host/spore-host/spawn/pkg/aws) — `Client`, `LaunchConfig`, `LaunchResult`, `InstanceInfo`
+- [lagotto/pkg/watcher](https://pkg.go.dev/github.com/spore-host/spore-host/lagotto/pkg/watcher) — `Store`, `Watch`, `MatchResult`, `NotifyChannel`, `Poller`, `ActionMode`, `WatchStatus`
 
 ## Real-world usage
 
