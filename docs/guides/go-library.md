@@ -267,7 +267,7 @@ newExpiry := time.Now().Add(48 * time.Hour)
 err = store.ExtendWatch(ctx, "w-mywatch01", newExpiry, false)
 
 // Cancel
-err = store.UpdateWatchStatus(ctx, "w-mywatch01", watcher.WatchStatusCancelled)
+err = store.UpdateWatchStatus(ctx, "w-mywatch01", watcher.StatusCancelled)
 
 // Retrieve match history
 matches, err := store.ListMatchHistory(ctx, "w-mywatch01")

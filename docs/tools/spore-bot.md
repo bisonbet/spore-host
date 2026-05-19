@@ -45,9 +45,9 @@ See the full [Slack Setup guide](/guides/slack-setup) for step-by-step instructi
 
 1. Create a Slack app at api.slack.com/apps
 2. Add the OAuth redirect URL and configure the `/spore` slash command
-3. Connect your workspace: click "Add to Slack" or run `spawn bot workspace-add`
-4. Register instances: `spawn bot register --instance i-0abc123 --nickname rstudio`
-5. Enable access: `spawn bot enable --nickname rstudio --user you@lab.edu`
+3. Connect your workspace: click "Add to Slack" or run `spawn notify workspace-add`
+4. Register instances: `spawn notify register --instance i-0abc123 --nickname rstudio`
+5. Enable access: `spawn notify enable --nickname rstudio --user you@lab.edu`
 
 ## Access model
 

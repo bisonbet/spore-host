@@ -18,7 +18,7 @@ truffle find "nvidia a100" --region us-east-1 --spot
 truffle find "gpu" --spot --sort-by-price
 
 # Check quota before committing
-truffle quota --instance-type p4d.24xlarge --region us-east-1
+truffle quotas --regions us-east-1 --family P
 ```
 
 Truffle shows on-demand price, current Spot price, and the AZs where the type is available. For training jobs that can tolerate interruption, Spot typically saves 60–90%.

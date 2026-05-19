@@ -5,8 +5,7 @@ A parameter sweep runs the same job across many combinations of input parameters
 ## The basic pattern
 
 ```sh
-spawn sweep \
-  --name hp-search \
+spawn launch hp-search \
   --instance-type g5.xlarge \
   --ttl 4h \
   --params "learning_rate=0.001,0.01,0.1;batch_size=32,64,128" \
@@ -37,7 +36,7 @@ params:
 ```
 
 ```sh
-spawn sweep --param-file sweep.yaml --name hp-search
+spawn launch hp-search --param-file sweep.yaml
 ```
 
 ## Generating combinations automatically
@@ -45,11 +44,11 @@ spawn sweep --param-file sweep.yaml --name hp-search
 Instead of listing every combination, use ranges and spore.host expands them:
 
 ```sh
-spawn sweep \
-  --name grid-search \
+spawn launch grid-search \
   --instance-type g5.xlarge \
   --ttl 2h \
-  --grid "learning_rate=log:0.0001:0.1:5;dropout=0.1,0.2,0.3,0.5" \
+  --params "learning_rate=log:0.0001:0.1:5;dropout=0.1,0.2,0.3,0.5" \
+  --cartesian \
   --command "python train.py --lr {learning_rate} --dropout {dropout}"
 ```
 
@@ -58,9 +57,9 @@ spawn sweep \
 ## Monitoring a sweep
 
 ```sh
-spawn list --sweep hp-search          # all instances in the sweep
-spawn sweep status hp-search          # summary: running, completed, failed
-spawn sweep cancel hp-search          # terminate all remaining instances
+spawn list --sweep-name hp-search     # all instances in the sweep
+spawn sweep status <sweep-id>         # summary: running, completed, failed
+spawn sweep cancel <sweep-id>         # terminate all remaining instances
 ```
 
 With Slack connected, you'll get a DM when the sweep finishes (all instances have terminated).
@@ -70,9 +69,9 @@ With Slack connected, you'll get a DM when the sweep finishes (all instances hav
 Each instance writes its results to a path you control — typically S3. The convention is to include the sweep index or parameters in the path:
 
 ```sh
-spawn sweep \
-  --name hp-search \
+spawn launch hp-search \
   --instance-type g5.xlarge \
+  --param-file sweep.yaml \
   --command "python train.py --lr {learning_rate} && \
              aws s3 cp results.json s3://my-bucket/sweeps/hp-search/{index}/results.json && \
              touch /tmp/SPAWN_COMPLETE" \
@@ -83,13 +82,14 @@ Each instance has `{index}` (0-based position in the sweep) and all parameter va
 
 ## Cost estimation
 
-Before launching a large sweep:
+Before launching a large sweep, use `--estimate-only` to see the maximum possible cost without launching anything:
 
 ```sh
-spawn sweep estimate \
-  --param-file sweep.yaml \
+spawn launch hp-search \
   --instance-type g5.xlarge \
-  --ttl 4h
+  --param-file sweep.yaml \
+  --ttl 4h \
+  --estimate-only
 ```
 
 This shows the maximum cost if every instance runs for the full TTL. Actual cost is lower because most instances complete before the TTL.

@@ -56,7 +56,7 @@ stages:
 ```
 
 ```sh
-spawn pipeline --file pipeline.yaml --slack-workspace T03NE3GTY
+spawn pipeline launch pipeline.yaml --slack-workspace T03NE3GTY
 ```
 
 Each stage launches automatically when the previous one completes. You'll get a Slack notification at each stage transition.
