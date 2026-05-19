@@ -113,8 +113,7 @@ spawn extend my-first-instance 8h
 ## Stop or terminate
 
 ```sh
-spawn stop my-first-instance       # stopped, can be restarted
-spawn terminate my-first-instance  # gone for good
+spawn stop my-first-instance       # stopped, can be restarted with spawn start
 ```
 
 ## Next steps

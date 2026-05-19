@@ -7,19 +7,20 @@ Quick reference for common commands.
 ```sh
 # Find instances
 truffle find "nvidia h100"
-truffle find "t3 medium" --region us-east-1
-truffle find "arm64 64gb" --spot --sort-by-price
+truffle find "t3 medium" --regions us-east-1
+truffle find "arm64 64gb"
 
 # Spot prices
 truffle spot g5.xlarge
-truffle spot p4d.24xlarge --regions us-east-1,us-west-2
+truffle spot p4d.24xlarge --regions us-east-1,us-west-2 --sort-by-price
 
 # Quota check
-truffle quota --instance-type p4d.24xlarge --region us-east-1
-truffle quota --instance-type g5.xlarge --spot
+truffle quotas --regions us-east-1 --family P
+truffle quotas --regions us-east-1,us-west-2
 
 # Capacity reservations
-truffle capacity --region us-east-1
+truffle capacity --gpu-only
+truffle capacity --available-only
 ```
 
 ## spawn — launch
@@ -31,21 +32,19 @@ spawn launch --spot --ttl 12h --on-complete terminate
 spawn launch --count 8 --mpi --ttl 6h                  # MPI cluster
 spawn launch --active-processes rsession --ttl 8h       # RStudio
 spawn launch --slack-workspace T03NE3GTY --ttl 4h       # with notifications
-spawn launch --dry-run                                  # validate, don't launch
 ```
 
 ## spawn — manage
 
 ```sh
 spawn list                          # running instances
-spawn list --state all              # all states
+spawn list --state running          # filter by state
 spawn status my-instance            # detailed status
 spawn extend my-instance 4h         # extend TTL
 spawn stop my-instance              # stop (preserves instance)
-spawn stop my-instance --hibernate  # hibernate
+spawn hibernate my-instance         # hibernate (saves RAM to disk)
 spawn start my-instance             # start stopped instance
-spawn terminate my-instance         # terminate permanently
-spawn connect my-instance           # get SSH command + URL
+spawn connect my-instance           # SSH in
 ```
 
 ## spawn — defaults
@@ -58,18 +57,18 @@ spawn defaults list
 spawn defaults unset active-processes
 ```
 
-## spawn — bot
+## spawn — notify
 
 ```sh
-spawn bot workspace-add --platform slack --workspace-id T0... \
+spawn notify workspace-add --platform slack --workspace-id T0... \
   --bot-token xoxb-... --signing-secret abc...
-spawn bot register --platform slack --user you@lab.edu \
+spawn notify register --platform slack --user you@lab.edu \
   --workspace-id T0... --instance i-0abc123 --nickname rstudio
-spawn bot enable  --platform slack --user you@lab.edu \
+spawn notify enable  --platform slack --user you@lab.edu \
   --workspace-id T0... --nickname rstudio
-spawn bot disable --platform slack --user you@lab.edu \
+spawn notify disable --platform slack --user you@lab.edu \
   --workspace-id T0... --nickname rstudio
-spawn bot status
+spawn notify list --platform slack --workspace-id T0...
 ```
 
 ## Slack commands
@@ -91,11 +90,15 @@ spawn bot status
 ## lagotto
 
 ```sh
-lagotto deploy --region us-east-1
-lagotto watch --instance-type p5.48xlarge --action notify --slack-workspace T0...
-lagotto watch --instance-type p5.48xlarge --action launch --launch-name training
+lagotto watch "p5.48xlarge" --action notify
+lagotto watch "p5.48xlarge" --regions us-east-1 --action notify \
+  --notify email:you@example.com
+lagotto watch "g5.xlarge" --action spawn --spawn-config job.yaml
 lagotto list
+lagotto status <watch-id>
 lagotto cancel <watch-id>
+lagotto extend <watch-id> --ttl 7d
+lagotto history
 ```
 
 ## Environment variables
@@ -127,10 +130,9 @@ spawn launch --name rstudio \
   --hibernate-on-idle
 
 # GPU parameter sweep
-spawn sweep \
-  --name hp-search \
+spawn launch hp-search \
   --instance-type g5.xlarge \
   --ttl 4h \
-  --params "lr=0.001,0.01,0.1;batch=32,64,128" \
+  --param-file params.yaml \
   --command "python train.py --lr {lr} --batch {batch}"
 ```

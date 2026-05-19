@@ -47,18 +47,12 @@ spawn status my-instance
 spawn status i-0a1b2c3d4e5f
 ```
 
-### `spawn stop` / `spawn start`
+### `spawn stop` / `spawn hibernate` / `spawn start`
 
 ```sh
-spawn stop my-instance
-spawn stop my-instance --hibernate    # save RAM state, stop billing
-spawn start my-instance
-```
-
-### `spawn terminate`
-
-```sh
-spawn terminate my-instance
+spawn stop my-instance              # stop (billing pauses, data preserved)
+spawn hibernate my-instance         # hibernate to disk (saves RAM state)
+spawn start my-instance             # start stopped or hibernated instance
 ```
 
 ### `spawn extend`

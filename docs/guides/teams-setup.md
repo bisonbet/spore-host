@@ -121,7 +121,7 @@ spawn notify register \
   --platform teams \
   --workspace-id <TEAMS_TENANT_ID> \
   --user-id <TEAMS_USER_ID> \
-  --instance-id i-0a1b2c3d4e5f \
+  --instance i-0a1b2c3d4e5f \
   --nickname rstudio
 ```
 
@@ -138,7 +138,7 @@ spawn notify register \
   --platform teams \
   --workspace-id <TEAMS_TENANT_ID> \
   --user you@university.edu \
-  --instance-id i-0a1b2c3d4e5f \
+  --instance i-0a1b2c3d4e5f \
   --nickname rstudio
 ```
 
@@ -183,7 +183,7 @@ spawn notify register \
   --platform teams \
   --user collaborator@partner.edu \
   --workspace-id <TEAMS_TENANT_ID> \
-  --instance-id i-0a1b2c3d4e5f \
+  --instance i-0a1b2c3d4e5f \
   --nickname rstudio
 
 spawn notify enable \

@@ -34,7 +34,7 @@ Use these names directly in `spawn status` and Slack commands.
 ```sh
 spawn list --job-array data-proc         # all instances in the array
 spawn status data-proc-0                 # head instance
-spawn terminate --job-array data-proc    # terminate all
+spawn stop --job-array-name data-proc    # stop all
 spawn extend --job-array data-proc 2h    # extend all at once
 ```
 
