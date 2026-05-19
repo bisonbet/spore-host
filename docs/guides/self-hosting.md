@@ -129,13 +129,7 @@ spawn launch \
   --ttl 8h
 ```
 
-Save these as defaults so researchers don't need to specify them every time:
-
-```sh
-spawn defaults set dns-domain compute.university.edu
-```
-
-Or set them in `~/.spawn/config.yaml`:
+Set the DNS domain in `~/.spawn/config.yaml` so researchers don't need to specify it every time:
 
 ```yaml
 dns:
@@ -312,8 +306,15 @@ infrastructure:
 A researcher at your institution configures their CLI once:
 
 ```sh
-spawn defaults set dns-domain compute.university.edu
 spawn defaults set slack-workspace T03NE3GTY
+```
+
+And sets the DNS domain in `~/.spawn/config.yaml`:
+
+```yaml
+dns:
+  domain: compute.university.edu
+  api_endpoint: https://YOUR_LAMBDA_URL
 ```
 
 All subsequent launches automatically use your infrastructure.

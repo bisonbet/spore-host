@@ -17,8 +17,8 @@ Search for instance types using plain language or filters:
 ```sh
 truffle find "nvidia h100"
 truffle find "arm64 64gb memory"
-truffle find "cheap gpu" --spot --sort-by-price
-truffle find "t3" --region us-east-1
+truffle find "cheap gpu"
+truffle find "t3" --regions us-east-1
 ```
 
 Plain language works — truffle understands GPU model names, processor vendors, size descriptions, and network requirements. See [truffle find reference](/tools/reference/truffle#find) for all options.
@@ -59,7 +59,7 @@ Truffle's output can be piped to spawn:
 
 ```sh
 truffle find "t3.medium" --pick-first | spawn launch --ttl 4h
-truffle spot g5.xlarge --cheapest | spawn launch --name training --ttl 8h
+truffle spot g5.xlarge --sort-by-price --pick-first | spawn launch training --ttl 8h
 ```
 
 ## Full command reference

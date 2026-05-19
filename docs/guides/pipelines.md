@@ -82,7 +82,7 @@ If a stage fails (exits with non-zero), the pipeline stops and you receive a not
 To resume from a failed stage:
 
 ```sh
-spawn pipeline resume --file pipeline.yaml --from-stage train
+spawn pipeline launch pipeline.yaml
 ```
 
 ## Monitoring

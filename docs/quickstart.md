@@ -54,7 +54,7 @@ Before launching, use `truffle` to find what's available and compare prices:
 truffle find "t3 medium"
 
 # Find GPU instances with Spot prices
-truffle find "nvidia gpu" --region us-east-1 --spot
+truffle find "nvidia gpu" --regions us-east-1
 ```
 
 You'll see a table of matching instance types with vCPUs, memory, GPU specs, on-demand price, and current Spot price. Pick a type that fits your workload and budget.
