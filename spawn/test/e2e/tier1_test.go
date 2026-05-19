@@ -154,7 +154,7 @@ func TestTier1_LagottoWatchLifecycle(t *testing.T) {
 	_ = ctx
 
 	// Create watch
-	out, err := exec.Command(lagottoBin, //nolint:gosec // nosemgrep "watch", "t3.small", "--ttl", "1h", "--action", "hold").CombinedOutput()
+	out, err := exec.Command(lagottoBin, "watch", "t3.small", "--ttl", "1h", "--action", "hold").CombinedOutput() //nolint:gosec // nosemgrep
 	if err != nil {
 		t.Fatalf("lagotto watch: %v\n%s", err, out)
 	}
@@ -171,17 +171,17 @@ func TestTier1_LagottoWatchLifecycle(t *testing.T) {
 	}
 	t.Logf("created watch: %s", watchID)
 	t.Cleanup(func() {
-		exec.Command(lagottoBin, //nolint:gosec // nosemgrep "cancel", watchID).Run()
+		exec.Command(lagottoBin, "cancel", watchID).Run() //nolint:gosec // nosemgrep
 	})
 
 	// Extend
-	out, err = exec.Command(lagottoBin, //nolint:gosec // nosemgrep "extend", watchID, "--ttl", "2h").CombinedOutput()
+	out, err = exec.Command(lagottoBin, "extend", watchID, "--ttl", "2h").CombinedOutput() //nolint:gosec // nosemgrep
 	if err != nil {
 		t.Fatalf("lagotto extend: %v\n%s", err, out)
 	}
 
 	// Status
-	out, err = exec.Command(lagottoBin, //nolint:gosec // nosemgrep "status", watchID).CombinedOutput()
+	out, err = exec.Command(lagottoBin, "status", watchID).CombinedOutput() //nolint:gosec // nosemgrep
 	if err != nil {
 		t.Fatalf("lagotto status: %v\n%s", err, out)
 	}
@@ -190,7 +190,7 @@ func TestTier1_LagottoWatchLifecycle(t *testing.T) {
 	}
 
 	// Cancel
-	out, err = exec.Command(lagottoBin, //nolint:gosec // nosemgrep "cancel", watchID).CombinedOutput()
+	out, err = exec.Command(lagottoBin, "cancel", watchID).CombinedOutput() //nolint:gosec // nosemgrep
 	if err != nil {
 		t.Fatalf("lagotto cancel: %v\n%s", err, out)
 	}
