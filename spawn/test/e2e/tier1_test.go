@@ -23,34 +23,33 @@ func truffleBin(t *testing.T) string {
 	return p
 }
 
-// TestTier1_TruffleSearch verifies truffle can search instance types via the EC2 API.
+// TestTier1_TruffleSearch verifies truffle can search instance types via EC2 DescribeInstanceTypes.
 func TestTier1_TruffleSearch(t *testing.T) {
 	t.Parallel()
 	bin := truffleBin(t)
 	out, err := exec.Command(bin, "search", "t3.small", "--regions", testRegion, "--output", "json").CombinedOutput() //nolint:gosec // nosemgrep
 	if err != nil {
-		// Permission or connectivity issue — not a code bug
-		t.Skipf("truffle search failed (may be IAM/network): %v\n%s", err, out)
+		t.Fatalf("truffle search failed: %v\n%s", err, out)
 	}
 	if len(strings.TrimSpace(string(out))) == 0 || string(out) == "null\n" || string(out) == "[]\n" {
-		t.Skip("truffle search returned empty results — EC2 DescribeInstanceTypes may not be permitted in this account/region")
+		t.Skip("truffle search returned empty results (t3.small may not be enabled in this account/region)")
 	}
 	if !strings.Contains(string(out), "t3.small") {
-		t.Skipf("t3.small not found in region %s (may not be enabled): %s", testRegion, out)
+		t.Fatalf("expected t3.small in results, got:\n%s", out)
 	}
 	t.Logf("truffle search OK: %d bytes", len(out))
 }
 
-// TestTier1_TruffleSpot verifies truffle can fetch Spot pricing.
+// TestTier1_TruffleSpot verifies truffle can fetch Spot pricing via EC2 DescribeSpotPriceHistory.
 func TestTier1_TruffleSpot(t *testing.T) {
 	t.Parallel()
 	bin := truffleBin(t)
 	out, err := exec.Command(bin, "spot", "t3.small", "--regions", testRegion, "--sort-by-price").CombinedOutput() //nolint:gosec // nosemgrep
 	if err != nil {
-		t.Skipf("truffle spot failed (may be IAM/network): %v\n%s", err, out)
+		t.Fatalf("truffle spot failed: %v\n%s", err, out)
 	}
 	if len(strings.TrimSpace(string(out))) == 0 {
-		t.Skip("truffle spot returned empty results — Spot pricing API may not be permitted in this account/region")
+		t.Skip("truffle spot returned empty results (Spot pricing may not be available for t3.small in this region)")
 	}
 	t.Logf("truffle spot OK: %d bytes", len(out))
 }
