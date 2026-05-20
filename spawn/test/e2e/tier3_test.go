@@ -28,13 +28,15 @@ func TestTier3_JobArray(t *testing.T) {
 		"--ttl", "20m",
 		"--count", "2",
 		"--job-array-name", arrayName,
-		"--tag", fmt.Sprintf("%s=%s", testTagKey, rid),
 	)
 	t.Logf("launch output: %s", out)
 
-	t.Cleanup(func() { terminateByTag(t, testTagKey, rid) })
+	// Cleanup: stop the job array (instances have unique names with rid)
+	t.Cleanup(func() {
+		spawnMayFail(t, "stop", "--job-array-name", arrayName)
+	})
 
-	// Both instances must reach running state
+	// Both instances must reach running state (identified by job-array-name)
 	deadline := time.Now().Add(5 * time.Minute)
 	var running []InstanceJSON
 	for time.Now().Before(deadline) {
@@ -43,7 +45,7 @@ func TestTier3_JobArray(t *testing.T) {
 		if json.Unmarshal([]byte(listOut), &all) == nil {
 			running = nil
 			for _, inst := range all {
-				if inst.Tags[testTagKey] == rid && inst.State == "running" {
+				if inst.Tags["spawn:job-array-name"] == arrayName && inst.State == "running" {
 					running = append(running, inst)
 				}
 			}
@@ -103,11 +105,9 @@ params:
 		"--param-file", f.Name(),
 		"--sweep-name", sweepName,
 		"--max-concurrent", "4",
-		"--tag", fmt.Sprintf("%s=%s", testTagKey, rid),
 		"--yes",
 	)
 	t.Logf("sweep launch: %s", out)
-	t.Cleanup(func() { terminateByTag(t, testTagKey, rid) })
 
 	// Parse sweep ID from output
 	var sweepID string
@@ -122,20 +122,20 @@ params:
 			}
 		}
 	}
+	t.Cleanup(func() {
+		if sweepID != "" {
+			spawnMayFail(t, "sweep", "cancel", sweepID)
+		}
+	})
 
-	// Poll for all 4 instances to launch
+	// Poll for all 4 instances to launch (identified by sweep-name tag)
 	deadline := time.Now().Add(8 * time.Minute)
 	var launched int
 	for time.Now().Before(deadline) {
-		listOut, _ := spawnMayFail(t, "list", "--output", "json")
+		listOut, _ := spawnMayFail(t, "list", "--sweep-name", sweepName, "--output", "json")
 		var all []InstanceJSON
 		if json.Unmarshal([]byte(listOut), &all) == nil {
-			launched = 0
-			for _, inst := range all {
-				if inst.Tags[testTagKey] == rid {
-					launched++
-				}
-			}
+			launched = len(all)
 			t.Logf("sweep progress: %d/4 instances", launched)
 			if launched >= 4 {
 				break
@@ -167,10 +167,9 @@ func TestTier3_MPI(t *testing.T) {
 		"--count", "2",
 		"--job-array-name", name,
 		"--mpi",
-		"--tag", fmt.Sprintf("%s=%s", testTagKey, rid),
 	)
 	t.Logf("MPI launch: %s", out)
-	t.Cleanup(func() { terminateByTag(t, testTagKey, rid) })
+	t.Cleanup(func() { spawnMayFail(t, "stop", "--job-array-name", name) })
 
 	// Wait for head node (index 0) to be running
 	head := waitForRunning(t, name+"-0", 4*time.Minute)
@@ -242,7 +241,7 @@ func TestTier3_QueueExecution(t *testing.T) {
 func TestTier3_MPI_PlacementGroupRegion(t *testing.T) {
 	rid := runID(t)
 	name := "e2e-pg-region-" + rid
-	t.Cleanup(func() { terminateByTag(t, testTagKey, rid) })
+	t.Cleanup(func() { spawnMayFail(t, "stop", "--job-array-name", name) })
 
 	out := spawn(t,
 		"launch", name+"-0",
@@ -252,20 +251,19 @@ func TestTier3_MPI_PlacementGroupRegion(t *testing.T) {
 		"--region", "us-east-2", // non-default region — was the regression trigger
 		"--mpi",
 		"--ttl", "20m",
-		"--tag", fmt.Sprintf("%s=%s", testTagKey, rid),
 	)
 	t.Logf("MPI launch in us-east-2: %s", out)
 
-	// Wait for both nodes to reach running
+	// Wait for both nodes to reach running (filter by job-array-name)
 	deadline := time.Now().Add(5 * time.Minute)
 	var running int
 	for time.Now().Before(deadline) {
-		listOut, _ := spawnMayFail(t, "list", "--output", "json")
+		listOut, _ := spawnMayFail(t, "list", "--job-array-name", name, "--output", "json")
 		var all []InstanceJSON
 		if json.Unmarshal([]byte(listOut), &all) == nil {
 			running = 0
 			for _, inst := range all {
-				if inst.Tags[testTagKey] == rid && inst.State == "running" {
+				if inst.State == "running" {
 					running++
 				}
 			}
@@ -310,11 +308,9 @@ params:
 		"--region", testRegion,
 		"--param-file", f.Name(),
 		"--sweep-name", sweepName,
-		"--tag", fmt.Sprintf("%s=%s", testTagKey, rid),
 		"--yes",
 	)
 	t.Logf("sweep launch: %s", out)
-	t.Cleanup(func() { terminateByTag(t, testTagKey, rid) })
 
 	// Parse sweep ID
 	var sweepID string

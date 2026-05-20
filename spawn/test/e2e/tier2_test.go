@@ -403,13 +403,14 @@ func TestTier2_SpawnAvailability(t *testing.T) {
 	}
 }
 
-// TestTier2_ListTagFilter verifies spawn list --tag key=value filtering.
+// TestTier2_ListTagFilter verifies spawn list --tag key=value filtering
+// using the spawn:managed tag (always present on spawn instances).
 func TestTier2_ListTagFilter(t *testing.T) {
-	rid := runID(t)
-	name := "e2e-tag-filter-" + rid
-	inst := launchInstance(t, name, "--tag", "e2e-custom="+rid)
+	name := "e2e-tag-filter-" + runID(t)
+	inst := launchInstance(t, name)
 
-	out, err := spawnMayFail(t, "list", "--tag", "e2e-custom="+rid, "--output", "json")
+	// Filter by the always-present spawn:managed=true tag
+	out, err := spawnMayFail(t, "list", "--tag", "spawn:managed=true", "--output", "json")
 	if err != nil {
 		t.Skipf("spawn list --tag failed: %v", err)
 	}
@@ -423,7 +424,7 @@ func TestTier2_ListTagFilter(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("instance %s not found when filtering by custom tag e2e-custom=%s", inst.InstanceID, rid)
+			t.Errorf("instance %s not found when filtering by spawn:managed=true", inst.InstanceID)
 		}
 	}
 	t.Log("spawn list --tag filter works")

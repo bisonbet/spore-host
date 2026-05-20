@@ -130,23 +130,50 @@ type InstanceJSON struct {
 // Returns the launched InstanceJSON once the instance is running.
 func launchInstance(t *testing.T, name string, extraArgs ...string) InstanceJSON {
 	t.Helper()
-	rid := runID(t)
 
 	args := []string{
 		"launch", name,
 		"--instance-type", testInstanceType,
 		"--region", testRegion,
 		"--ttl", defaultTTL, // hard safety ceiling
-		"--tag", fmt.Sprintf("%s=%s", testTagKey, rid),
 	}
 	args = append(args, extraArgs...)
 
 	spawn(t, args...)
 
-	// Register cleanup — always terminate regardless of test outcome.
-	t.Cleanup(func() { terminateByTag(t, testTagKey, rid) })
+	// Register cleanup — terminate by name regardless of test outcome.
+	t.Cleanup(func() { terminateByName(t, name) })
 
 	return waitForRunning(t, name, 3*time.Minute)
+}
+
+// terminateByName stops all instances with the given name.
+func terminateByName(t *testing.T, name string) {
+	t.Helper()
+	out, err := spawnMayFail(t, "list", "--output", "json")
+	if err != nil {
+		return
+	}
+	var instances []InstanceJSON
+	if json.Unmarshal([]byte(out), &instances) != nil {
+		return
+	}
+	for _, inst := range instances {
+		if inst.Name == name && inst.State != "terminated" {
+			cfg := loadAWSConfig(t)
+			ctx := context.Background()
+			regionalCfg := cfg.Copy()
+			regionalCfg.Region = inst.Region
+			if inst.Region == "" {
+				regionalCfg.Region = testRegion
+			}
+			ec2Client := ec2.NewFromConfig(regionalCfg)
+			ec2Client.TerminateInstances(ctx, &ec2.TerminateInstancesInput{ //nolint:errcheck
+				InstanceIds: []string{inst.InstanceID},
+			})
+			t.Logf("cleanup: terminated %s (%s)", inst.Name, inst.InstanceID)
+		}
+	}
 }
 
 // waitForRunning polls until an instance named `name` is running or the timeout fires.
