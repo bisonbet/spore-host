@@ -136,6 +136,8 @@ func launchInstance(t *testing.T, name string, extraArgs ...string) InstanceJSON
 		"--instance-type", testInstanceType,
 		"--region", testRegion,
 		"--ttl", defaultTTL, // hard safety ceiling
+		"--wait-for-running=false", // we poll ourselves via waitForRunning
+		"--wait-for-ssh=false",     // we SSH via sshExec after waitForRunning
 	}
 	args = append(args, extraArgs...)
 
