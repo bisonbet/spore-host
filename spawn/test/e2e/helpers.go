@@ -146,7 +146,7 @@ func launchInstance(t *testing.T, name string, extraArgs ...string) InstanceJSON
 	// Register cleanup — terminate by name regardless of test outcome.
 	t.Cleanup(func() { terminateByName(t, name) })
 
-	return waitForRunning(t, name, 6*time.Minute)
+	return waitForRunning(t, name, 10*time.Minute)
 }
 
 // terminateByName stops all instances with the given name.
@@ -183,21 +183,32 @@ func terminateByName(t *testing.T, name string) {
 func waitForRunning(t *testing.T, name string, timeout time.Duration) InstanceJSON {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
+	var lastState string
 	for time.Now().Before(deadline) {
 		out, err := spawnMayFail(t, "list", "--region", testRegion, "--output", "json")
 		if err == nil {
 			var instances []InstanceJSON
 			if json.Unmarshal([]byte(out), &instances) == nil {
 				for _, inst := range instances {
-					if inst.Name == name && inst.State == "running" {
-						return inst
+					if inst.Name == name {
+						if inst.State != lastState {
+							t.Logf("  %s → %s (%.0fs elapsed)", name, inst.State, time.Since(deadline.Add(-timeout)).Seconds())
+							lastState = inst.State
+						}
+						if inst.State == "running" {
+							return inst
+						}
 					}
+				}
+				if lastState == "" {
+					t.Logf("  waiting for %s to appear in spawn list... (%.0fs elapsed)", name, time.Since(deadline.Add(-timeout)).Seconds())
+					lastState = "not-yet-visible"
 				}
 			}
 		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(15 * time.Second)
 	}
-	t.Fatalf("instance %q did not reach running state within %v", name, timeout)
+	t.Fatalf("instance %q did not reach running state within %v (last state: %s)", name, timeout, lastState)
 	return InstanceJSON{}
 }
 

@@ -124,8 +124,8 @@ test-e2e-tier1: build
 
 # Tier 2 — Single instance per test, ~$0.50 total, ~20 min
 test-e2e-tier2: build
-	@echo "Running E2E tier 2 (single-instance tests, ~\$$0.50)..."
-	go test -v -tags=e2e_tier2 -run TestTier2 -timeout 30m ./test/e2e/
+	@echo "Running E2E tier 2 (single-instance tests, ~\$$1)..."
+	go test -v -tags=e2e_tier2 -run TestTier2 -timeout 80m ./test/e2e/
 
 # Tier 3 — Multi-instance (job arrays, sweeps, FSx, MPI), ~$2-5 total, ~35 min
 test-e2e-tier3: build
