@@ -179,11 +179,12 @@ func terminateByName(t *testing.T, name string) {
 }
 
 // waitForRunning polls until an instance named `name` is running or the timeout fires.
+// Filters to testRegion to avoid scanning all regions on every poll.
 func waitForRunning(t *testing.T, name string, timeout time.Duration) InstanceJSON {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		out, err := spawnMayFail(t, "list", "--output", "json")
+		out, err := spawnMayFail(t, "list", "--region", testRegion, "--output", "json")
 		if err == nil {
 			var instances []InstanceJSON
 			if json.Unmarshal([]byte(out), &instances) == nil {
@@ -201,11 +202,12 @@ func waitForRunning(t *testing.T, name string, timeout time.Duration) InstanceJS
 }
 
 // waitForState polls until the named instance reaches the target state.
+// Filters to testRegion to avoid scanning all regions on every poll.
 func waitForState(t *testing.T, name, state string, timeout time.Duration) {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		out, err := spawnMayFail(t, "list", "--output", "json")
+		out, err := spawnMayFail(t, "list", "--region", testRegion, "--output", "json")
 		if err == nil {
 			var instances []InstanceJSON
 			if json.Unmarshal([]byte(out), &instances) == nil {
