@@ -285,6 +285,8 @@ Resolves the instance by ID or name, finds the SSH key automatically from `~/.ss
 
 Pass `-- <command>` to run a command non-interactively (one-shot mode). The command is wrapped in `bash -c '...'` on the remote side, so compound operators (`&&`, `;`, `&`, pipes) and background jobs work correctly. Single quotes in the command are escaped automatically.
 
+If the instance is `stopped` or hibernated, spawn automatically starts it and waits for it to reach `running` before connecting. Use `--no-start` to disable this behaviour.
+
 When multiple instances share the same name, connect prefers the `running` instance. If multiple running instances share the name, the command fails with a list of the running instances so you can specify an ID.
 
 **Examples:**
@@ -312,6 +314,7 @@ spawn connect my-job -- 'aws s3 cp s3://bucket/run.sh /tmp/ && bash /tmp/run.sh'
 | `--key` | string | (auto-detect) | SSH private key path |
 | `--port` | int | `22` | SSH port |
 | `--session-manager` | bool | `false` | Use AWS Session Manager instead of SSH |
+| `--no-start` | bool | `false` | Do not automatically start a stopped/hibernated instance |
 
 ---
 

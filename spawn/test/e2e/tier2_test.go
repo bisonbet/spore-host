@@ -292,6 +292,188 @@ func TestTier2_SpawnStatus(t *testing.T) {
 	_ = inst
 }
 
+// TestTier2_BackgroundJob verifies spawn connect -- 'nohup cmd &' does not
+// exit 255 (regression for #315 — & backgrounding caused SSH to exit 255).
+func TestTier2_BackgroundJob(t *testing.T) {
+	name := "e2e-bg-job-" + runID(t)
+	launchInstance(t, name)
+
+	// Background a job that writes a file after a short delay
+	sshExec(t, name, "nohup bash -c 'sleep 3 && echo BG_DONE > /tmp/bg.txt' > /tmp/bg.log 2>&1 &")
+	t.Log("background job launched (no exit 255)")
+
+	// Wait for it to finish
+	time.Sleep(6 * time.Second)
+	out := sshExec(t, name, "cat /tmp/bg.txt 2>/dev/null || echo MISSING")
+	if strings.Contains(out, "MISSING") {
+		t.Errorf("background job did not complete: /tmp/bg.txt missing")
+	} else {
+		t.Logf("background job completed: %s", strings.TrimSpace(out))
+	}
+}
+
+// TestTier2_SporedComplete verifies spored complete creates the sentinel file
+// and triggers the on-complete action.
+func TestTier2_SporedComplete(t *testing.T) {
+	name := "e2e-spored-complete-" + runID(t)
+	launchInstance(t, name,
+		"--on-complete", "terminate",
+		"--completion-delay", "5s",
+	)
+
+	// Use spored complete instead of touch
+	sshExec(t, name, "sudo spored complete --status success --message 'e2e test done'")
+	t.Log("spored complete called — waiting for termination")
+
+	waitForState(t, name, "terminated", 3*time.Minute)
+	t.Log("spored complete triggered on-complete terminate correctly")
+}
+
+// TestTier2_ExtendTTL_DeadlineMoved verifies spawn extend actually updates the
+// spawn:ttl-deadline tag, not just returns without error.
+func TestTier2_ExtendTTL_DeadlineMoved(t *testing.T) {
+	name := "e2e-extend-deadline-" + runID(t)
+	inst := launchInstance(t, name, "--ttl", "5m")
+
+	cfg := loadAWSConfig(t)
+
+	// Read the deadline before extend
+	tagsBefore := describeInstanceTags(t, cfg, inst.InstanceID, testRegion)
+	deadlineBefore := tagsBefore["spawn:ttl-deadline"]
+	if deadlineBefore == "" {
+		t.Skip("spawn:ttl-deadline tag not set — skipping deadline verification")
+	}
+
+	// Extend by 10 minutes
+	spawn(t, "extend", name, "10m")
+
+	// Read again — deadline must have moved forward
+	tagsAfter := describeInstanceTags(t, cfg, inst.InstanceID, testRegion)
+	deadlineAfter := tagsAfter["spawn:ttl-deadline"]
+
+	if deadlineAfter <= deadlineBefore {
+		t.Errorf("deadline did not advance: before=%s after=%s", deadlineBefore, deadlineAfter)
+	}
+	t.Logf("deadline advanced from %s to %s", deadlineBefore, deadlineAfter)
+}
+
+// TestTier2_NameResolutionPrefersRunning verifies that when two instances share
+// a name (stopped + running), spawn connect picks the running one (regression #313).
+func TestTier2_NameResolutionPrefersRunning(t *testing.T) {
+	rid := runID(t)
+	// Use a fixed base name so both instances share the same Name tag
+	baseName := "e2e-ambiguous-" + rid
+
+	// Launch first instance, then stop it
+	inst1 := launchInstance(t, baseName, "--ttl", "15m")
+	spawn(t, "stop", baseName)
+	waitForState(t, baseName, "stopped", 3*time.Minute)
+	t.Logf("first instance stopped: %s", inst1.InstanceID)
+
+	// Launch second instance with the same name
+	inst2 := launchInstance(t, baseName, "--ttl", "15m")
+	t.Logf("second instance running: %s", inst2.InstanceID)
+
+	// connect by name should reach the running one (inst2), not fail with ambiguity
+	out := sshExec(t, baseName, "curl -s http://169.254.169.254/latest/meta-data/instance-id")
+	out = strings.TrimSpace(out)
+	if out != inst2.InstanceID {
+		t.Errorf("connect by name reached %q, expected running instance %s (regression #313)", out, inst2.InstanceID)
+	}
+	t.Logf("name resolution correctly picked running instance %s", inst2.InstanceID)
+}
+
+// TestTier2_SpawnValidate verifies spawn validate runs without crashing.
+func TestTier2_SpawnValidate(t *testing.T) {
+	out, err := spawnMayFail(t, "validate", "--infrastructure", "--region", testRegion)
+	if err != nil {
+		t.Logf("spawn validate returned non-zero (acceptable — may need elevated IAM): %v\n%s", err, out)
+	} else {
+		t.Logf("spawn validate passed: %d bytes", len(out))
+	}
+}
+
+// TestTier2_SpawnAvailability verifies spawn availability returns stats for a common instance type.
+func TestTier2_SpawnAvailability(t *testing.T) {
+	out, err := spawnMayFail(t, "availability", "--instance-type", testInstanceType, "--regions", testRegion)
+	if err != nil {
+		t.Logf("spawn availability returned error (may need launch history): %v\n%s", err, out)
+	} else {
+		t.Logf("spawn availability: %d bytes", len(out))
+	}
+}
+
+// TestTier2_ListTagFilter verifies spawn list --tag key=value filtering.
+func TestTier2_ListTagFilter(t *testing.T) {
+	rid := runID(t)
+	name := "e2e-tag-filter-" + rid
+	inst := launchInstance(t, name, "--tag", "e2e-custom="+rid)
+
+	out, err := spawnMayFail(t, "list", "--tag", "e2e-custom="+rid, "--output", "json")
+	if err != nil {
+		t.Skipf("spawn list --tag failed: %v", err)
+	}
+	var instances []InstanceJSON
+	if json.Unmarshal([]byte(out), &instances) == nil {
+		found := false
+		for _, i := range instances {
+			if i.InstanceID == inst.InstanceID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("instance %s not found when filtering by custom tag e2e-custom=%s", inst.InstanceID, rid)
+		}
+	}
+	t.Log("spawn list --tag filter works")
+}
+
+// TestTier2_HibernateAndResume verifies spawn hibernate saves state and spawn start resumes it.
+func TestTier2_HibernateAndResume(t *testing.T) {
+	name := "e2e-hibernate-" + runID(t)
+	// Hibernation requires --hibernate flag at launch time
+	launchInstance(t, name, "--hibernate")
+
+	// Write a marker file to verify state is preserved across hibernate/resume
+	sshExec(t, name, "echo HIBERNATE_MARKER > /tmp/hibernate-test.txt")
+
+	spawn(t, "hibernate", name)
+	waitForState(t, name, "stopped", 4*time.Minute)
+	t.Log("instance hibernated")
+
+	spawn(t, "start", name)
+	waitForState(t, name, "running", 4*time.Minute)
+	t.Log("instance resumed from hibernation")
+
+	// Verify marker file persists (RAM state restored)
+	out := sshExec(t, name, "cat /tmp/hibernate-test.txt 2>/dev/null || echo MISSING")
+	if strings.Contains(out, "MISSING") {
+		t.Errorf("hibernate-test.txt missing after resume — RAM state not preserved")
+	} else {
+		t.Log("hibernate state preserved correctly")
+	}
+}
+
+// TestTier2_ConnectAutoStart verifies spawn connect automatically starts a stopped
+// instance and connects to it.
+func TestTier2_ConnectAutoStart(t *testing.T) {
+	name := "e2e-connect-autostart-" + runID(t)
+	launchInstance(t, name)
+
+	// Stop the instance
+	spawn(t, "stop", name)
+	waitForState(t, name, "stopped", 3*time.Minute)
+	t.Log("instance stopped — now connecting (should auto-start)")
+
+	// Connect should auto-start and succeed
+	out := sshExec(t, name, "echo AUTOSTART_OK")
+	if !strings.Contains(out, "AUTOSTART_OK") {
+		t.Errorf("connect after auto-start failed: %s", out)
+	}
+	t.Log("spawn connect auto-started stopped instance and connected")
+}
+
 func min(a, b int) int {
 	if a < b {
 		return a

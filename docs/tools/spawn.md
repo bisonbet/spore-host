@@ -75,7 +75,7 @@ spawn connect my-instance -- 'nohup bash /tmp/run.sh > /tmp/run.log 2>&1 &'    #
 spawn connect my-instance -- 'aws s3 cp s3://bucket/run.sh /tmp/ && bash /tmp/run.sh &'
 ```
 
-When multiple instances share a name, `spawn connect` prefers the running one.
+When multiple instances share a name, `spawn connect` prefers the running one. Stopped or hibernated instances are automatically started before connecting — use `--no-start` to prevent this.
 
 ### `spawn defaults`
 

@@ -20,6 +20,7 @@ var (
 	connectKey        string
 	connectPort       int
 	connectSessionMgr bool
+	connectNoStart    bool
 )
 
 var connectCmd = &cobra.Command{
@@ -37,6 +38,7 @@ func init() {
 	connectCmd.Flags().StringVar(&connectKey, "key", "", "SSH private key path")
 	connectCmd.Flags().IntVar(&connectPort, "port", 22, "SSH port")
 	connectCmd.Flags().BoolVar(&connectSessionMgr, "session-manager", false, "Use AWS Session Manager instead of SSH")
+	connectCmd.Flags().BoolVar(&connectNoStart, "no-start", false, "Do not automatically start a stopped/hibernated instance")
 
 	// Register completion for instance ID argument
 	connectCmd.ValidArgsFunction = completeInstanceID
@@ -68,7 +70,36 @@ func runConnect(cmd *cobra.Command, args []string) error {
 		return connectDCV(ctx, client, instance)
 	}
 
-	// Check if instance is running
+	// Auto-start stopped/hibernated instances unless --no-start is set.
+	if instance.State == "stopped" || instance.State == "stopping" {
+		if connectNoStart {
+			return fmt.Errorf("instance is %s — use --no-start=false or start it manually with: spawn start %s", instance.State, instanceIdentifier)
+		}
+		fmt.Fprintf(os.Stderr, "Instance is %s — starting it...\n", instance.State)
+		if err := client.StartInstance(ctx, instance.Region, instance.InstanceID); err != nil {
+			return fmt.Errorf("start instance: %w", err)
+		}
+		fmt.Fprintf(os.Stderr, "Waiting for instance to reach running state")
+		for i := 0; i < 30; i++ {
+			time.Sleep(5 * time.Second)
+			fmt.Fprintf(os.Stderr, ".")
+			instances, err := client.ListInstances(ctx, instance.Region, "running")
+			if err != nil {
+				continue
+			}
+			for idx := range instances {
+				if instances[idx].InstanceID == instance.InstanceID {
+					instance = &instances[idx]
+					fmt.Fprintf(os.Stderr, " running\n\n")
+					goto instanceReady
+				}
+			}
+		}
+		return fmt.Errorf("instance did not reach running state within 2.5 minutes")
+	instanceReady:
+	}
+
+	// Non-startable states (pending, shutting-down, terminated)
 	if instance.State != "running" {
 		return i18n.Te("spawn.connect.error.not_running", nil, map[string]interface{}{
 			"State": instance.State,
