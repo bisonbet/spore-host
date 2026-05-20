@@ -221,23 +221,28 @@ truffle list --region eu-west-1
 
 ## truffle quotas
 
-Show AWS Service Quotas for EC2 instance families.
+Show AWS Service Quotas for EC2 and SageMaker instances.
 
 ```
 truffle quotas [--regions <regions>] [--family <family>] [--request]
 ```
 
-Displays current vCPU quotas, running usage, and available headroom per instance family. Requires AWS credentials.
+Displays current quotas, running usage, and available headroom. Use `--service sagemaker` to check SageMaker `ml.*` instance quotas (processing, training, endpoint, transform). Requires AWS credentials.
 
 **Examples:**
 ```sh
+# EC2 quotas (default)
 truffle quotas
 truffle quotas --regions us-east-1,us-west-2
-truffle quotas --family P
 truffle quotas --family P --request
+
+# SageMaker ml.* instance quotas
+truffle quotas --service sagemaker --regions us-west-2
+truffle quotas --service sagemaker --family g5 --regions us-west-2
+truffle quotas --service sagemaker --family g5 --request --regions us-west-2
 ```
 
-**Instance family codes:**
+**EC2 instance family codes:**
 
 | Code | Instances |
 |------|-----------|
@@ -253,9 +258,10 @@ truffle quotas --family P --request
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
+| `--service` | string | `ec2` | Service to query: `ec2` or `sagemaker` |
 | `--regions` | strings | `us-east-1` | Regions to check (comma-separated) |
-| `--family` | string | (all) | Filter by instance family code |
-| `--request` | bool | `false` | Generate `aws service-quotas request-service-quota-increase` commands for near-full quotas |
+| `--family` | string | (all) | EC2: family code (Standard/G/P/Inf/Trn); SageMaker: instance family prefix (e.g. `g5`, `p4d`) |
+| `--request` | bool | `false` | Generate `aws service-quotas request-service-quota-increase` commands |
 
 ---
 
