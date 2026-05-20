@@ -15,8 +15,14 @@ import (
 // until it reaches the "available" state before returning. EC2's CreatePlacementGroup
 // is eventually consistent — passing a group in "pending" state to RunInstances
 // returns InvalidPlacementGroup.Unknown (fixes #317).
-func (c *Client) CreatePlacementGroup(ctx context.Context, name string) error {
-	ec2Client := ec2.NewFromConfig(c.cfg)
+// region must match the launch region; passing an empty string falls back to
+// the client's default region.
+func (c *Client) CreatePlacementGroup(ctx context.Context, name, region string) error {
+	cfg := c.cfg.Copy()
+	if region != "" {
+		cfg.Region = region
+	}
+	ec2Client := ec2.NewFromConfig(cfg)
 
 	_, err := ec2Client.CreatePlacementGroup(ctx, &ec2.CreatePlacementGroupInput{
 		GroupName: aws.String(name),

@@ -1426,7 +1426,7 @@ func launchWithProgress(ctx context.Context, awsClient *aws.Client, config *aws.
 		if mpiAutoPlacementGroup && mpiPlacementGroup == "" {
 			mpiPlacementGroup = fmt.Sprintf("spawn-mpi-%s", jobArrayName)
 			fmt.Fprintf(os.Stderr, "Creating placement group: %s\n", mpiPlacementGroup)
-			if err := awsClient.CreatePlacementGroup(ctx, mpiPlacementGroup); err != nil {
+			if err := awsClient.CreatePlacementGroup(ctx, mpiPlacementGroup, config.Region); err != nil {
 				return fmt.Errorf("create placement group: %w", err)
 			}
 		}
