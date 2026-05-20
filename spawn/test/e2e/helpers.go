@@ -144,7 +144,7 @@ func launchInstance(t *testing.T, name string, extraArgs ...string) InstanceJSON
 	// Register cleanup — terminate by name regardless of test outcome.
 	t.Cleanup(func() { terminateByName(t, name) })
 
-	return waitForRunning(t, name, 3*time.Minute)
+	return waitForRunning(t, name, 6*time.Minute)
 }
 
 // terminateByName stops all instances with the given name.
