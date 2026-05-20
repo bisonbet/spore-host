@@ -1317,6 +1317,18 @@ func launchWithProgress(ctx context.Context, awsClient *aws.Client, config *aws.
 		prog.Skip("FSx Lustre filesystem")
 	}
 
+	// Backfill FSx fields into config so buildTags writes spawn:fsx-id,
+	// spawn:fsx-mount-name, and spawn:fsx-mount-point on every instance.
+	// The --fsx-id path already sets config.FSxLustreID; the --fsx-create
+	// and --fsx-recall paths only populated fsxInfo, not config (fixes #314).
+	if fsxInfo != nil {
+		config.FSxLustreID = fsxInfo.FileSystemID
+		config.FSxMountName = fsxInfo.MountName
+		if config.FSxMountPoint == "" {
+			config.FSxMountPoint = fsxMountPoint
+		}
+	}
+
 	// Step 4.6: Check data locality (region mismatches)
 	if !skipRegionCheck && (efsID != "" || fsxID != "") {
 		prog.Start("Checking data locality")

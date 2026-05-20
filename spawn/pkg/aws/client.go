@@ -153,6 +153,7 @@ type LaunchConfig struct {
 	// FSx Lustre settings
 	FSxLustreCreate    bool   // Create new FSx Lustre filesystem
 	FSxLustreID        string // Existing FSx filesystem ID to mount (fs-xxx)
+	FSxMountName       string // Per-filesystem Lustre mount name (e.g. "q5pdvb4v") — from FSx API
 	FSxLustreRecall    string // Recall FSx by stack name
 	FSxStorageCapacity int32  // Storage capacity in GB (1200, 2400, +2400)
 	FSxS3Bucket        string // S3 bucket for import/export
@@ -442,6 +443,9 @@ func buildTags(config LaunchConfig, accountID string, userARN string) []types.Ta
 			mp = "/fsx"
 		}
 		tags = append(tags, types.Tag{Key: aws.String("spawn:fsx-mount-point"), Value: aws.String(mp)})
+		if config.FSxMountName != "" {
+			tags = append(tags, types.Tag{Key: aws.String("spawn:fsx-mount-name"), Value: aws.String(config.FSxMountName)})
+		}
 	}
 	if config.EFSID != "" {
 		tags = append(tags, types.Tag{Key: aws.String("spawn:efs-id"), Value: aws.String(config.EFSID)})

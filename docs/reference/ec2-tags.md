@@ -88,6 +88,7 @@ spore.host tags every instance it launches with `spawn:*` tags. These tags drive
 | Tag | Example | Description |
 |-----|---------|-------------|
 | `spawn:fsx-id` | `fs-0abc1234` | FSx filesystem ID — written at launch so instance scripts can auto-mount without hardcoding the ID. |
+| `spawn:fsx-mount-name` | `q5pdvb4v` | Per-filesystem Lustre mount name (from `LustreConfiguration.MountName`). Required for the mount command: `<dns>@tcp:/<mount-name>`. |
 | `spawn:fsx-mount-point` | `/fsx` | Mount point for the FSx filesystem. |
 | `spawn:fsx-stack-name` | `spawn-fsx-abc` | CloudFormation stack managing the FSx filesystem (set by `--fsx-create`). |
 | `spawn:fsx-storage-capacity` | `1200` | FSx storage size in GiB. |

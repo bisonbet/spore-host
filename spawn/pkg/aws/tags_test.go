@@ -9,10 +9,14 @@ import (
 // TestBuildTags_FSxIDWritten is a regression test for #314.
 // --fsx-id / --efs-id did not write instance tags, so boot scripts
 // could not auto-mount without hardcoding the filesystem ID.
+// Also tests spawn:fsx-mount-name which enables scripts to perform the
+// Lustre mount without calling the FSx API (mount requires the MountName,
+// not the filesystem ID).
 func TestBuildTags_FSxIDWritten(t *testing.T) {
 	config := LaunchConfig{
 		Name:          "test-instance",
 		FSxLustreID:   "fs-0abc1234",
+		FSxMountName:  "q5pdvb4v",
 		FSxMountPoint: "/fsx",
 	}
 
@@ -26,6 +30,11 @@ func TestBuildTags_FSxIDWritten(t *testing.T) {
 	fsxMount := findTagValue(tags, "spawn:fsx-mount-point")
 	if fsxMount != "/fsx" {
 		t.Errorf("spawn:fsx-mount-point = %q, want %q", fsxMount, "/fsx")
+	}
+
+	fsxMountName := findTagValue(tags, "spawn:fsx-mount-name")
+	if fsxMountName != "q5pdvb4v" {
+		t.Errorf("spawn:fsx-mount-name = %q, want %q", fsxMountName, "q5pdvb4v")
 	}
 }
 
