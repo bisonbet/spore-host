@@ -35,7 +35,7 @@ spawn launch \
 
 ## Instance placement
 
-By default, MPI clusters are placed in a cluster placement group for minimum latency. If you have an existing placement group:
+By default, MPI clusters are placed in a cluster placement group named `spawn-mpi-<job-array-name>` for minimum latency. spawn creates it automatically and waits a few seconds for it to become available before launching instances. If you have an existing placement group:
 
 ```sh
 spawn launch \

@@ -146,8 +146,8 @@ spawn launch analysis --instance-type r7i.4xlarge --ttl 8h \
 | `--mpi-processes-per-node` | int | (vCPU count) | MPI processes per node |
 | `--mpi-command` | string | | Command to run via `mpirun` |
 | `--skip-mpi-install` | bool | `false` | Skip MPI installation (for AMIs with MPI pre-installed) |
-| `--placement-group` | string | | AWS Placement Group name |
-| `--auto-placement-group` | bool | `true` | Auto-create placement group for MPI job arrays |
+| `--placement-group` | string | | Use an existing AWS Placement Group by name |
+| `--auto-placement-group` | bool | `true` | Auto-create a cluster placement group named `spawn-mpi-<job-array-name>` and wait for it to become available before launching instances |
 
 ### Parameter sweeps
 
