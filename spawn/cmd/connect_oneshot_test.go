@@ -16,63 +16,65 @@ func buildSSHArgs(keyPath, user, host string, port int, remoteArgs []string) []s
 		user + "@" + host,
 	}
 	if len(remoteArgs) > 0 {
-		// regression fix for #315: join as single string so remote shell
-		// interprets operators like &&, ;, & correctly
-		args = append(args, strings.Join(remoteArgs, " "))
+		// regression fix for #315: wrap in bash -c '...' so the remote shell
+		// interprets operators (&&, ;, &) correctly and backgrounded processes
+		// don't cause SSH to exit 255
+		remoteCmd := strings.Join(remoteArgs, " ")
+		remoteCmd = strings.ReplaceAll(remoteCmd, "'", "'\\''")
+		args = append(args, "bash -c '"+remoteCmd+"'")
 	}
 	_ = port
 	return args
 }
 
 // TestConnectOneShot_CompoundCommandJoined is a regression test for #315.
-// Before the fix, remoteArgs were appended individually, so the local shell
-// interpreted &&, ;, & before SSH could pass them to the remote shell.
+// Before the fix, remoteArgs were appended individually, so && was split.
+// Now wrapped in bash -c '...' so the remote shell interprets operators.
 func TestConnectOneShot_CompoundCommandJoined(t *testing.T) {
 	remoteArgs := []string{"cmd1", "&&", "cmd2"}
 	sshArgs := buildSSHArgs("key.pem", "ec2-user", "1.2.3.4", 22, remoteArgs)
 
-	// The last SSH argument must be a single joined string, not individual tokens
 	lastArg := sshArgs[len(sshArgs)-1]
-	if lastArg != "cmd1 && cmd2" {
-		t.Errorf("expected remote command as single arg %q, got %q\n"+
-			"full args: %v\n"+
-			"(individual tokens would cause local shell to interpret &&)", "cmd1 && cmd2", lastArg, sshArgs)
+	if lastArg != "bash -c 'cmd1 && cmd2'" {
+		t.Errorf("expected bash -c wrapper with && preserved, got %q\nfull args: %v", lastArg, sshArgs)
 	}
 }
 
-// TestConnectOneShot_BackgroundOperator verifies & is preserved for remote execution.
+// TestConnectOneShot_BackgroundOperator verifies & in bash -c doesn't cause exit 255.
+// The root cause of #315: SSH exits 255 when the remote process is backgrounded
+// without a wrapper — bash -c handles this correctly.
 func TestConnectOneShot_BackgroundOperator(t *testing.T) {
 	remoteArgs := []string{"nohup", "bash", "/tmp/run.sh", ">", "/tmp/run.log", "2>&1", "&"}
 	sshArgs := buildSSHArgs("key.pem", "ec2-user", "1.2.3.4", 22, remoteArgs)
 
 	lastArg := sshArgs[len(sshArgs)-1]
-	if !strings.Contains(lastArg, "&") {
-		t.Errorf("background operator & must be preserved in remote command, got: %q", lastArg)
+	if !strings.HasPrefix(lastArg, "bash -c '") {
+		t.Errorf("expected bash -c wrapper, got: %q", lastArg)
 	}
-	if !strings.HasSuffix(lastArg, "&") {
-		t.Errorf("background operator should be at end of remote command, got: %q", lastArg)
+	if !strings.Contains(lastArg, "&") {
+		t.Errorf("background operator & must be preserved inside bash -c, got: %q", lastArg)
 	}
 }
 
-// TestConnectOneShot_Semicolon verifies ; is preserved for remote execution.
+// TestConnectOneShot_Semicolon verifies ; is preserved inside bash -c.
 func TestConnectOneShot_Semicolon(t *testing.T) {
 	remoteArgs := []string{"cmd1;", "cmd2"}
 	sshArgs := buildSSHArgs("key.pem", "ec2-user", "1.2.3.4", 22, remoteArgs)
 
 	lastArg := sshArgs[len(sshArgs)-1]
 	if !strings.Contains(lastArg, ";") {
-		t.Errorf("semicolon separator must be preserved in remote command, got: %q", lastArg)
+		t.Errorf("semicolon separator must be preserved in bash -c, got: %q", lastArg)
 	}
 }
 
-// TestConnectOneShot_SingleCommandUnchanged verifies single simple commands still work.
-func TestConnectOneShot_SingleCommandUnchanged(t *testing.T) {
+// TestConnectOneShot_SingleCommandWrapped verifies single commands are also wrapped.
+func TestConnectOneShot_SingleCommandWrapped(t *testing.T) {
 	remoteArgs := []string{"tail", "-20", "/tmp/run.log"}
 	sshArgs := buildSSHArgs("key.pem", "ec2-user", "1.2.3.4", 22, remoteArgs)
 
 	lastArg := sshArgs[len(sshArgs)-1]
-	if lastArg != "tail -20 /tmp/run.log" {
-		t.Errorf("expected %q, got %q", "tail -20 /tmp/run.log", lastArg)
+	if lastArg != "bash -c 'tail -20 /tmp/run.log'" {
+		t.Errorf("expected bash -c wrapper, got %q", lastArg)
 	}
 }
 
@@ -82,22 +84,35 @@ func TestConnectOneShot_InteractiveModeNoExtraArgs(t *testing.T) {
 	remoteArgs := []string{}
 	sshArgs := buildSSHArgs("key.pem", "ec2-user", "1.2.3.4", 22, remoteArgs)
 
-	// Last arg should be the host, not a command
 	lastArg := sshArgs[len(sshArgs)-1]
 	if lastArg != "ec2-user@1.2.3.4" {
 		t.Errorf("interactive mode: last arg should be host, got %q", lastArg)
 	}
 }
 
-// TestConnectOneShot_QuotedString verifies a pre-quoted string is passed intact.
-func TestConnectOneShot_QuotedString(t *testing.T) {
-	// This simulates: spawn connect my-instance -- 'aws s3 cp s3://b/f /tmp/f'
-	// where the shell has already stripped the quotes, leaving one arg
-	remoteArgs := []string{"aws s3 cp s3://bucket/file /tmp/file"}
+// TestConnectOneShot_SingleQuoteEscaping verifies single quotes in the command
+// are escaped before wrapping in bash -c '...'.
+func TestConnectOneShot_SingleQuoteEscaping(t *testing.T) {
+	remoteArgs := []string{"echo", "it's", "working"}
 	sshArgs := buildSSHArgs("key.pem", "ec2-user", "1.2.3.4", 22, remoteArgs)
 
 	lastArg := sshArgs[len(sshArgs)-1]
-	if lastArg != "aws s3 cp s3://bucket/file /tmp/file" {
-		t.Errorf("expected command intact, got %q", lastArg)
+	// Single quote must be escaped as '\'' inside the bash -c wrapper
+	if !strings.Contains(lastArg, `'\''`) {
+		t.Errorf("single quote must be escaped as '\\'' inside bash -c wrapper, got: %q", lastArg)
+	}
+}
+
+// TestConnectOneShot_PreQuotedString verifies a pre-quoted compound string works.
+func TestConnectOneShot_PreQuotedString(t *testing.T) {
+	// Simulates: spawn connect my-instance -- 'aws s3 cp s3://b/f /tmp/f && bash /tmp/f'
+	// Shell has already stripped the outer quotes, leaving one arg.
+	remoteArgs := []string{"aws s3 cp s3://bucket/run.sh /tmp/run.sh && bash /tmp/run.sh"}
+	sshArgs := buildSSHArgs("key.pem", "ec2-user", "1.2.3.4", 22, remoteArgs)
+
+	lastArg := sshArgs[len(sshArgs)-1]
+	expected := "bash -c 'aws s3 cp s3://bucket/run.sh /tmp/run.sh && bash /tmp/run.sh'"
+	if lastArg != expected {
+		t.Errorf("expected %q, got %q", expected, lastArg)
 	}
 }

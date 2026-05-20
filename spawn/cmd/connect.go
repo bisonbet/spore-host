@@ -110,11 +110,14 @@ func runConnect(cmd *cobra.Command, args []string) error {
 	}
 
 	// One-shot mode: args[1:] (after --) form the remote command.
-	// Join into a single string so the remote shell interprets operators like
-	// &&, ;, and & correctly — same as `ssh host 'cmd1 && cmd2'` (fixes #315).
-	// Interactive mode: no remote command, allocate a PTY as normal.
+	// Wrap in `bash -c '...'` so the remote shell interprets operators (&&, ;,
+	// &, pipes) correctly and backgrounded processes (&) don't cause SSH to
+	// exit 255 (fixes #315). Interactive mode leaves sshArgs unchanged.
 	if len(args) > 1 {
-		sshArgs = append(sshArgs, strings.Join(args[1:], " "))
+		remoteCmd := strings.Join(args[1:], " ")
+		// Escape any single quotes in the command before wrapping
+		remoteCmd = strings.ReplaceAll(remoteCmd, "'", "'\\''")
+		sshArgs = append(sshArgs, "bash -c '"+remoteCmd+"'")
 	}
 
 	fmt.Fprintf(os.Stderr, "%s\n\n", i18n.Tf("spawn.connect.connecting_ssh", map[string]interface{}{
