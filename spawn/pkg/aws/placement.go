@@ -4,13 +4,17 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
-// CreatePlacementGroup creates a cluster placement group for MPI
+// CreatePlacementGroup creates a cluster placement group for MPI and waits
+// until it reaches the "available" state before returning. EC2's CreatePlacementGroup
+// is eventually consistent — passing a group in "pending" state to RunInstances
+// returns InvalidPlacementGroup.Unknown (fixes #317).
 func (c *Client) CreatePlacementGroup(ctx context.Context, name string) error {
 	ec2Client := ec2.NewFromConfig(c.cfg)
 
@@ -29,14 +33,29 @@ func (c *Client) CreatePlacementGroup(ctx context.Context, name string) error {
 	})
 
 	if err != nil {
-		// Check if already exists (error string contains "already exists")
 		if strings.Contains(err.Error(), "already exists") {
-			return nil // Already exists, not an error
+			return nil // Already exists — still need to confirm it's available below
 		}
 		return fmt.Errorf("create placement group: %w", err)
 	}
 
-	return nil
+	// Poll until the placement group reaches "available". Typically takes <5s.
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		out, err := ec2Client.DescribePlacementGroups(ctx, &ec2.DescribePlacementGroupsInput{
+			GroupNames: []string{name},
+		})
+		if err != nil {
+			time.Sleep(2 * time.Second)
+			continue
+		}
+		if len(out.PlacementGroups) > 0 && out.PlacementGroups[0].State == types.PlacementGroupStateAvailable {
+			return nil
+		}
+		time.Sleep(2 * time.Second)
+	}
+
+	return fmt.Errorf("placement group %q did not become available within 30s", name)
 }
 
 // DeletePlacementGroup removes a placement group
