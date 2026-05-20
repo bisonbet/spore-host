@@ -81,6 +81,12 @@ jobs:
         run: cd spawn && go build -o bin/spawn .
 
       - name: Run E2E Tier 2
+        env:
+          # Use ambient OIDC credentials for both spawn launch and spawn list.
+          # Without this, spawn launch defaults to profile 'spore-host-dev' which
+          # doesn't exist in CI, causing it to launch into a different account than
+          # spawn list queries.
+          SPAWN_COMPUTE_PROFILE: ""
         run: |
           cd spawn
           go test -v -tags=e2e_tier2 -run TestTier2 -timeout 80m ./test/e2e/
@@ -125,6 +131,8 @@ jobs:
         run: cd spawn && go build -o bin/spawn .
 
       - name: Run E2E Tier 3
+        env:
+          SPAWN_COMPUTE_PROFILE: ""
         run: |
           cd spawn
           go test -v -tags=e2e_tier3 -run TestTier3 -timeout 60m ./test/e2e/
