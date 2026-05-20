@@ -633,6 +633,9 @@ func (c *Client) ImportKeyPair(ctx context.Context, region, keyName string, publ
 
 	_, err := ec2Client.ImportKeyPair(ctx, input)
 	if err != nil {
+		if strings.Contains(err.Error(), "InvalidKeyPair.Duplicate") || strings.Contains(err.Error(), "already exists") {
+			return nil // key pair already exists — treat as success
+		}
 		return fmt.Errorf("failed to import key pair: %w", err)
 	}
 
