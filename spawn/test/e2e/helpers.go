@@ -240,3 +240,29 @@ func terminateByTag(t *testing.T, key, value string) {
 }
 
 func stringPtr(s string) *string { return &s }
+
+// describeInstanceTags returns all EC2 tags for an instance as a map.
+func describeInstanceTags(t *testing.T, cfg aws.Config, instanceID, region string) map[string]string {
+	t.Helper()
+	ctx := context.Background()
+	regionalCfg := cfg.Copy()
+	regionalCfg.Region = region
+	ec2Client := ec2.NewFromConfig(regionalCfg)
+
+	out, err := ec2Client.DescribeTags(ctx, &ec2.DescribeTagsInput{
+		Filters: []ec2types.Filter{
+			{Name: stringPtr("resource-id"), Values: []string{instanceID}},
+		},
+	})
+	if err != nil {
+		t.Logf("DescribeTags(%s): %v", instanceID, err)
+		return nil
+	}
+	tags := make(map[string]string, len(out.Tags))
+	for _, tag := range out.Tags {
+		if tag.Key != nil && tag.Value != nil {
+			tags[*tag.Key] = *tag.Value
+		}
+	}
+	return tags
+}

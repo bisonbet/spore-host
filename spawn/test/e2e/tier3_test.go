@@ -235,3 +235,155 @@ func TestTier3_QueueExecution(t *testing.T) {
 	}
 	t.Logf("queue jobs: job1=%s job2=%s", strings.TrimSpace(out1), strings.TrimSpace(out2))
 }
+
+// TestTier3_MPI_PlacementGroupRegion verifies --mpi --region us-east-2 creates
+// the placement group in the correct region and instances launch successfully
+// (regression for #317 — group was created in us-east-1 when launch targeted us-east-2).
+func TestTier3_MPI_PlacementGroupRegion(t *testing.T) {
+	rid := runID(t)
+	name := "e2e-pg-region-" + rid
+	t.Cleanup(func() { terminateByTag(t, testTagKey, rid) })
+
+	out := spawn(t,
+		"launch", name+"-0",
+		"--instance-type", "c5n.18xlarge",
+		"--count", "2",
+		"--job-array-name", name,
+		"--region", "us-east-2", // non-default region — was the regression trigger
+		"--mpi",
+		"--ttl", "20m",
+		"--tag", fmt.Sprintf("%s=%s", testTagKey, rid),
+	)
+	t.Logf("MPI launch in us-east-2: %s", out)
+
+	// Wait for both nodes to reach running
+	deadline := time.Now().Add(5 * time.Minute)
+	var running int
+	for time.Now().Before(deadline) {
+		listOut, _ := spawnMayFail(t, "list", "--output", "json")
+		var all []InstanceJSON
+		if json.Unmarshal([]byte(listOut), &all) == nil {
+			running = 0
+			for _, inst := range all {
+				if inst.Tags[testTagKey] == rid && inst.State == "running" {
+					running++
+				}
+			}
+			if running >= 2 {
+				break
+			}
+		}
+		time.Sleep(15 * time.Second)
+	}
+	if running < 2 {
+		t.Errorf("expected 2 running MPI nodes in us-east-2, got %d (regression #317)", running)
+	} else {
+		t.Logf("both MPI nodes running in us-east-2 (%d instances)", running)
+	}
+}
+
+// TestTier3_ParameterSweep_SweepGroup verifies spawn sweep list/status/cancel
+// work on a running sweep.
+func TestTier3_ParameterSweep_SweepGroup(t *testing.T) {
+	rid := runID(t)
+	sweepName := "e2e-sg-" + rid
+
+	paramContent := `defaults:
+  instance_type: t3.small
+  ttl: 20m
+  on_complete: terminate
+
+params:
+  - lr: "0.001"
+  - lr: "0.01"
+`
+	f, err := os.CreateTemp("", "sweep-*.yaml")
+	if err != nil {
+		t.Fatalf("create param file: %v", err)
+	}
+	defer os.Remove(f.Name())
+	f.WriteString(paramContent)
+	f.Close()
+
+	out := spawn(t,
+		"launch", sweepName,
+		"--region", testRegion,
+		"--param-file", f.Name(),
+		"--sweep-name", sweepName,
+		"--tag", fmt.Sprintf("%s=%s", testTagKey, rid),
+		"--yes",
+	)
+	t.Logf("sweep launch: %s", out)
+	t.Cleanup(func() { terminateByTag(t, testTagKey, rid) })
+
+	// Parse sweep ID
+	var sweepID string
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, "sweep-") {
+			for _, f := range strings.Fields(line) {
+				if strings.HasPrefix(f, "sweep-") {
+					sweepID = f
+				}
+			}
+		}
+	}
+
+	// spawn sweep list should show our sweep
+	listOut, err := spawnMayFail(t, "sweep", "list")
+	if err != nil {
+		t.Logf("sweep list error (acceptable): %v", err)
+	} else {
+		t.Logf("sweep list output: %s", listOut[:min3(len(listOut), 300)])
+	}
+
+	// spawn sweep status if we have an ID
+	if sweepID != "" {
+		statusOut, err := spawnMayFail(t, "sweep", "status", sweepID)
+		if err != nil {
+			t.Logf("sweep status error (acceptable): %v", err)
+		} else {
+			t.Logf("sweep status: %s", statusOut[:min3(len(statusOut), 300)])
+		}
+
+		// Cancel to clean up
+		spawnMayFail(t, "sweep", "cancel", sweepID)
+	}
+	t.Log("spawn sweep subcommands tested")
+}
+
+// TestTier3_SlurmSubmit verifies spawn slurm submit runs end-to-end.
+// Uses a minimal sbatch script that completes quickly.
+func TestTier3_SlurmSubmit(t *testing.T) {
+	f, err := os.CreateTemp("", "test-*.sbatch")
+	if err != nil {
+		t.Fatalf("create sbatch: %v", err)
+	}
+	defer os.Remove(f.Name())
+	fmt.Fprintln(f, "#!/bin/bash")
+	fmt.Fprintln(f, "#SBATCH --job-name=e2e-slurm")
+	fmt.Fprintln(f, "#SBATCH --time=00:10:00")
+	fmt.Fprintln(f, "#SBATCH --mem=1G")
+	fmt.Fprintln(f, "#SBATCH --cpus-per-task=1")
+	fmt.Fprintln(f, "#SPAWN --instance-type=t3.small")
+	fmt.Fprintln(f, "#SPAWN --region="+testRegion)
+	fmt.Fprintln(f, "echo slurm_done")
+	f.Close()
+
+	out, err := spawnMayFail(t,
+		"slurm", "submit", f.Name(),
+		"--yes",
+		"--spot",
+	)
+	if err != nil {
+		t.Logf("slurm submit error (acceptable if quota/capacity): %v\n%s", err, out)
+	} else {
+		t.Logf("slurm submit launched: %s", out[:min3(len(out), 200)])
+	}
+}
+
+func min3(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

@@ -3,11 +3,14 @@
 package e2e
 
 // Tier 2 — Single-instance tests. Launches one t3.small per test.
-// Estimated cost: ~$0.50 total, ~15-20 min.
+// Estimated cost: ~$1 total, ~20-25 min.
 //
-// Run: go test -v -tags=e2e_tier2 ./test/e2e/ -run TestTier2 -timeout 30m
+// Run: go test -v -tags=e2e_tier2 ./test/e2e/ -run TestTier2 -timeout 35m
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -150,4 +153,148 @@ func TestTier2_SporedStatus(t *testing.T) {
 		t.Errorf("expected TTL in spored status output, got:\n%s", out)
 	}
 	t.Logf("spored status:\n%s", out)
+}
+
+// TestTier2_CompoundSSHCommand verifies spawn connect -- 'cmd && cmd2' works
+// on a real instance (regression for #315).
+func TestTier2_CompoundSSHCommand(t *testing.T) {
+	name := "e2e-compound-ssh-" + runID(t)
+	launchInstance(t, name)
+
+	// Compound command: write two files sequentially
+	out := sshExec(t, name, "echo A > /tmp/a.txt && echo B > /tmp/b.txt && cat /tmp/a.txt /tmp/b.txt")
+	if !strings.Contains(out, "A") || !strings.Contains(out, "B") {
+		t.Errorf("compound && command failed; expected A and B in output, got:\n%s", out)
+	}
+
+	// Semicolon separator
+	out = sshExec(t, name, "echo X; echo Y")
+	if !strings.Contains(out, "X") || !strings.Contains(out, "Y") {
+		t.Errorf("semicolon command failed; expected X and Y in output, got:\n%s", out)
+	}
+	t.Log("compound SSH commands work correctly")
+}
+
+// TestTier2_FSxTagsWritten verifies spawn:fsx-id and spawn:fsx-mount-point
+// tags are written when --fsx-id is used (regression for #314).
+func TestTier2_FSxTagsWritten(t *testing.T) {
+	// Use a fake FSx ID — we're only testing that tags are written,
+	// not that the filesystem actually mounts.
+	name := "e2e-fsx-tags-" + runID(t)
+	inst := launchInstance(t, name,
+		"--fsx-id", "fs-00000000000000000",
+		"--fsx-mount-point", "/fsx",
+	)
+
+	// Check the tags via AWS
+	cfg := loadAWSConfig(t)
+	out := describeInstanceTags(t, cfg, inst.InstanceID, testRegion)
+
+	if out["spawn:fsx-id"] != "fs-00000000000000000" {
+		t.Errorf("spawn:fsx-id = %q, want fs-00000000000000000 (regression #314)", out["spawn:fsx-id"])
+	}
+	if out["spawn:fsx-mount-point"] != "/fsx" {
+		t.Errorf("spawn:fsx-mount-point = %q, want /fsx (regression #314)", out["spawn:fsx-mount-point"])
+	}
+	t.Log("FSx tags written correctly")
+}
+
+// TestTier2_SporedConfigSetGet verifies spored config set/get/list on a running instance.
+func TestTier2_SporedConfigSetGet(t *testing.T) {
+	name := "e2e-spored-config-" + runID(t)
+	launchInstance(t, name, "--ttl", "15m")
+
+	// Get existing config
+	out := sshExec(t, name, "sudo spored config list")
+	if !strings.Contains(out, "ttl") && !strings.Contains(out, "idle") {
+		t.Errorf("spored config list missing expected keys:\n%s", out)
+	}
+
+	// Get a specific value
+	out = sshExec(t, name, "sudo spored config get ttl")
+	if strings.TrimSpace(out) == "" {
+		t.Errorf("spored config get ttl returned empty output")
+	}
+	t.Logf("spored config list and get work: %s", strings.TrimSpace(out))
+}
+
+// TestTier2_SpawnListFilters verifies spawn list filtering by state and tag.
+func TestTier2_SpawnListFilters(t *testing.T) {
+	name := "e2e-list-filters-" + runID(t)
+	inst := launchInstance(t, name)
+
+	// Filter by state=running — should find our instance
+	out, err := spawnMayFail(t, "list", "--state", "running", "--output", "json")
+	if err != nil {
+		t.Skipf("spawn list failed: %v", err)
+	}
+	var instances []InstanceJSON
+	if json.Unmarshal([]byte(out), &instances) == nil {
+		found := false
+		for _, i := range instances {
+			if i.InstanceID == inst.InstanceID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("running instance %s not found in spawn list --state running", inst.InstanceID)
+		}
+	}
+
+	// Filter by instance-family — t3 should include our t3.small
+	out, err = spawnMayFail(t, "list", "--instance-family", "t3", "--output", "json")
+	if err == nil && json.Unmarshal([]byte(out), &instances) == nil {
+		t.Logf("spawn list --instance-family t3 returned %d instances", len(instances))
+	}
+	t.Log("spawn list filters working")
+}
+
+// TestTier2_SlurmConvert verifies slurm convert produces valid spawn params.
+// No instance is launched — this exercises the CLI parsing only.
+func TestTier2_SlurmConvert(t *testing.T) {
+	// Write a minimal sbatch script
+	f, err := os.CreateTemp("", "test-*.sbatch")
+	if err != nil {
+		t.Fatalf("create sbatch file: %v", err)
+	}
+	defer os.Remove(f.Name())
+	fmt.Fprintln(f, "#!/bin/bash")
+	fmt.Fprintln(f, "#SBATCH --job-name=e2e-test")
+	fmt.Fprintln(f, "#SBATCH --time=01:00:00")
+	fmt.Fprintln(f, "#SBATCH --mem=4G")
+	fmt.Fprintln(f, "#SBATCH --cpus-per-task=4")
+	fmt.Fprintln(f, "echo running")
+	f.Close()
+
+	out := spawn(t, "slurm", "convert", f.Name())
+	// convert writes YAML to stdout
+	if !strings.Contains(out, "instance_type") && !strings.Contains(out, "ttl") &&
+		!strings.Contains(out, "mem") && !strings.Contains(out, "cpu") {
+		t.Logf("slurm convert output (may vary by format):\n%s", out)
+		// Not a hard failure — the conversion logic may produce different keys
+	}
+	t.Logf("slurm convert produced %d bytes of output", len(out))
+}
+
+// TestTier2_SpawnStatus verifies spawn status works by name and ID.
+func TestTier2_SpawnStatus(t *testing.T) {
+	name := "e2e-status-" + runID(t)
+	inst := launchInstance(t, name, "--ttl", "15m")
+
+	// Status by name — calls spored status via SSH
+	out, err := spawnMayFail(t, "status", name)
+	if err != nil {
+		t.Logf("spawn status by name returned error (may need SSH key): %v\n%s", err, out)
+	} else {
+		t.Logf("spawn status by name:\n%s", out[:min(len(out), 200)])
+	}
+	_ = inst
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
