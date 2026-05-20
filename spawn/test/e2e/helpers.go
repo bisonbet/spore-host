@@ -101,6 +101,10 @@ func spawn(t *testing.T, args ...string) string {
 	if err != nil {
 		t.Fatalf("spawn %s failed: %v\n%s", strings.Join(args, " "), err, out)
 	}
+	// Log output so we can debug silent failures (exit 0 but no instance created)
+	if len(out) > 0 {
+		t.Logf("spawn %s:\n%s", args[0], strings.TrimSpace(string(out)))
+	}
 	return string(out)
 }
 
