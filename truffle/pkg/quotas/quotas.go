@@ -486,3 +486,65 @@ aws service-quotas list-requested-service-quota-change-history-by-quota \
   --region %s`,
 		quotaName, desiredValue, quotaCode, desiredValue, region, quotaCode, region)
 }
+
+// ── SageMaker quota support ───────────────────────────────────────────────────
+
+// SageMakerQuota holds a single SageMaker service quota entry.
+type SageMakerQuota struct {
+	Name  string
+	Code  string
+	Value float64
+}
+
+// ServiceQuotasLister can list SageMaker instance quotas.
+type ServiceQuotasLister interface {
+	ListSageMakerInstanceQuotas(ctx context.Context, region string) ([]SageMakerQuota, error)
+}
+
+// ServiceQuotasClient wraps the AWS Service Quotas API for SageMaker queries.
+type ServiceQuotasClient struct {
+	cfg aws.Config
+}
+
+// NewServiceQuotasClient creates a new client for querying service quotas.
+func NewServiceQuotasClient(ctx context.Context) (*ServiceQuotasClient, error) {
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load AWS config: %w", err)
+	}
+	return &ServiceQuotasClient{cfg: cfg}, nil
+}
+
+// ListSageMakerInstanceQuotas returns all SageMaker ml.* instance quota entries
+// for the given region. Only quotas whose name starts with "ml." are returned.
+func (c *ServiceQuotasClient) ListSageMakerInstanceQuotas(ctx context.Context, region string) ([]SageMakerQuota, error) {
+	cfg := c.cfg.Copy()
+	cfg.Region = region
+	sqc := servicequotas.NewFromConfig(cfg)
+
+	var results []SageMakerQuota
+	paginator := servicequotas.NewListServiceQuotasPaginator(sqc, &servicequotas.ListServiceQuotasInput{
+		ServiceCode: aws.String("sagemaker"),
+	})
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("list SageMaker quotas in %s: %w", region, err)
+		}
+		for _, q := range page.Quotas {
+			if q.QuotaName == nil || q.Value == nil || q.QuotaCode == nil {
+				continue
+			}
+			// Only include ml.* instance quotas
+			if !strings.HasPrefix(*q.QuotaName, "ml.") {
+				continue
+			}
+			results = append(results, SageMakerQuota{
+				Name:  *q.QuotaName,
+				Code:  *q.QuotaCode,
+				Value: *q.Value,
+			})
+		}
+	}
+	return results, nil
+}

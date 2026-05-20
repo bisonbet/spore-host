@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
@@ -18,17 +19,18 @@ var (
 	quotasRegions []string
 	quotasFamily  string
 	quotasRequest bool
+	quotasService string
 )
 
 var quotasCmd = &cobra.Command{
 	Use:   "quotas",
-	Short: "Show AWS Service Quotas for EC2 instances",
-	Long: `Display current quotas, usage, and available capacity for EC2 instances.
+	Short: "Show AWS Service Quotas for EC2 and SageMaker instances",
+	Long: `Display current quotas, usage, and available capacity for EC2 and SageMaker instances.
 
 Requires AWS credentials to be configured.
 
 Examples:
-  # Show quotas for default region
+  # Show EC2 quotas for default region
   truffle quotas
 
   # Show quotas for specific regions
@@ -37,8 +39,14 @@ Examples:
   # Show only GPU quotas
   truffle quotas --family P
 
-  # Generate quota increase request
-  truffle quotas --family P --request`,
+  # Show SageMaker ml.* instance quotas
+  truffle quotas --service sagemaker --regions us-west-2
+
+  # Show SageMaker g5 quotas only
+  truffle quotas --service sagemaker --family g5 --regions us-west-2
+
+  # Generate quota increase requests
+  truffle quotas --service sagemaker --family g5 --request`,
 	RunE: runQuotas,
 }
 
@@ -48,15 +56,21 @@ func init() {
 	quotasCmd.Flags().StringSliceVar(&quotasRegions, "regions", []string{"us-east-1"},
 		"Regions to check (comma-separated)")
 	quotasCmd.Flags().StringVar(&quotasFamily, "family", "",
-		"Filter by instance family (Standard, G, P, Inf, Trn)")
+		"Filter by instance family (EC2: Standard/G/P/Inf/Trn; SageMaker: g5/p4d/etc.)")
 	quotasCmd.Flags().BoolVar(&quotasRequest, "request", false,
 		"Generate quota increase request commands")
+	quotasCmd.Flags().StringVar(&quotasService, "service", "ec2",
+		"Service to query: ec2 (default) or sagemaker")
 }
 
 func runQuotas(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 
-	// Create quota client
+	if quotasService == "sagemaker" {
+		return runSageMakerQuotas(ctx)
+	}
+
+	// Create EC2 quota client
 	quotaClient, err := quotas.NewClient(ctx)
 	if err != nil {
 		return fmt.Errorf("%s AWS credentials required for quota checking\n\nTo configure credentials:\n  1. Export environment variables:\n     export AWS_ACCESS_KEY_ID=...\n     export AWS_SECRET_ACCESS_KEY=...\n     export AWS_DEFAULT_REGION=us-east-1\n\n  OR\n\n  2. Run: aws configure\n\nError: %v", i18n.Symbol("error"), err)
@@ -67,13 +81,13 @@ func runQuotas(cmd *cobra.Command, args []string) error {
 
 	for _, region := range quotasRegions {
 		fmt.Fprintf(os.Stderr, "Fetching quotas for %s...\n", region)
-		
+
 		info, err := quotaClient.GetQuotas(ctx, region)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: Could not get quotas for %s: %v\n", region, err)
 			continue
 		}
-		
+
 		quotaInfos[region] = info
 	}
 
@@ -306,4 +320,127 @@ func generateIncreaseRequests(quotaInfos map[string]*quotas.QuotaInfo, filterFam
 	fmt.Println("   • Include your use case in the request for faster approval")
 	fmt.Println("   • You can track request status in AWS Console → Service Quotas")
 	fmt.Println()
+}
+
+// ── SageMaker quota support ───────────────────────────────────────────────────
+
+// sageMakerJobTypes are the key SageMaker usage categories that default to 0
+// in many accounts and block ML workloads.
+var sageMakerJobTypes = []string{
+	"processing job usage",
+	"training job usage",
+	"endpoint usage",
+	"transform job instance",
+}
+
+func runSageMakerQuotas(ctx context.Context) error {
+	sqClient, err := quotas.NewServiceQuotasClient(ctx)
+	if err != nil {
+		return fmt.Errorf("AWS credentials required: %w", err)
+	}
+
+	for _, region := range quotasRegions {
+		fmt.Fprintf(os.Stderr, "Fetching SageMaker quotas for %s...\n", region)
+		if err := displaySageMakerQuotas(ctx, sqClient, region); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: %s: %v\n", region, err)
+		}
+	}
+	return nil
+}
+
+func displaySageMakerQuotas(ctx context.Context, sqClient quotas.ServiceQuotasLister, region string) error {
+	allQuotas, err := sqClient.ListSageMakerInstanceQuotas(ctx, region)
+	if err != nil {
+		return err
+	}
+
+	// Filter to key job types and optionally by instance family
+	type row struct {
+		instanceType string
+		jobType      string
+		value        float64
+		code         string
+	}
+	var rows []row
+	for _, q := range allQuotas {
+		// Only show the key job types
+		matched := false
+		for _, jt := range sageMakerJobTypes {
+			if strings.HasSuffix(q.Name, jt) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			continue
+		}
+		// Extract instance type from quota name (e.g. "ml.g5.2xlarge for processing job usage")
+		parts := strings.SplitN(q.Name, " for ", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		instanceType := parts[0] // "ml.g5.2xlarge"
+		jobType := parts[1]      // "processing job usage"
+
+		// Filter by family if specified
+		if quotasFamily != "" && !strings.Contains(instanceType, quotasFamily) {
+			continue
+		}
+
+		rows = append(rows, row{instanceType, jobType, q.Value, q.Code})
+	}
+
+	fmt.Println()
+	fmt.Println("╔════════════════════════════════════════════════════════╗")
+	fmt.Printf("║  🤖 SageMaker Quotas - %-30s ║\n", region)
+	fmt.Println("╚════════════════════════════════════════════════════════╝")
+	fmt.Println()
+
+	if len(rows) == 0 {
+		fmt.Println("   No SageMaker ml.* instance quotas found (try --family g5)")
+		return nil
+	}
+
+	table := tablewriter.NewTable(os.Stdout,
+		tablewriter.WithHeader([]string{"Instance Type", "Job Type", "Quota", "Status"}),
+		tablewriter.WithHeaderAlignment(tw.AlignLeft),
+		tablewriter.WithRowAlignment(tw.AlignLeft),
+	)
+
+	var zeroCount int
+	for _, r := range rows {
+		status := "✓ OK"
+		if r.value == 0 {
+			status = "✗ Zero"
+			zeroCount++
+		}
+		_ = table.Append([]string{
+			r.instanceType,
+			r.jobType,
+			fmt.Sprintf("%.0f", r.value),
+			status,
+		})
+	}
+	if err := table.Render(); err != nil {
+		fmt.Fprintf(os.Stderr, "table render: %v\n", err)
+	}
+
+	if zeroCount > 0 {
+		fmt.Printf("\n⚠️  %d quota(s) are zero — request increases before running SageMaker jobs.\n", zeroCount)
+	}
+
+	if quotasRequest {
+		fmt.Println("\n📝 Quota increase requests for zero quotas:")
+		for _, r := range rows {
+			if r.value == 0 {
+				fmt.Printf("\naws service-quotas request-service-quota-increase \\\n")
+				fmt.Printf("  --service-code sagemaker \\\n")
+				fmt.Printf("  --quota-code %s \\\n", r.code)
+				fmt.Printf("  --desired-value 2 \\\n")
+				fmt.Printf("  --region %s\n", region)
+			}
+		}
+	}
+
+	return nil
 }
