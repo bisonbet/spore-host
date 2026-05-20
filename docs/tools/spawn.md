@@ -65,13 +65,14 @@ spawn extend my-instance 4h     # extend by 4 hours from now
 
 ### `spawn connect`
 
-Open an interactive SSH session, or run a command and return. Compound operators (`&&`, `;`, `&`) are interpreted by the remote shell:
+Open an interactive SSH session, or run a command and return. The command is wrapped in `bash -c` on the remote side, so compound operators and background jobs (`&`) work correctly:
 
 ```sh
-spawn connect my-instance                                              # interactive
-spawn connect my-instance -- 'tail -20 /tmp/run.log'                  # one-shot
-spawn connect my-instance -- 'cmd1 && cmd2'                           # compound
-spawn connect my-instance -- 'nohup bash /tmp/run.sh > /tmp/run.log 2>&1 &'
+spawn connect my-instance                                                        # interactive
+spawn connect my-instance -- 'tail -20 /tmp/run.log'                            # one-shot
+spawn connect my-instance -- 'cmd1 && cmd2'                                     # compound
+spawn connect my-instance -- 'nohup bash /tmp/run.sh > /tmp/run.log 2>&1 &'    # background
+spawn connect my-instance -- 'aws s3 cp s3://bucket/run.sh /tmp/ && bash /tmp/run.sh &'
 ```
 
 When multiple instances share a name, `spawn connect` prefers the running one.

@@ -120,7 +120,8 @@ spawn launch analysis --instance-type r7i.4xlarge --ttl 8h \
 | `--efs-profile` | string | `general` | EFS performance profile: `general`, `max-io`, `max-throughput`, `burst` |
 | `--efs-mount-options` | string | | Custom EFS mount options (overrides profile) |
 | `--fsx-id` | string | | Existing FSx Lustre filesystem ID to mount |
-| `--fsx-create` | bool | `false` | Create new FSx Lustre (`PERSISTENT_2`, Lustre 2.15, compatible with AL2023) with S3 backing via Data Repository Association |
+| `--fsx-create` | bool | `false` | Create new FSx Lustre (`PERSISTENT_2`, Lustre 2.15, compatible with AL2023) with S3 backing via Data Repository Association. Writes `spawn:fsx-id`, `spawn:fsx-mount-name`, `spawn:fsx-mount-point` tags on all instances. |
+| `--fsx-id` | string | | Existing FSx filesystem ID. Writes `spawn:fsx-id`, `spawn:fsx-mount-name`, `spawn:fsx-mount-point` tags so boot scripts can auto-mount without hardcoding the ID. |
 | `--fsx-recall` | string | | Recall FSx by CloudFormation stack name |
 | `--fsx-storage-capacity` | int | `1200` | FSx storage in GB (1200, 2400, or multiples of 2400) |
 | `--fsx-throughput` | int | `125` | PERSISTENT_2 throughput in MB/s/TiB — valid values: `125`, `250`, `500`, `1000` |
@@ -282,7 +283,7 @@ spawn ssh <instance-id-or-name>
 
 Resolves the instance by ID or name, finds the SSH key automatically from `~/.ssh/`, and invokes `ssh`. Falls back to AWS Session Manager if no public IP is available or `--session-manager` is set. For DCV app streaming instances, opens the browser session instead.
 
-Pass `-- <command>` to run a single command non-interactively (one-shot mode). The command tokens are joined and passed to the remote shell as a single argument — compound operators (`&&`, `;`, `&`, pipes) are interpreted by the remote shell, not the local one.
+Pass `-- <command>` to run a command non-interactively (one-shot mode). The command is wrapped in `bash -c '...'` on the remote side, so compound operators (`&&`, `;`, `&`, pipes) and background jobs work correctly. Single quotes in the command are escaped automatically.
 
 When multiple instances share the same name, connect prefers the `running` instance. If multiple running instances share the name, the command fails with a list of the running instances so you can specify an ID.
 
