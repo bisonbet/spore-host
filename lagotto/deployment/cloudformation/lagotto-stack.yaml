@@ -152,8 +152,10 @@ Resources:
             TableName: !Ref LagottoWatchesTable
         - DynamoDBCrudPolicy:
             TableName: !Ref LagottoMatchHistoryTable
-        - SNSPublishMessagePolicy:
-            TopicArn: !Ref LagottoCapacityAlertsTopic
+        - Statement:
+            - Effect: Allow
+              Action: sns:Publish
+              Resource: !Ref LagottoCapacityAlertsTopic
         - Statement:
             - Effect: Allow
               Action:
