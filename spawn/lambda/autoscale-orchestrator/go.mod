@@ -1,4 +1,4 @@
-module github.com/spore-host/spore-host/spawn/lambda/autoscale-orchestrator
+module github.com/spore-host/spawn/lambda/autoscale-orchestrator
 
 go 1.26
 

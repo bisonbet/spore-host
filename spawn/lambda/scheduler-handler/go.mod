@@ -1,4 +1,4 @@
-module github.com/spore-host/spore-host/spawn/lambda/scheduler-handler
+module github.com/spore-host/spawn/lambda/scheduler-handler
 
 go 1.24.0
 

@@ -1,4 +1,4 @@
-module github.com/spore-host/spore-host/spawn/lambda/cost-history-collector
+module github.com/spore-host/spawn/lambda/cost-history-collector
 
 go 1.25.0
 

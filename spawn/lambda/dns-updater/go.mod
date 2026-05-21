@@ -1,4 +1,4 @@
-module github.com/spore-host/spore-host/spawn/lambda/dns-updater
+module github.com/spore-host/spawn/lambda/dns-updater
 
 go 1.22
 

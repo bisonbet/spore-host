@@ -1,4 +1,4 @@
-module github.com/spore-host/spore-host/spawn/lambda/spore-bot
+module github.com/spore-host/spawn/lambda/spore-bot
 
 go 1.26
 

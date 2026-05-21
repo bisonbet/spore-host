@@ -1,4 +1,4 @@
-module github.com/spore-host/spore-host/spawn/lambda/rest-api
+module github.com/spore-host/spawn/lambda/rest-api
 
 go 1.26
 

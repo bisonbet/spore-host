@@ -1,4 +1,4 @@
-module github.com/spore-host/spore-host/spawn/lambda/dashboard-api
+module github.com/spore-host/spawn/lambda/dashboard-api
 
 go 1.25.5
 

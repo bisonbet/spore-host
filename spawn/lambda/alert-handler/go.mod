@@ -1,4 +1,4 @@
-module github.com/spore-host/spore-host/spawn/lambda/alert-handler
+module github.com/spore-host/spawn/lambda/alert-handler
 
 go 1.26
 

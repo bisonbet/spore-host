@@ -1,4 +1,4 @@
-module github.com/spore-host/spore-host/spawn/lambda/alert-evaluator
+module github.com/spore-host/spawn/lambda/alert-evaluator
 
 go 1.25.0
 
