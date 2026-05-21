@@ -1,23 +1,29 @@
-name: E2E Tests
+name: E2E Tests (Tier 1)
+
+# Tier 1 — API-only tests, no EC2 instances, safe to run in CI.
+#
+# Tiers 2 and 3 require direct SSH access to EC2 instances and must be
+# run locally:
+#   make test-e2e-tier2   # ~$0.50, 20-30 min, needs AWS_PROFILE=spore-host-dev
+#   make test-e2e-tier3   # ~$2-5,  30-45 min, needs AWS_PROFILE=spore-host-dev
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'spawn/**'
+      - 'truffle/**'
+      - 'lagotto/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'spawn/**'
+      - 'truffle/**'
+      - 'lagotto/**'
   workflow_dispatch:
-    inputs:
-      tier:
-        description: 'Which tier to run'
-        required: true
-        type: choice
-        options:
-          - tier1
-          - tier2
-          - tier3
-          - all
-        default: tier1
 
 jobs:
-  # ── Tier 1 — API-only, no instances, ~free ────────────────────────────────
   e2e-tier1:
-    if: ${{ inputs.tier == 'tier1' || inputs.tier == 'all' }}
     name: 'E2E Tier 1 — API only'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -40,7 +46,7 @@ jobs:
           role-session-name: e2e-tier1
           aws-region: us-east-1
 
-      - name: Build spawn and truffle binaries
+      - name: Build spawn, truffle, and lagotto binaries
         run: |
           cd spawn && go build -o bin/spawn . && cd ..
           cd truffle && go build -o bin/truffle . && cd ..
@@ -51,106 +57,3 @@ jobs:
         run: |
           cd spawn
           go test -v -tags=e2e_tier1 -run TestTier1 -timeout 10m ./test/e2e/
-
-  # ── Tier 2 — Single instance per test, ~$0.50 ────────────────────────────
-  e2e-tier2:
-    if: ${{ inputs.tier == 'tier2' || inputs.tier == 'all' }}
-    name: 'E2E Tier 2 — Single instance'
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    permissions:
-      id-token: write
-      contents: read
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.26'
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ secrets.AWS_INTEGRATION_TEST_ROLE }}
-          role-session-name: e2e-tier2
-          aws-region: us-east-1
-          role-duration-seconds: 5400
-
-      - name: Generate SSH key
-        run: ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ''
-
-      - name: Build spawn binary
-        run: cd spawn && go build -o bin/spawn .
-
-      - name: Run E2E Tier 2
-        env:
-          # Use ambient OIDC credentials for both spawn launch and spawn list.
-          # Without this, spawn launch defaults to profile 'spore-host-dev' which
-          # doesn't exist in CI, causing it to launch into a different account than
-          # spawn list queries.
-          SPAWN_COMPUTE_PROFILE: ""
-        run: |
-          cd spawn
-          go test -v -tags=e2e_tier2 -run TestTier2 -parallel 4 -timeout 80m ./test/e2e/
-
-      - name: Emergency cleanup — terminate stray instances
-        if: always()
-        run: |
-          aws ec2 describe-instances \
-            --filters "Name=tag-key,Values=spawn:e2e-test-run" \
-                      "Name=instance-state-name,Values=pending,running,stopping,stopped" \
-            --query 'Reservations[].Instances[].InstanceId' \
-            --output text \
-          | tr '\t' '\n' | grep -v '^$' \
-          | xargs -r aws ec2 terminate-instances --instance-ids 2>/dev/null || true
-
-  # ── Tier 3 — Multi-instance, ~$2-5 ──────────────────────────────────────
-  e2e-tier3:
-    if: ${{ inputs.tier == 'tier3' || inputs.tier == 'all' }}
-    name: 'E2E Tier 3 — Multi-instance'
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    permissions:
-      id-token: write
-      contents: read
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.26'
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ secrets.AWS_INTEGRATION_TEST_ROLE }}
-          role-session-name: e2e-tier3
-          aws-region: us-east-1
-
-      - name: Generate SSH key
-        run: ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ''
-
-      - name: Build spawn binary
-        run: cd spawn && go build -o bin/spawn .
-
-      - name: Run E2E Tier 3
-        env:
-          SPAWN_COMPUTE_PROFILE: ""
-        run: |
-          cd spawn
-          go test -v -tags=e2e_tier3 -run TestTier3 -timeout 60m ./test/e2e/
-
-      - name: Emergency cleanup — terminate stray instances
-        if: always()
-        run: |
-          aws ec2 describe-instances \
-            --filters "Name=tag-key,Values=spawn:e2e-test-run" \
-                      "Name=instance-state-name,Values=pending,running,stopping,stopped" \
-            --query 'Reservations[].Instances[].InstanceId' \
-            --output text \
-          | tr '\t' '\n' | grep -v '^$' \
-          | xargs -r aws ec2 terminate-instances --instance-ids 2>/dev/null || true

@@ -114,25 +114,34 @@ test-integration-queue:
 	go test -v -tags=integration -run TestQueue -timeout 20m ./...
 
 # E2E test suite — three independently runnable tiers.
-# All tiers require: AWS credentials (AWS_PROFILE=spore-host-dev or env vars)
-# and a compiled spawn binary at ./bin/spawn (run 'make build' first).
+#
+# Tier 1 runs in CI (API-only, no instances).
+# Tiers 2 and 3 must be run locally — they require direct SSH access to EC2
+# instances which is not available from GitHub Actions runners.
+#
+# Prerequisites for tier 2 and 3:
+#   - AWS credentials: AWS_PROFILE=spore-host-dev (or exported env vars)
+#   - SSH key at ~/.ssh/id_rsa
+#   - Run 'make build' first
 
-# Tier 1 — AWS API-only, no instances launched, ~free, ~5 min
+# Tier 1 — AWS API-only, no instances launched, ~free, ~5 min (runs in CI)
 test-e2e-tier1: build
 	@echo "Running E2E tier 1 (API-only, no instances)..."
 	go test -v -tags=e2e_tier1 -run TestTier1 -timeout 10m ./test/e2e/
 
-# Tier 2 — Single instance per test, ~$0.50 total, ~20 min
+# Tier 2 — Single instance per test, ~$1 total, ~25 min (run locally only)
 test-e2e-tier2: build
-	@echo "Running E2E tier 2 (single-instance tests, ~\$$1)..."
-	go test -v -tags=e2e_tier2 -run TestTier2 -timeout 80m ./test/e2e/
+	@echo "Running E2E tier 2 (single-instance tests, ~\$$1) — run locally only..."
+	@echo "Requires: AWS_PROFILE=spore-host-dev, ~/.ssh/id_rsa"
+	go test -v -tags=e2e_tier2 -run TestTier2 -parallel 4 -timeout 45m ./test/e2e/
 
-# Tier 3 — Multi-instance (job arrays, sweeps, FSx, MPI), ~$2-5 total, ~35 min
+# Tier 3 — Multi-instance (job arrays, sweeps, FSx, MPI), ~$2-5, ~35 min (run locally only)
 test-e2e-tier3: build
-	@echo "Running E2E tier 3 (multi-instance tests, ~\$$2-5)..."
+	@echo "Running E2E tier 3 (multi-instance tests, ~\$$2-5) — run locally only..."
+	@echo "Requires: AWS_PROFILE=spore-host-dev, ~/.ssh/id_rsa"
 	go test -v -tags=e2e_tier3 -run TestTier3 -timeout 60m ./test/e2e/
 
-# Run all E2E tiers sequentially
+# Run all E2E tiers sequentially (tier 1 only is CI-safe)
 test-e2e: test-e2e-tier1 test-e2e-tier2 test-e2e-tier3
 
 # Go vulnerability check
