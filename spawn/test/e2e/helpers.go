@@ -109,12 +109,14 @@ func spawn(t *testing.T, args ...string) string {
 	return string(out)
 }
 
-// spawnMayFail runs spawn and returns output + error without failing the test.
+// spawnMayFail runs spawn and returns stdout + error without failing the test.
+// Stderr is discarded to keep stdout parseable as JSON when --output json is used.
 func spawnMayFail(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	cmd := exec.Command(spawnBin(t), args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	cmd.Env = os.Environ()
-	out, err := cmd.CombinedOutput()
+	cmd.Stderr = nil // discard stderr — progress messages corrupt JSON parsing
+	out, err := cmd.Output()
 	return string(out), err
 }
 
