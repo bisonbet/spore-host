@@ -78,6 +78,9 @@ jobs:
           aws-region: us-east-1
           role-duration-seconds: 5400
 
+      - name: Generate SSH key
+        run: ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ''
+
       - name: Build spawn binary
         run: cd spawn && go build -o bin/spawn .
 
@@ -127,6 +130,9 @@ jobs:
           role-to-assume: ${{ secrets.AWS_INTEGRATION_TEST_ROLE }}
           role-session-name: e2e-tier3
           aws-region: us-east-1
+
+      - name: Generate SSH key
+        run: ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ''
 
       - name: Build spawn binary
         run: cd spawn && go build -o bin/spawn .
