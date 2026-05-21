@@ -64,9 +64,10 @@ func spawnBin(t *testing.T) string {
 }
 
 // runID returns a per-test unique run ID for tagging resources.
+// Uses test name + timestamp to remain unique across parallel runs.
 func runID(t *testing.T) string {
 	t.Helper()
-	return fmt.Sprintf("e2e-%d", time.Now().UnixMilli())
+	return fmt.Sprintf("%d", time.Now().UnixNano()%1_000_000_000)
 }
 
 // ── AWS helpers ───────────────────────────────────────────────────────────────

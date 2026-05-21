@@ -3,9 +3,10 @@
 package e2e
 
 // Tier 2 — Single-instance tests. Launches one t3.small per test.
-// Estimated cost: ~$1 total, ~20-25 min.
+// Estimated cost: ~$1 total, ~20-25 min with -parallel 4.
+// All tests call t.Parallel() so go test -parallel N is effective.
 //
-// Run: go test -v -tags=e2e_tier2 ./test/e2e/ -run TestTier2 -timeout 35m
+// Run: go test -v -tags=e2e_tier2 ./test/e2e/ -run TestTier2 -parallel 4 -timeout 45m
 
 import (
 	"encoding/json"
@@ -18,6 +19,7 @@ import (
 
 // TestTier2_PublicIP verifies every launched instance gets a public IP (regression #308).
 func TestTier2_PublicIP(t *testing.T) {
+	t.Parallel()
 	name := "e2e-public-ip-" + runID(t)
 	inst := launchInstance(t, name)
 
@@ -29,6 +31,7 @@ func TestTier2_PublicIP(t *testing.T) {
 
 // TestTier2_ConnectSSH verifies spawn connect can reach the instance (interactive skip, one-shot).
 func TestTier2_ConnectSSH(t *testing.T) {
+	t.Parallel()
 	name := "e2e-connect-" + runID(t)
 	launchInstance(t, name)
 
@@ -41,6 +44,7 @@ func TestTier2_ConnectSSH(t *testing.T) {
 
 // TestTier2_CommandExecution verifies --command runs on the instance (regression #298).
 func TestTier2_CommandExecution(t *testing.T) {
+	t.Parallel()
 	name := "e2e-command-" + runID(t)
 	launchInstance(t, name, "--command", "echo SPAWN_COMMAND_RAN > /tmp/cmd-ran.txt")
 
@@ -56,6 +60,7 @@ func TestTier2_CommandExecution(t *testing.T) {
 
 // TestTier2_OnComplete verifies --on-complete terminate fires when sentinel file appears.
 func TestTier2_OnComplete(t *testing.T) {
+	t.Parallel()
 	name := "e2e-on-complete-" + runID(t)
 	launchInstance(t, name,
 		"--on-complete", "terminate",
@@ -73,6 +78,7 @@ func TestTier2_OnComplete(t *testing.T) {
 
 // TestTier2_PreStop verifies --pre-stop runs before termination.
 func TestTier2_PreStop(t *testing.T) {
+	t.Parallel()
 	name := "e2e-prestop-" + runID(t)
 	launchInstance(t, name,
 		"--on-complete", "terminate",
@@ -97,6 +103,7 @@ func TestTier2_PreStop(t *testing.T) {
 
 // TestTier2_ExtendTTL verifies spawn extend pushes the TTL deadline.
 func TestTier2_ExtendTTL(t *testing.T) {
+	t.Parallel()
 	name := "e2e-extend-" + runID(t)
 	launchInstance(t, name, "--ttl", "5m")
 
@@ -113,6 +120,7 @@ func TestTier2_ExtendTTL(t *testing.T) {
 
 // TestTier2_SpawnStop verifies spawn stop halts billing without deleting instance.
 func TestTier2_SpawnStop(t *testing.T) {
+	t.Parallel()
 	name := "e2e-stop-" + runID(t)
 	launchInstance(t, name)
 
@@ -127,6 +135,7 @@ func TestTier2_SpawnStop(t *testing.T) {
 
 // TestTier2_IAMPolicyApplied verifies --iam-policy adds permissions to the role (regression #299).
 func TestTier2_IAMPolicyApplied(t *testing.T) {
+	t.Parallel()
 	name := "e2e-iam-policy-" + runID(t)
 	launchInstance(t, name, "--iam-policy", "s3:ReadOnly")
 
@@ -145,6 +154,7 @@ func TestTier2_IAMPolicyApplied(t *testing.T) {
 
 // TestTier2_SporedStatus verifies spored is running and reports TTL.
 func TestTier2_SporedStatus(t *testing.T) {
+	t.Parallel()
 	name := "e2e-spored-status-" + runID(t)
 	launchInstance(t, name, "--ttl", "15m")
 
@@ -158,6 +168,7 @@ func TestTier2_SporedStatus(t *testing.T) {
 // TestTier2_CompoundSSHCommand verifies spawn connect -- 'cmd && cmd2' works
 // on a real instance (regression for #315).
 func TestTier2_CompoundSSHCommand(t *testing.T) {
+	t.Parallel()
 	name := "e2e-compound-ssh-" + runID(t)
 	launchInstance(t, name)
 
@@ -178,6 +189,7 @@ func TestTier2_CompoundSSHCommand(t *testing.T) {
 // TestTier2_FSxTagsWritten verifies spawn:fsx-id and spawn:fsx-mount-point
 // tags are written when --fsx-id is used (regression for #314).
 func TestTier2_FSxTagsWritten(t *testing.T) {
+	t.Parallel()
 	// Use a fake FSx ID — we're only testing that tags are written,
 	// not that the filesystem actually mounts.
 	name := "e2e-fsx-tags-" + runID(t)
@@ -201,6 +213,7 @@ func TestTier2_FSxTagsWritten(t *testing.T) {
 
 // TestTier2_SporedConfigSetGet verifies spored config set/get/list on a running instance.
 func TestTier2_SporedConfigSetGet(t *testing.T) {
+	t.Parallel()
 	name := "e2e-spored-config-" + runID(t)
 	launchInstance(t, name, "--ttl", "15m")
 
@@ -220,6 +233,7 @@ func TestTier2_SporedConfigSetGet(t *testing.T) {
 
 // TestTier2_SpawnListFilters verifies spawn list filtering by state and tag.
 func TestTier2_SpawnListFilters(t *testing.T) {
+	t.Parallel()
 	name := "e2e-list-filters-" + runID(t)
 	inst := launchInstance(t, name)
 
@@ -253,6 +267,7 @@ func TestTier2_SpawnListFilters(t *testing.T) {
 // TestTier2_SlurmConvert verifies slurm convert produces valid spawn params.
 // No instance is launched — this exercises the CLI parsing only.
 func TestTier2_SlurmConvert(t *testing.T) {
+	t.Parallel()
 	// Write a minimal sbatch script
 	f, err := os.CreateTemp("", "test-*.sbatch")
 	if err != nil {
@@ -279,6 +294,7 @@ func TestTier2_SlurmConvert(t *testing.T) {
 
 // TestTier2_SpawnStatus verifies spawn status works by name and ID.
 func TestTier2_SpawnStatus(t *testing.T) {
+	t.Parallel()
 	name := "e2e-status-" + runID(t)
 	inst := launchInstance(t, name, "--ttl", "15m")
 
@@ -295,6 +311,7 @@ func TestTier2_SpawnStatus(t *testing.T) {
 // TestTier2_BackgroundJob verifies spawn connect -- 'nohup cmd &' does not
 // exit 255 (regression for #315 — & backgrounding caused SSH to exit 255).
 func TestTier2_BackgroundJob(t *testing.T) {
+	t.Parallel()
 	name := "e2e-bg-job-" + runID(t)
 	launchInstance(t, name)
 
@@ -315,6 +332,7 @@ func TestTier2_BackgroundJob(t *testing.T) {
 // TestTier2_SporedComplete verifies spored complete creates the sentinel file
 // and triggers the on-complete action.
 func TestTier2_SporedComplete(t *testing.T) {
+	t.Parallel()
 	name := "e2e-spored-complete-" + runID(t)
 	launchInstance(t, name,
 		"--on-complete", "terminate",
@@ -332,6 +350,7 @@ func TestTier2_SporedComplete(t *testing.T) {
 // TestTier2_ExtendTTL_DeadlineMoved verifies spawn extend actually updates the
 // spawn:ttl-deadline tag, not just returns without error.
 func TestTier2_ExtendTTL_DeadlineMoved(t *testing.T) {
+	t.Parallel()
 	name := "e2e-extend-deadline-" + runID(t)
 	inst := launchInstance(t, name, "--ttl", "5m")
 
@@ -360,6 +379,7 @@ func TestTier2_ExtendTTL_DeadlineMoved(t *testing.T) {
 // TestTier2_NameResolutionPrefersRunning verifies that when two instances share
 // a name (stopped + running), spawn connect picks the running one (regression #313).
 func TestTier2_NameResolutionPrefersRunning(t *testing.T) {
+	t.Parallel()
 	rid := runID(t)
 	// Use a fixed base name so both instances share the same Name tag
 	baseName := "e2e-ambiguous-" + rid
@@ -385,6 +405,7 @@ func TestTier2_NameResolutionPrefersRunning(t *testing.T) {
 
 // TestTier2_SpawnValidate verifies spawn validate runs without crashing.
 func TestTier2_SpawnValidate(t *testing.T) {
+	t.Parallel()
 	out, err := spawnMayFail(t, "validate", "--infrastructure", "--region", testRegion)
 	if err != nil {
 		t.Logf("spawn validate returned non-zero (acceptable — may need elevated IAM): %v\n%s", err, out)
@@ -395,6 +416,7 @@ func TestTier2_SpawnValidate(t *testing.T) {
 
 // TestTier2_SpawnAvailability verifies spawn availability returns stats for a common instance type.
 func TestTier2_SpawnAvailability(t *testing.T) {
+	t.Parallel()
 	out, err := spawnMayFail(t, "availability", "--instance-type", testInstanceType, "--regions", testRegion)
 	if err != nil {
 		t.Logf("spawn availability returned error (may need launch history): %v\n%s", err, out)
@@ -406,6 +428,7 @@ func TestTier2_SpawnAvailability(t *testing.T) {
 // TestTier2_ListTagFilter verifies spawn list --tag key=value filtering
 // using the spawn:managed tag (always present on spawn instances).
 func TestTier2_ListTagFilter(t *testing.T) {
+	t.Parallel()
 	name := "e2e-tag-filter-" + runID(t)
 	inst := launchInstance(t, name)
 
@@ -432,6 +455,7 @@ func TestTier2_ListTagFilter(t *testing.T) {
 
 // TestTier2_HibernateAndResume verifies spawn hibernate saves state and spawn start resumes it.
 func TestTier2_HibernateAndResume(t *testing.T) {
+	t.Parallel()
 	name := "e2e-hibernate-" + runID(t)
 	// Hibernation requires --hibernate flag at launch time
 	launchInstance(t, name, "--hibernate")
@@ -459,6 +483,7 @@ func TestTier2_HibernateAndResume(t *testing.T) {
 // TestTier2_ConnectAutoStart verifies spawn connect automatically starts a stopped
 // instance and connects to it.
 func TestTier2_ConnectAutoStart(t *testing.T) {
+	t.Parallel()
 	name := "e2e-connect-autostart-" + runID(t)
 	launchInstance(t, name)
 
