@@ -390,6 +390,17 @@ func displaySageMakerQuotas(ctx context.Context, sqClient quotas.ServiceQuotasLi
 		rows = append(rows, row{instanceType, jobType, q.Value, q.Code})
 	}
 
+	// Sort by instance type then job type for stable, deterministic output.
+	// The AWS paginator returns quotas in non-deterministic order across runs,
+	// which would otherwise cause the table and --request codes to appear in
+	// different positions each time.
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].instanceType != rows[j].instanceType {
+			return rows[i].instanceType < rows[j].instanceType
+		}
+		return rows[i].jobType < rows[j].jobType
+	})
+
 	fmt.Println()
 	fmt.Println("╔════════════════════════════════════════════════════════╗")
 	fmt.Printf("║  🤖 SageMaker Quotas - %-30s ║\n", region)

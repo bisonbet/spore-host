@@ -45,7 +45,32 @@ Detailed status for one instance:
 ```sh
 spawn status my-instance
 spawn status i-0a1b2c3d4e5f
+spawn status my-instance -o json       # machine-readable
+spawn status my-instance --check-complete && echo "done"  # exit 0=complete, 1=failed, 2=running, 3=error
 ```
+
+**`--check-complete` exit codes** — useful for polling from scripts:
+
+| Exit | Meaning |
+|------|---------|
+| 0 | Completed |
+| 1 | Failed or cancelled |
+| 2 | Still running |
+| 3 | Error querying status |
+
+**JSON schema** (`-o json`) — key fields returned:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `instance_id` | string | EC2 instance ID |
+| `name` | string | Instance name tag |
+| `state` | string | `running`, `stopped`, `terminated`, … |
+| `public_ip` | string | Public IPv4 address |
+| `instance_type` | string | EC2 instance type |
+| `region` | string | AWS region |
+| `ttl` | string | Remaining TTL (e.g. `3h25m`) |
+| `on_complete` | string | Action on completion |
+| `tags` | object | All `spawn:*` tags as key-value map |
 
 ### `spawn stop` / `spawn hibernate` / `spawn start`
 
@@ -114,9 +139,56 @@ See [Slack Setup](/guides/slack-setup) or [Teams Setup](/guides/teams-setup) for
 
 **Pre-stop hooks** — a shell command that runs before any lifecycle-triggered stop or termination. Use it to save checkpoints, sync output to S3, or notify downstream systems.
 
+**Job arrays** — `spawn launch --count N` launches N identical instances. Each instance gets a set of environment variables so it knows its role:
+
+| Variable | Description |
+|----------|-------------|
+| `JOB_ARRAY_ID` | Unique array ID (UUID) |
+| `JOB_ARRAY_NAME` | Array name (from `--job-array-name`) |
+| `JOB_ARRAY_SIZE` | Total instances in the array |
+| `JOB_ARRAY_INDEX` | Zero-based index of this instance (0 … N-1) |
+
+Example — shard a dataset across 8 instances:
+```bash
+spawn launch data-proc --count 8 --instance-type c6a.xlarge --ttl 2h
+# On each instance:
+# CHUNK=$((total_chunks / JOB_ARRAY_SIZE))
+# START=$((JOB_ARRAY_INDEX * CHUNK))
+# process_data --start $START --count $CHUNK
+```
+
+**`--region` vs `--regions`** — `spawn` uses `--region` (singular, one value) since a launch targets a single region. `truffle` uses `--regions` / `-r` (plural, comma-separated) since it searches across multiple regions at once. When piping `truffle` output to `spawn`, use the single region from `truffle`'s result:
+```bash
+region=$(truffle spot c6a.xlarge --sort-by-price --pick-first | jq -r .region)
+spawn launch my-job --instance-type c6a.xlarge --region "$region"
+```
+
 ::: tip
 See [TTL vs idle timeout](/reference/configuration#ttl-vs-idle-timeout-how-they-interact) for a complete explanation with a worked timeline.
 :::
+
+## Programmatic access
+
+Use spawn from Python scripts, notebooks, or FastAPI backends via the [Python SDK](/guides/python-sdk):
+
+```python
+import spore
+
+# List running instances
+instances = spore.spawn.list()
+for inst in instances:
+    print(inst.name, inst.state, inst.ttl)
+
+# Poll status until complete
+inst = spore.spawn.status("my-job")
+inst.wait("terminated")
+```
+
+Or poll `spawn status` directly:
+```bash
+# Exit 0=complete, 1=failed, 2=running, 3=error
+spawn status my-job --check-complete
+```
 
 ## Full command reference
 
