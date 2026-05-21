@@ -525,7 +525,7 @@ spec:
 
   - name: launch-sweep
     container:
-      image: sporehost/spore-host:latest
+      image: sporedothost/spore-host:latest
       command: [sh, -c]
       args:
       - |
@@ -541,7 +541,7 @@ spec:
       parameters:
       - name: sweep-id
     container:
-      image: sporehost/spore-host:latest
+      image: sporedothost/spore-host:latest
       command: [sh, -c]
       args:
       - |
@@ -617,7 +617,7 @@ outputs:
 
 requirements:
   DockerRequirement:
-    dockerPull: sporehost/spore-host:latest
+    dockerPull: sporedothost/spore-host:latest
 ```
 
 **Workflow Definition (`spawn-workflow.cwl`):**
@@ -674,7 +674,7 @@ task spawn_sweep {
   }
 
   runtime {
-    docker: "sporehost/spore-host:latest"
+    docker: "sporedothost/spore-host:latest"
     memory: "4 GB"
     cpu: 2
   }
@@ -829,9 +829,9 @@ spawn is available as a Docker image for easy integration with containerized wor
 ### Pull Image
 
 ```bash
-docker pull sporehost/spore-host:latest
+docker pull sporedothost/spore-host:latest
 # or specific version
-docker pull sporehost/spore-host:latest
+docker pull sporedothost/spore-host:latest
 ```
 
 ### Basic Usage
@@ -840,7 +840,7 @@ docker pull sporehost/spore-host:latest
 docker run -v ~/.aws:/root/.aws \
     -v $(pwd):/workspace \
     -w /workspace \
-    sporehost/spore-host:latest \
+    sporedothost/spore-host:latest \
     launch --params sweep.yaml --detach
 ```
 
@@ -850,7 +850,7 @@ docker run -v ~/.aws:/root/.aws \
 docker run -v ~/.aws:/root/.aws \
     -v $(pwd):/workspace \
     -w /workspace \
-    sporehost/spore-host:latest \
+    sporedothost/spore-host:latest \
     launch --params sweep.yaml --detach --output-id /workspace/sweep_id.txt
 ```
 
@@ -864,7 +864,7 @@ docker run -v ~/.aws:/root/.aws \
       -v $HOME/.aws:/root/.aws \
       -v $GITHUB_WORKSPACE:/workspace \
       -w /workspace \
-      sporehost/spore-host:latest \
+      sporedothost/spore-host:latest \
       launch --params sweep.yaml --detach --wait --wait-timeout 2h
 ```
 
@@ -928,7 +928,7 @@ done
 ```bash
 # Mount AWS credentials directory
 docker run -v ~/.aws:/root/.aws:ro \
-    sporehost/spore-host:latest \
+    sporedothost/spore-host:latest \
     launch --params sweep.yaml --detach
 
 # Or use environment variables
@@ -936,7 +936,7 @@ docker run \
     -e AWS_ACCESS_KEY_ID \
     -e AWS_SECRET_ACCESS_KEY \
     -e AWS_SESSION_TOKEN \
-    sporehost/spore-host:latest \
+    sporedothost/spore-host:latest \
     launch --params sweep.yaml --detach
 ```
 
