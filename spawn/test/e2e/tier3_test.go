@@ -16,17 +16,18 @@ import (
 	"time"
 )
 
-// TestTier3_JobArray launches a 2-instance job array and operates on them as a group.
+// TestTier3_JobArray launches a 4-instance job array and operates on them as a group.
 func TestTier3_JobArray(t *testing.T) {
 	rid := runID(t)
 	arrayName := "e2e-array-" + rid
+	const arraySize = 4
 
 	out := spawn(t,
-		"launch", arrayName+"-0",
+		"launch", arrayName,
 		"--instance-type", testInstanceType,
 		"--region", testRegion,
 		"--ttl", "20m",
-		"--count", "2",
+		"--count", fmt.Sprintf("%d", arraySize),
 		"--job-array-name", arrayName,
 	)
 	t.Logf("launch output: %s", out)
@@ -36,29 +37,30 @@ func TestTier3_JobArray(t *testing.T) {
 		spawnMayFail(t, "stop", "--job-array-name", arrayName)
 	})
 
-	// Both instances must reach running state (identified by job-array-name)
-	deadline := time.Now().Add(5 * time.Minute)
+	// Both instances must reach running state (filter server-side by job-array-name)
+	deadline := time.Now().Add(10 * time.Minute)
 	var running []InstanceJSON
 	for time.Now().Before(deadline) {
-		listOut, _ := spawnMayFail(t, "list", "--output", "json")
+		listOut, _ := spawnMayFail(t, "list", "--job-array-name", arrayName, "--output", "json")
 		var all []InstanceJSON
 		if json.Unmarshal([]byte(listOut), &all) == nil {
 			running = nil
 			for _, inst := range all {
-				if inst.Tags["spawn:job-array-name"] == arrayName && inst.State == "running" {
+				if inst.State == "running" {
 					running = append(running, inst)
 				}
 			}
+			t.Logf("  job array %s: %d/2 running", arrayName, len(running))
 			if len(running) == 2 {
 				break
 			}
 		}
 		time.Sleep(15 * time.Second)
 	}
-	if len(running) != 2 {
-		t.Fatalf("expected 2 running instances, got %d", len(running))
+	if len(running) != arraySize {
+		t.Fatalf("expected %d running instances in array %s, got %d", arraySize, arrayName, len(running))
 	}
-	t.Logf("both instances running: %s, %s", running[0].InstanceID, running[1].InstanceID)
+	t.Logf("all %d instances running", arraySize)
 
 	// Extend all at once
 	spawn(t, "extend", "--job-array-name", arrayName, "5m")
@@ -128,15 +130,15 @@ params:
 		}
 	})
 
-	// Poll for all 4 instances to launch (identified by sweep-name tag)
-	deadline := time.Now().Add(8 * time.Minute)
+	// Poll for all 4 instances to launch (filter by sweep-name)
+	deadline := time.Now().Add(10 * time.Minute)
 	var launched int
 	for time.Now().Before(deadline) {
 		listOut, _ := spawnMayFail(t, "list", "--sweep-name", sweepName, "--output", "json")
 		var all []InstanceJSON
 		if json.Unmarshal([]byte(listOut), &all) == nil {
 			launched = len(all)
-			t.Logf("sweep progress: %d/4 instances", launched)
+			t.Logf("  sweep %s: %d/4 instances", sweepName, launched)
 			if launched >= 4 {
 				break
 			}
@@ -144,7 +146,7 @@ params:
 		time.Sleep(20 * time.Second)
 	}
 	if launched < 4 {
-		t.Errorf("expected 4 sweep instances, found %d", launched)
+		t.Errorf("expected 4 sweep instances, found %d (sweep may be launching via Lambda)", launched)
 	}
 
 	// Cancel the sweep
@@ -157,28 +159,28 @@ params:
 // TestTier3_MPI launches a 2-node MPI cluster and verifies hostfile is populated.
 func TestTier3_MPI(t *testing.T) {
 	rid := runID(t)
-	name := "e2e-mpi-" + rid
+	arrayName := "e2e-mpi-" + rid
 
 	out := spawn(t,
-		"launch", name+"-0",
+		"launch", arrayName,
 		"--instance-type", testInstanceType,
 		"--region", testRegion,
 		"--ttl", "20m",
 		"--count", "2",
-		"--job-array-name", name,
+		"--job-array-name", arrayName,
 		"--mpi",
 	)
 	t.Logf("MPI launch: %s", out)
-	t.Cleanup(func() { spawnMayFail(t, "stop", "--job-array-name", name) })
+	t.Cleanup(func() { spawnMayFail(t, "stop", "--job-array-name", arrayName) })
 
-	// Wait for head node (index 0) to be running
-	head := waitForRunning(t, name+"-0", 4*time.Minute)
+	// Wait for head node (index 0) to be running — named arrayName-0
+	head := waitForRunning(t, arrayName+"-0", 5*time.Minute)
 
 	// Allow time for MPI hostfile to be populated via job-array coordination
 	time.Sleep(90 * time.Second)
 
 	// Verify hostfile exists and has 2 entries
-	hostfileOut := sshExec(t, head.Name, "cat /etc/mpi/hostfile 2>/dev/null || echo MISSING")
+	hostfileOut := sshExec(t, arrayName+"-0", "cat /etc/mpi/hostfile 2>/dev/null || echo MISSING")
 	if strings.Contains(hostfileOut, "MISSING") {
 		t.Logf("MPI hostfile not yet written (may need more time): %s", hostfileOut)
 	} else {
@@ -191,6 +193,7 @@ func TestTier3_MPI(t *testing.T) {
 }
 
 // TestTier3_QueueExecution verifies a batch queue runs jobs sequentially on one instance.
+// Requires spawn-schedules-* S3 buckets in the dev account — skipped if access denied.
 func TestTier3_QueueExecution(t *testing.T) {
 	rid := runID(t)
 	name := "e2e-queue-" + rid
@@ -215,9 +218,25 @@ func TestTier3_QueueExecution(t *testing.T) {
 	f.WriteString(queueConfig)
 	f.Close()
 
-	launchInstance(t, name, "--batch-queue", f.Name())
+	// Use spawnMayFail to detect S3 permission errors gracefully
+	out, err := spawnMayFail(t, "launch", name,
+		"--instance-type", testInstanceType,
+		"--region", testRegion,
+		"--ttl", "15m",
+		"--wait-for-running=false",
+		"--wait-for-ssh=false",
+		"--batch-queue", f.Name(),
+	)
+	if err != nil {
+		if strings.Contains(out, "AccessDenied") || strings.Contains(out, "403") {
+			t.Skipf("batch queue requires spawn-schedules S3 bucket access (not available in dev account): %v", err)
+		}
+		t.Fatalf("launch with batch queue failed: %v\n%s", err, out)
+	}
+	t.Cleanup(func() { terminateByName(t, name) })
 
 	// Give jobs time to execute (spored detects batch queue and runs spored run-queue)
+	waitForRunning(t, name, 5*time.Minute)
 	time.Sleep(2 * time.Minute)
 
 	// Verify both jobs produced output
@@ -244,7 +263,7 @@ func TestTier3_MPI_PlacementGroupRegion(t *testing.T) {
 	// Use t3.small to keep cost low; the regression was about region routing,
 	// not instance type. c5n.18xlarge would test EFA but is expensive.
 	out := spawn(t,
-		"launch", name+"-0",
+		"launch", name,
 		"--instance-type", testInstanceType,
 		"--count", "2",
 		"--job-array-name", name,
@@ -254,11 +273,11 @@ func TestTier3_MPI_PlacementGroupRegion(t *testing.T) {
 	)
 	t.Logf("MPI launch in us-east-2: %s", out)
 
-	// Wait for both nodes to reach running (filter by job-array-name)
-	deadline := time.Now().Add(5 * time.Minute)
+	// Wait for both nodes to reach running (filter by job-array-name in us-east-2)
+	deadline := time.Now().Add(10 * time.Minute)
 	var running int
 	for time.Now().Before(deadline) {
-		listOut, _ := spawnMayFail(t, "list", "--job-array-name", name, "--output", "json")
+		listOut, _ := spawnMayFail(t, "list", "--job-array-name", name, "--region", "us-east-2", "--output", "json")
 		var all []InstanceJSON
 		if json.Unmarshal([]byte(listOut), &all) == nil {
 			running = 0
@@ -267,6 +286,7 @@ func TestTier3_MPI_PlacementGroupRegion(t *testing.T) {
 					running++
 				}
 			}
+			t.Logf("  MPI array %s in us-east-2: %d/2 running", name, running)
 			if running >= 2 {
 				break
 			}

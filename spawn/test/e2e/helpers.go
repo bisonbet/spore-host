@@ -124,12 +124,16 @@ func spawnMayFail(t *testing.T, args ...string) (string, error) {
 
 // InstanceJSON is the minimal shape returned by spawn list --output json.
 type InstanceJSON struct {
-	InstanceID      string `json:"instance_id"`
-	Name            string `json:"name"`
-	InstanceType    string `json:"instance_type"`
-	State           string `json:"state"`
-	Region          string `json:"region"`
-	PublicIP        string `json:"public_ip"`
+	InstanceID      string            `json:"instance_id"`
+	Name            string            `json:"name"`
+	InstanceType    string            `json:"instance_type"`
+	State           string            `json:"state"`
+	Region          string            `json:"region"`
+	PublicIP        string            `json:"public_ip"`
+	JobArrayName    string            `json:"job_array_name"`
+	JobArrayIndex   int               `json:"job_array_index"`
+	SweepName       string            `json:"sweep_name"`
+	SweepIndex      int               `json:"sweep_index"`
 	Tags            map[string]string `json:"tags"`
 }
 
