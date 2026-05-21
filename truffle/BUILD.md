@@ -20,7 +20,7 @@ sudo apt-get install make
 ### Quick Build
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/truffle.git
+git clone https://github.com/spore-host/truffle.git
 cd truffle
 
 # Download dependencies
@@ -71,9 +71,9 @@ VERSION="0.1.0"
 COMMIT=$(git rev-parse --short HEAD)
 DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-LDFLAGS="-X github.com/yourusername/truffle/cmd.Version=${VERSION} \
-         -X github.com/yourusername/truffle/cmd.GitCommit=${COMMIT} \
-         -X github.com/yourusername/truffle/cmd.BuildDate=${DATE} \
+LDFLAGS="-X github.com/spore-host/truffle/cmd.Version=${VERSION} \
+         -X github.com/spore-host/truffle/cmd.GitCommit=${COMMIT} \
+         -X github.com/spore-host/truffle/cmd.BuildDate=${DATE} \
          -s -w"
 
 go build -ldflags "${LDFLAGS}" -o truffle
@@ -263,8 +263,8 @@ test:
 # Formula/truffle.rb
 class Truffle < Formula
   desc "AWS EC2 instance type region finder"
-  homepage "https://github.com/yourusername/truffle"
-  url "https://github.com/yourusername/truffle/archive/v0.1.0.tar.gz"
+  homepage "https://github.com/spore-host/truffle"
+  url "https://github.com/spore-host/truffle/archive/v0.1.0.tar.gz"
   sha256 "..."
 
   depends_on "go" => :build
@@ -281,7 +281,7 @@ end
 
 Install:
 ```bash
-brew tap yourusername/tap
+brew tap spore-host/tap
 brew install truffle
 ```
 
@@ -290,7 +290,7 @@ brew install truffle
 ### Local Development
 ```bash
 # Clone and setup
-git clone https://github.com/yourusername/truffle.git
+git clone https://github.com/spore-host/truffle.git
 cd truffle
 
 # Install dependencies
