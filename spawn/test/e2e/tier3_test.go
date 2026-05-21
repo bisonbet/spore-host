@@ -195,7 +195,7 @@ func TestTier3_QueueExecution(t *testing.T) {
 	rid := runID(t)
 	name := "e2e-queue-" + rid
 
-	// Write a simple 2-job queue config
+	// Write a simple 2-job queue config (no S3 result upload — bucket not guaranteed to exist)
 	queueConfig := fmt.Sprintf(`{
   "queue_id": "%s",
   "queue_name": "e2e-test-queue",
@@ -204,10 +204,8 @@ func TestTier3_QueueExecution(t *testing.T) {
     {"job_id": "job2", "command": "echo job2_done > /tmp/job2.txt", "timeout": "2m", "depends_on": ["job1"]}
   ],
   "global_timeout": "10m",
-  "on_failure": "stop",
-  "result_s3_bucket": "spawn-results-%s",
-  "result_s3_prefix": "e2e-queues/%s/"
-}`, rid, testRegion, rid)
+  "on_failure": "stop"
+}`, rid)
 
 	f, err := os.CreateTemp("", "queue-*.json")
 	if err != nil {
@@ -243,9 +241,11 @@ func TestTier3_MPI_PlacementGroupRegion(t *testing.T) {
 	name := "e2e-pg-region-" + rid
 	t.Cleanup(func() { spawnMayFail(t, "stop", "--job-array-name", name) })
 
+	// Use t3.small to keep cost low; the regression was about region routing,
+	// not instance type. c5n.18xlarge would test EFA but is expensive.
 	out := spawn(t,
 		"launch", name+"-0",
-		"--instance-type", "c5n.18xlarge",
+		"--instance-type", testInstanceType,
 		"--count", "2",
 		"--job-array-name", name,
 		"--region", "us-east-2", // non-default region — was the regression trigger
