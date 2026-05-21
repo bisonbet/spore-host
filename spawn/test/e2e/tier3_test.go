@@ -174,7 +174,7 @@ func TestTier3_MPI(t *testing.T) {
 	t.Cleanup(func() { spawnMayFail(t, "stop", "--job-array-name", arrayName) })
 
 	// Wait for head node (index 0) to be running — named arrayName-0
-	head := waitForRunning(t, arrayName+"-0", 5*time.Minute)
+	waitForRunning(t, arrayName+"-0", 5*time.Minute)
 
 	// Allow time for MPI hostfile to be populated via job-array coordination
 	time.Sleep(90 * time.Second)
