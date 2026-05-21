@@ -11,7 +11,7 @@ import (
 	dynamodbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/spore-host/spore-host/spawn/pkg/testutil"
+	"github.com/spore-host/spawn/pkg/testutil"
 )
 
 const (

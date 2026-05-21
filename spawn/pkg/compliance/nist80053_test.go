@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spore-host/spore-host/spawn/pkg/aws"
+	"github.com/spore-host/spawn/pkg/aws"
 )
 
 func TestNIST80053ControlSet(t *testing.T) {

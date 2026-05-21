@@ -1,4 +1,4 @@
-module github.com/spore-host/spore-host/truffle
+module github.com/spore-host/truffle
 
 go 1.26
 

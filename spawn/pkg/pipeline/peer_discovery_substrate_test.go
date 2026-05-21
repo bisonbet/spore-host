@@ -7,7 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/spore-host/spore-host/spawn/pkg/testutil"
+	"github.com/spore-host/spawn/pkg/testutil"
 )
 
 func TestQueryPipelineInstances_TagBasedPeerList(t *testing.T) {

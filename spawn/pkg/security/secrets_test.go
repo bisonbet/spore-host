@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
-	"github.com/spore-host/spore-host/spawn/pkg/testutil"
+	"github.com/spore-host/spawn/pkg/testutil"
 )
 
 func TestMaskSecret(t *testing.T) {

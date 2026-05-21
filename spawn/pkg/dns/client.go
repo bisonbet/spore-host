@@ -14,7 +14,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
-	spawnconfig "github.com/spore-host/spore-host/spawn/pkg/config"
+	spawnconfig "github.com/spore-host/spawn/pkg/config"
 )
 
 const (

@@ -6,7 +6,7 @@ import (
 	"log"
 	"regexp"
 
-	"github.com/spore-host/spore-host/truffle/pkg/aws"
+	"github.com/spore-host/truffle/pkg/aws"
 )
 
 // Example: Basic instance type search using Truffle as a library

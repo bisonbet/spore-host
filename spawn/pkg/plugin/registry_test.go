@@ -3,7 +3,7 @@ package plugin_test
 import (
 	"testing"
 
-	"github.com/spore-host/spore-host/spawn/pkg/plugin"
+	"github.com/spore-host/spawn/pkg/plugin"
 )
 
 func TestParseRef(t *testing.T) {

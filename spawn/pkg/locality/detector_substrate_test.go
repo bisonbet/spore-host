@@ -7,7 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/efs"
 	"github.com/aws/aws-sdk-go-v2/service/fsx"
 	fsxtypes "github.com/aws/aws-sdk-go-v2/service/fsx/types"
-	"github.com/spore-host/spore-host/spawn/pkg/testutil"
+	"github.com/spore-host/spawn/pkg/testutil"
 )
 
 func TestDetectEFSRegion_Found(t *testing.T) {

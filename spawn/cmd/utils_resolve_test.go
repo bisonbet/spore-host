@@ -3,7 +3,7 @@ package cmd
 import (
 	"testing"
 
-	"github.com/spore-host/spore-host/spawn/pkg/aws"
+	"github.com/spore-host/spawn/pkg/aws"
 )
 
 // resolveInstanceFromList is a testable extraction of the name-matching logic

@@ -14,7 +14,7 @@ import (
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
-	"github.com/spore-host/spore-host/spawn/pkg/provider"
+	"github.com/spore-host/spawn/pkg/provider"
 )
 
 // notifyRequest mirrors the NotifyRequest struct in the spore-bot Lambda.

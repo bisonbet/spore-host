@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	spawnconfig "github.com/spore-host/spore-host/spawn/pkg/config"
+	spawnconfig "github.com/spore-host/spawn/pkg/config"
 )
 
 var defaultsCmd = &cobra.Command{

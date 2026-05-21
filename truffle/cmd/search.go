@@ -12,9 +12,9 @@ import (
 	"github.com/spore-host/libs/i18n"
 	"github.com/spore-host/libs/pricing"
 	"github.com/spf13/cobra"
-	"github.com/spore-host/spore-host/truffle/pkg/aws"
-	"github.com/spore-host/spore-host/truffle/pkg/output"
-	"github.com/spore-host/spore-host/truffle/pkg/progress"
+	"github.com/spore-host/truffle/pkg/aws"
+	"github.com/spore-host/truffle/pkg/output"
+	"github.com/spore-host/truffle/pkg/progress"
 )
 
 var (

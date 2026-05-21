@@ -3,7 +3,7 @@ package find
 import (
 	"testing"
 
-	"github.com/spore-host/spore-host/truffle/pkg/aws"
+	"github.com/spore-host/truffle/pkg/aws"
 )
 
 func TestExplainMatch(t *testing.T) {

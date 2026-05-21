@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spore-host/libs/i18n"
-	"github.com/spore-host/spore-host/spawn/pkg/aws"
-	"github.com/spore-host/spore-host/spawn/pkg/security"
+	"github.com/spore-host/spawn/pkg/aws"
+	"github.com/spore-host/spawn/pkg/security"
 )
 
 var configCmd = &cobra.Command{

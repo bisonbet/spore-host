@@ -31,7 +31,7 @@ import (
 	pricingtypes "github.com/aws/aws-sdk-go-v2/service/pricing/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/spore-host/libs/pricing"
-	"github.com/spore-host/spore-host/spawn/pkg/observability/tracing"
+	"github.com/spore-host/spawn/pkg/observability/tracing"
 )
 
 // Client wraps an AWS SDK configuration and provides EC2 lifecycle operations

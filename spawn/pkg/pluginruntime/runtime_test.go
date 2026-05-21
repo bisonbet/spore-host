@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spore-host/spore-host/spawn/pkg/plugin"
-	"github.com/spore-host/spore-host/spawn/pkg/provider"
+	"github.com/spore-host/spawn/pkg/plugin"
+	"github.com/spore-host/spawn/pkg/provider"
 )
 
 func newTestRuntime(t *testing.T) *Runtime {

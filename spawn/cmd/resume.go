@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/spore-host/spore-host/spawn/pkg/aws"
-	spawnconfig "github.com/spore-host/spore-host/spawn/pkg/config"
-	"github.com/spore-host/spore-host/spawn/pkg/platform"
-	"github.com/spore-host/spore-host/spawn/pkg/sweep"
+	"github.com/spore-host/spawn/pkg/aws"
+	spawnconfig "github.com/spore-host/spawn/pkg/config"
+	"github.com/spore-host/spawn/pkg/platform"
+	"github.com/spore-host/spawn/pkg/sweep"
 )
 
 var (

@@ -10,8 +10,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/spf13/cobra"
-	"github.com/spore-host/spore-host/spawn/pkg/availability"
-	spawnconfig "github.com/spore-host/spore-host/spawn/pkg/config"
+	"github.com/spore-host/spawn/pkg/availability"
+	spawnconfig "github.com/spore-host/spawn/pkg/config"
 )
 
 var (

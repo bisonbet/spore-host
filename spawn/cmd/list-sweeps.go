@@ -15,7 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/spf13/cobra"
-	spawnconfig "github.com/spore-host/spore-host/spawn/pkg/config"
+	spawnconfig "github.com/spore-host/spawn/pkg/config"
 )
 
 var (

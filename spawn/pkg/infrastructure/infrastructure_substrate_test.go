@@ -11,8 +11,8 @@ import (
 	lambdasvc "github.com/aws/aws-sdk-go-v2/service/lambda"
 	lambdatypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/spore-host/spore-host/spawn/pkg/config"
-	"github.com/spore-host/spore-host/spawn/pkg/testutil"
+	"github.com/spore-host/spawn/pkg/config"
+	"github.com/spore-host/spawn/pkg/testutil"
 )
 
 const (

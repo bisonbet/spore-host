@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/spf13/cobra"
-	"github.com/spore-host/spore-host/spawn/pkg/alerts"
+	"github.com/spore-host/spawn/pkg/alerts"
 )
 
 var (

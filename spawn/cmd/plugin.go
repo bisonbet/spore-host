@@ -18,7 +18,7 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/spf13/cobra"
-	"github.com/spore-host/spore-host/spawn/pkg/plugin"
+	"github.com/spore-host/spawn/pkg/plugin"
 )
 
 // plugin-level flags shared across subcommands

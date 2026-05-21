@@ -19,7 +19,7 @@ import (
 	lambdaTypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/spf13/cobra"
-	"github.com/spore-host/spore-host/spawn/pkg/autoscaler"
+	"github.com/spore-host/spawn/pkg/autoscaler"
 )
 
 var autoscaleCmd = &cobra.Command{

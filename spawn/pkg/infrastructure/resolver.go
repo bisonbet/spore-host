@@ -3,7 +3,7 @@ package infrastructure
 import (
 	"fmt"
 
-	"github.com/spore-host/spore-host/spawn/pkg/config"
+	"github.com/spore-host/spawn/pkg/config"
 )
 
 // Resolver resolves infrastructure resource names and ARNs

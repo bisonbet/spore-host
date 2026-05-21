@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/spore-host/spore-host/spawn/pkg/plugin"
-	"github.com/spore-host/spore-host/spawn/pkg/provider"
+	"github.com/spore-host/spawn/pkg/plugin"
+	"github.com/spore-host/spawn/pkg/provider"
 )
 
 // pushedKeyRe matches valid pushed key names (same constraints as POSIX env vars, max 64 chars).

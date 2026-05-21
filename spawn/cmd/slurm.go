@@ -7,7 +7,7 @@ import (
 	"os/exec"
 
 	"github.com/spf13/cobra"
-	"github.com/spore-host/spore-host/spawn/pkg/slurm"
+	"github.com/spore-host/spawn/pkg/slurm"
 	"gopkg.in/yaml.v3"
 )
 

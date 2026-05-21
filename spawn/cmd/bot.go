@@ -22,8 +22,8 @@ import (
 	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/spf13/cobra"
-	spawnconfig "github.com/spore-host/spore-host/spawn/pkg/config"
-	"github.com/spore-host/spore-host/spawn/pkg/tagprefix"
+	spawnconfig "github.com/spore-host/spawn/pkg/config"
+	"github.com/spore-host/spawn/pkg/tagprefix"
 )
 
 const (

@@ -1,4 +1,4 @@
-module github.com/spore-host/spore-host/spawn
+module github.com/spore-host/spawn
 
 go 1.26
 

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spore-host/spore-host/spawn/pkg/plugin"
+	"github.com/spore-host/spawn/pkg/plugin"
 	"gopkg.in/yaml.v3"
 )
 

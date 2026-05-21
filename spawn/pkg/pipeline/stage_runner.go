@@ -15,7 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/spore-host/spore-host/spawn/pkg/tagprefix"
+	"github.com/spore-host/spawn/pkg/tagprefix"
 )
 
 // StageRunner executes a pipeline stage with data handoff

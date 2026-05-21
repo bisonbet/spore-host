@@ -9,9 +9,9 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/spf13/cobra"
-	spawnconfig "github.com/spore-host/spore-host/spawn/pkg/config"
-	"github.com/spore-host/spore-host/spawn/pkg/scheduler"
-	"github.com/spore-host/spore-host/spawn/pkg/staging"
+	spawnconfig "github.com/spore-host/spawn/pkg/config"
+	"github.com/spore-host/spawn/pkg/scheduler"
+	"github.com/spore-host/spawn/pkg/staging"
 	"gopkg.in/yaml.v3"
 )
 

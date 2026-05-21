@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/spore-host/spore-host/spawn/pkg/aws"
+	"github.com/spore-host/spawn/pkg/aws"
 )
 
 // Baseline represents NIST 800-53 security control baselines

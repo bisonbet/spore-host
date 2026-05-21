@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spore-host/spore-host/spawn/pkg/aws"
+	"github.com/spore-host/spawn/pkg/aws"
 )
 
 // TestFormatDuration validates duration formatting for various time ranges

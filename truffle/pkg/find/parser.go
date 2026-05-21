@@ -28,7 +28,7 @@ import (
 	"strings"
 
 	"github.com/spore-host/libs/catalog"
-	"github.com/spore-host/spore-host/truffle/pkg/metadata"
+	"github.com/spore-host/truffle/pkg/metadata"
 )
 
 // TokenType represents the type of a parsed token

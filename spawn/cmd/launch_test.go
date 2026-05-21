@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spore-host/spore-host/spawn/pkg/testutil"
+	"github.com/spore-host/spawn/pkg/testutil"
 )
 
 // TestParseTTL tests TTL duration parsing

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/spore-host/spore-host/spawn/pkg/testutil"
+	"github.com/spore-host/spawn/pkg/testutil"
 )
 
 func TestValidateInstanceTypeForPlacementGroup(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/spore-host/spore-host/spawn/pkg/observability"
+	"github.com/spore-host/spawn/pkg/observability"
 )
 
 // Server provides HTTP endpoints for metrics

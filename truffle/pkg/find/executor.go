@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/spore-host/libs/catalog"
-	"github.com/spore-host/spore-host/truffle/pkg/aws"
+	"github.com/spore-host/truffle/pkg/aws"
 )
 
 // SearchCriteria holds the compiled, ready-to-execute form of a [ParsedQuery].

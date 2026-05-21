@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/spore-host/spore-host/spawn/pkg/plugin"
+	"github.com/spore-host/spawn/pkg/plugin"
 )
 
 // healthFailThreshold is the number of consecutive failures before a plugin

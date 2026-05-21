@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spore-host/spore-host/spawn/pkg/aws"
+	"github.com/spore-host/spawn/pkg/aws"
 )
 
 // ComplianceReport represents a compliance validation report

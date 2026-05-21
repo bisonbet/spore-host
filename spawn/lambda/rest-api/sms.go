@@ -18,8 +18,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamodbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	spawnclient "github.com/spore-host/spore-host/spawn/pkg/aws"
-	"github.com/spore-host/spore-host/spawn/pkg/sms"
+	spawnclient "github.com/spore-host/spawn/pkg/aws"
+	"github.com/spore-host/spawn/pkg/sms"
 )
 
 // handleSMSIncoming processes a Twilio webhook for an inbound SMS reply.

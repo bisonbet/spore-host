@@ -12,7 +12,7 @@ import (
 	"github.com/olekukonko/tablewriter/tw"
 	"github.com/spore-host/libs/i18n"
 	"github.com/spf13/cobra"
-	"github.com/spore-host/spore-host/truffle/pkg/quotas"
+	"github.com/spore-host/truffle/pkg/quotas"
 )
 
 var (

@@ -1,4 +1,4 @@
-module github.com/spore-host/spore-host/lagotto
+module github.com/spore-host/lagotto
 
 go 1.26
 

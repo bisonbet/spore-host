@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spore-host/spore-host/spawn/pkg/plugin"
+	"github.com/spore-host/spawn/pkg/plugin"
 )
 
 // pluginNameRe matches valid plugin names: alphanumeric, dash, underscore; 1–64 chars.

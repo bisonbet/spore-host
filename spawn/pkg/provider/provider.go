@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/spore-host/spore-host/spawn/pkg/observability"
+	"github.com/spore-host/spawn/pkg/observability"
 )
 
 // Identity represents the instance's identity information

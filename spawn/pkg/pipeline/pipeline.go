@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/spore-host/spore-host/spawn/pkg/queue"
+	"github.com/spore-host/spawn/pkg/queue"
 )
 
 // Pipeline represents a multi-stage workflow configuration

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/spore-host/spore-host/spawn/pkg/aws"
-	"github.com/spore-host/spore-host/spawn/pkg/config"
+	"github.com/spore-host/spawn/pkg/aws"
+	"github.com/spore-host/spawn/pkg/config"
 )
 
 // Validator orchestrates compliance validation and enforcement

@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/spore-host/spore-host/spawn/pkg/aws"
-	paramparser "github.com/spore-host/spore-host/spawn/pkg/params"
+	"github.com/spore-host/spawn/pkg/aws"
+	paramparser "github.com/spore-host/spawn/pkg/params"
 )
 
 // SweepConfig represents a parameter sweep configuration
