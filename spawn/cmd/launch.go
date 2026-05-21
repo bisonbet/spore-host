@@ -112,6 +112,7 @@ var (
 	// FSx Lustre
 	fsxCreate                bool
 	fsxID                    string
+	fsxSkipValidate          bool
 	fsxRecall                string
 	fsxStorageCapacity       int32
 	fsxThroughput            int32
@@ -264,6 +265,7 @@ func init() {
 	// FSx Lustre
 	launchCmd.Flags().BoolVar(&fsxCreate, "fsx-create", false, "Create new FSx Lustre filesystem with S3 backing")
 	launchCmd.Flags().StringVar(&fsxID, "fsx-id", "", "Existing FSx Lustre filesystem ID to mount (fs-xxx)")
+	launchCmd.Flags().BoolVar(&fsxSkipValidate, "fsx-skip-validate", false, "Skip FSx filesystem validation (for testing)")
 	launchCmd.Flags().StringVar(&fsxRecall, "fsx-recall", "", "Recall FSx filesystem by stack name (recreate from S3)")
 	launchCmd.Flags().Int32Var(&fsxStorageCapacity, "fsx-storage-capacity", 1200, "FSx storage capacity in GB (1200, 2400, or increments of 2400)")
 	launchCmd.Flags().Int32Var(&fsxThroughput, "fsx-throughput", 125, "FSx PERSISTENT_2 throughput in MB/s/TiB (125, 250, 500, or 1000; default: 125)")
@@ -1290,7 +1292,7 @@ func launchWithProgress(ctx context.Context, awsClient *aws.Client, config *aws.
 		prog.Complete("Creating FSx Lustre filesystem")
 		time.Sleep(300 * time.Millisecond)
 
-	} else if fsxID != "" {
+	} else if fsxID != "" && !fsxSkipValidate {
 		prog.Start("Getting FSx filesystem info")
 
 		fsxInfo, err = awsClient.GetFSxFilesystem(ctx, fsxID, config.Region)
