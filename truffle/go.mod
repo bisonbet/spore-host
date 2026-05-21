@@ -13,9 +13,7 @@ require (
 	github.com/olekukonko/tablewriter v1.1.4
 	github.com/scttfrdmn/substrate v0.65.0
 	github.com/spf13/cobra v1.10.2
-	github.com/spore-host/spore-host/pkg/catalog v0.0.0-00010101000000-000000000000
-	github.com/spore-host/spore-host/pkg/i18n v0.0.0-00010101000000-000000000000
-	github.com/spore-host/spore-host/pkg/pricing v0.0.0-00010101000000-000000000000
+	github.com/spore-host/libs v0.35.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -88,23 +86,3 @@ require (
 	modernc.org/memory v1.9.1 // indirect
 	modernc.org/sqlite v1.37.0 // indirect
 )
-
-// Package truffle provides AWS EC2 instance type discovery and analysis.
-//
-// This module can be used both as a CLI tool and as a library in other Go applications.
-//
-// Key packages:
-//   - github.com/spore-host/spore-host/truffle/pkg/aws: AWS EC2 client and data structures
-//   - github.com/spore-host/spore-host/truffle/pkg/output: Output formatting utilities
-//
-// Example usage as a library:
-//   import "github.com/spore-host/spore-host/truffle/pkg/aws"
-//
-//   client, _ := aws.NewClient(ctx)
-//   results, _ := client.SearchInstanceTypes(ctx, regions, matcher, opts)
-
-replace github.com/spore-host/spore-host/pkg/catalog => ../pkg/catalog
-
-replace github.com/spore-host/spore-host/pkg/i18n => ../pkg/i18n
-
-replace github.com/spore-host/spore-host/pkg/pricing => ../pkg/pricing

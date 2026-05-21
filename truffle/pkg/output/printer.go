@@ -11,7 +11,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
 	"github.com/olekukonko/tablewriter/tw"
-	"github.com/spore-host/spore-host/pkg/i18n"
+	"github.com/spore-host/libs/i18n"
 	"github.com/spore-host/spore-host/truffle/pkg/aws"
 	"gopkg.in/yaml.v3"
 )

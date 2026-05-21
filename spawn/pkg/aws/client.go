@@ -30,7 +30,7 @@ import (
 	awspricing "github.com/aws/aws-sdk-go-v2/service/pricing"
 	pricingtypes "github.com/aws/aws-sdk-go-v2/service/pricing/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	"github.com/spore-host/spore-host/pkg/pricing"
+	"github.com/spore-host/libs/pricing"
 	"github.com/spore-host/spore-host/spawn/pkg/observability/tracing"
 )
 

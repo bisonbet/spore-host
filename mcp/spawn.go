@@ -8,7 +8,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	spawnclient "github.com/spore-host/spore-host/spawn/pkg/aws"
+	spawnclient "github.com/spore-host/spawn/pkg/aws"
 )
 
 func registerSpawnTools(s *server.MCPServer) {

@@ -16,7 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/spore-host/spore-host/pkg/i18n"
+	"github.com/spore-host/libs/i18n"
 	"github.com/spore-host/spore-host/spawn/pkg/agent"
 	"github.com/spore-host/spore-host/spawn/pkg/observability/metrics"
 	"github.com/spore-host/spore-host/spawn/pkg/observability/tracing"

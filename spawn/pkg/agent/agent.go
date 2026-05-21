@@ -23,7 +23,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/spore-host/spore-host/pkg/i18n"
+	"github.com/spore-host/libs/i18n"
 	"github.com/spore-host/spore-host/spawn/pkg/dns"
 	"github.com/spore-host/spore-host/spawn/pkg/plugin"
 	"github.com/spore-host/spore-host/spawn/pkg/pluginruntime"

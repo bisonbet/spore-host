@@ -1,11 +1,11 @@
-module github.com/spore-host/spore-host/mcp
+module github.com/spore-host/spore-host-mcp
 
 go 1.26
 
 require (
 	github.com/mark3labs/mcp-go v0.49.0
-	github.com/spore-host/spore-host/spawn v0.0.0
-	github.com/spore-host/spore-host/truffle v0.0.0
+	github.com/spore-host/spawn v0.35.0
+	github.com/spore-host/truffle v0.35.0
 )
 
 require (
@@ -44,8 +44,7 @@ require (
 	github.com/google/jsonschema-go v0.4.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
-	github.com/spore-host/spore-host/pkg/catalog v0.0.0-00010101000000-000000000000 // indirect
-	github.com/spore-host/spore-host/pkg/pricing v0.0.0-00010101000000-000000000000 // indirect
+	github.com/spore-host/libs v0.35.0 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws v0.68.0 // indirect
@@ -55,12 +54,4 @@ require (
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	golang.org/x/sys v0.44.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-)
-
-replace (
-	github.com/spore-host/spore-host/pkg/catalog => ../pkg/catalog
-	github.com/spore-host/spore-host/pkg/i18n => ../pkg/i18n
-	github.com/spore-host/spore-host/pkg/pricing => ../pkg/pricing
-	github.com/spore-host/spore-host/spawn => ../spawn
-	github.com/spore-host/spore-host/truffle => ../truffle
 )

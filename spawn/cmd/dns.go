@@ -7,7 +7,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	"github.com/spore-host/spore-host/pkg/i18n"
+	"github.com/spore-host/libs/i18n"
 
 	"github.com/spore-host/spore-host/spawn/pkg/aws"
 	"github.com/spore-host/spore-host/spawn/pkg/dns"

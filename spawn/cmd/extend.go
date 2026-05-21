@@ -14,7 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
-	"github.com/spore-host/spore-host/pkg/i18n"
+	"github.com/spore-host/libs/i18n"
 	"github.com/spore-host/spore-host/spawn/pkg/audit"
 	"github.com/spore-host/spore-host/spawn/pkg/aws"
 )

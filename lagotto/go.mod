@@ -15,9 +15,10 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/scttfrdmn/substrate v0.65.0
 	github.com/spf13/cobra v1.10.2
-	github.com/spore-host/spore-host/pkg/i18n v0.0.0-00010101000000-000000000000
-	github.com/spore-host/spore-host/spawn v0.0.0-00010101000000-000000000000
-	github.com/spore-host/spore-host/truffle v0.0.0
+	github.com/spore-host/lagotto v0.35.0
+	github.com/spore-host/libs v0.35.0
+	github.com/spore-host/spawn v0.35.0
+	github.com/spore-host/truffle v0.35.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -66,7 +67,6 @@ require (
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/spf13/viper v1.21.0 // indirect
-	github.com/spore-host/spore-host/pkg/pricing v0.0.0-00010101000000-000000000000 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws v0.68.0 // indirect
@@ -91,11 +91,4 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.9.1 // indirect
 	modernc.org/sqlite v1.37.0 // indirect
-)
-
-replace (
-	github.com/spore-host/spore-host/pkg/i18n => ../pkg/i18n
-	github.com/spore-host/spore-host/pkg/pricing => ../pkg/pricing
-	github.com/spore-host/spore-host/spawn => ../spawn
-	github.com/spore-host/spore-host/truffle => ../truffle
 )

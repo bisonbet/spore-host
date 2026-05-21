@@ -1,7 +1,7 @@
 package watcher
 
 import (
-	truffleaws "github.com/spore-host/spore-host/truffle/pkg/aws"
+	truffleaws "github.com/spore-host/truffle/pkg/aws"
 )
 
 // MatchCandidate represents a potential capacity match to evaluate against a watch.

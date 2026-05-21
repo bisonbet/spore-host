@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spore-host/spore-host/pkg/i18n"
+	"github.com/spore-host/libs/i18n"
 	"github.com/spore-host/spore-host/spawn/pkg/aws"
 	"github.com/spore-host/spore-host/spawn/pkg/platform"
 )

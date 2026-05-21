@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/spore-host/spore-host/pkg/catalog"
+	"github.com/spore-host/libs/catalog"
 	spawnclient "github.com/spore-host/spore-host/spawn/pkg/aws"
 	"github.com/spore-host/spore-host/spawn/pkg/platform"
 )

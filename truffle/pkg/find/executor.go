@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/spore-host/spore-host/pkg/catalog"
+	"github.com/spore-host/libs/catalog"
 	"github.com/spore-host/spore-host/truffle/pkg/aws"
 )
 

@@ -6,7 +6,7 @@ import (
 	"text/tabwriter"
 	"os"
 
-	"github.com/spore-host/spore-host/pkg/catalog"
+	"github.com/spore-host/libs/catalog"
 	"github.com/spf13/cobra"
 )
 

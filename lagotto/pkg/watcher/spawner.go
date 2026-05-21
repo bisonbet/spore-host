@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	spawnaws "github.com/spore-host/spore-host/spawn/pkg/aws"
+	spawnaws "github.com/spore-host/spawn/pkg/aws"
 )
 
 // Spawner launches instances via spawn's library when a watch matches.
