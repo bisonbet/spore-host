@@ -820,19 +820,19 @@ other = "Apenas instâncias GPU/ML"
 other = "Resumo de Reserva de Capacidade:"
 
 [truffle.capacity.summary.total]
-other = "Total de Reservas"
+other = "Total de Reservas: {{.Count}}"
 
 [truffle.capacity.summary.active]
-other = "Reservas Ativas"
+other = "Reservas Ativas: {{.Count}}"
 
 [truffle.capacity.summary.instance_types]
-other = "Tipos de Instância"
+other = "Tipos de Instância: {{.Count}}"
 
 [truffle.capacity.summary.regions]
-other = "Regiões"
+other = "Regiões: {{.Count}}"
 
 [truffle.capacity.summary.azs]
-other = "Zonas de Disponibilidade"
+other = "Zonas de Disponibilidade: {{.Count}}"
 
 [truffle.capacity.summary.total_capacity]
 other = "Capacidade Total: {{.Count}} instâncias"

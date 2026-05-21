@@ -1201,19 +1201,19 @@ other = "formato de salida no soportado: {{.Format}}"
 other = "Resumen de reservas de capacidad:"
 
 [truffle.capacity.summary.total]
-other = "Reservas totales"
+other = "Reservas totales: {{.Count}}"
 
 [truffle.capacity.summary.active]
-other = "Reservas activas"
+other = "Reservas activas: {{.Count}}"
 
 [truffle.capacity.summary.instance_types]
-other = "Tipos de instancia"
+other = "Tipos de instancia: {{.Count}}"
 
 [truffle.capacity.summary.regions]
-other = "Regiones"
+other = "Regiones: {{.Count}}"
 
 [truffle.capacity.summary.azs]
-other = "Zonas de disponibilidad"
+other = "Zonas de disponibilidad: {{.Count}}"
 
 [truffle.capacity.summary.total_capacity]
 other = "Capacidad total: {{.Count}} instancias"

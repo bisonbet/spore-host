@@ -820,19 +820,19 @@ other = "GPU/MLインスタンスのみ"
 other = "キャパシティ予約サマリー:"
 
 [truffle.capacity.summary.total]
-other = "総予約数"
+other = "総予約数: {{.Count}}"
 
 [truffle.capacity.summary.active]
-other = "アクティブな予約"
+other = "アクティブな予約: {{.Count}}"
 
 [truffle.capacity.summary.instance_types]
-other = "インスタンスタイプ"
+other = "インスタンスタイプ: {{.Count}}"
 
 [truffle.capacity.summary.regions]
-other = "リージョン"
+other = "リージョン: {{.Count}}"
 
 [truffle.capacity.summary.azs]
-other = "アベイラビリティーゾーン"
+other = "アベイラビリティーゾーン: {{.Count}}"
 
 [truffle.capacity.summary.total_capacity]
 other = "総キャパシティ: {{.Count}}インスタンス"

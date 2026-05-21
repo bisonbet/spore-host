@@ -1010,19 +1010,19 @@ other = "format de sortie non pris en charge : {{.Format}}"
 other = "Résumé des réservations de capacité :"
 
 [truffle.capacity.summary.total]
-other = "Réservations totales "
+other = "Réservations totales: {{.Count}}"
 
 [truffle.capacity.summary.active]
-other = "Réservations actives "
+other = "Réservations actives: {{.Count}}"
 
 [truffle.capacity.summary.instance_types]
-other = "Types d'instance "
+other = "Types d'instance: {{.Count}}"
 
 [truffle.capacity.summary.regions]
-other = "Régions "
+other = "Régions: {{.Count}}"
 
 [truffle.capacity.summary.azs]
-other = "Zones de disponibilité "
+other = "Zones de disponibilité: {{.Count}}"
 
 [truffle.capacity.summary.total_capacity]
 other = "Capacité totale : {{.Count}} instances"

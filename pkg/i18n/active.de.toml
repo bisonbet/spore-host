@@ -1010,19 +1010,19 @@ other = "nicht unterstütztes Ausgabeformat: {{.Format}}"
 other = "Kapazitätsreservierungs-Zusammenfassung:"
 
 [truffle.capacity.summary.total]
-other = "Gesamtreservierungen"
+other = "Gesamtreservierungen: {{.Count}}"
 
 [truffle.capacity.summary.active]
-other = "Aktive Reservierungen"
+other = "Aktive Reservierungen: {{.Count}}"
 
 [truffle.capacity.summary.instance_types]
-other = "Instanztypen"
+other = "Instanztypen: {{.Count}}"
 
 [truffle.capacity.summary.regions]
-other = "Regionen"
+other = "Regionen: {{.Count}}"
 
 [truffle.capacity.summary.azs]
-other = "Verfügbarkeitszonen"
+other = "Verfügbarkeitszonen: {{.Count}}"
 
 [truffle.capacity.summary.total_capacity]
 other = "Gesamtkapazität: {{.Count}} Instanzen"
