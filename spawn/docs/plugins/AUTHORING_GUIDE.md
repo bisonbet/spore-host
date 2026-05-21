@@ -255,7 +255,7 @@ remote:
 ## Plugin reference formats
 
 ```bash
-# Official registry (scttfrdmn/spore-plugins, main branch)
+# Official registry (spore-host/spore-plugins, main branch)
 spawn plugin install tailscale
 
 # Official registry, pinned to a tag

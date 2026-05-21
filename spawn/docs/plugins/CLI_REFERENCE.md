@@ -41,7 +41,7 @@ spawn plugin install <plugin-ref> --instance <id> [--config key=value]...
 
 | Format | Description |
 |---|---|
-| `name` | Official registry (`scttfrdmn/spore-plugins`, main branch) |
+| `name` | Official registry (`spore-host/spore-plugins`, main branch) |
 | `name@v1.2.0` | Official registry, pinned to tag |
 | `github:owner/repo/name` | Custom GitHub repository |
 | `github:owner/repo/name@v2.0.0` | Custom GitHub repository, pinned to tag |
