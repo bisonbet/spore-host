@@ -377,6 +377,11 @@ func runLaunch(cmd *cobra.Command, args []string) error {
 	}
 
 	// Check for batch queue mode FIRST
+	// Capture positional name argument early (before batch queue / sweep early returns)
+	if len(args) > 0 && name == "" {
+		name = args[0]
+	}
+
 	if batchQueueFile != "" || queueTemplate != "" {
 		return launchWithBatchQueue(ctx, plat, auditLog)
 	}
