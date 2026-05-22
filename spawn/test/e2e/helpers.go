@@ -37,8 +37,9 @@ import (
 // ── Configuration ─────────────────────────────────────────────────────────────
 
 const (
-	testRegion      = "us-east-1"
-	testInstanceType = "t3.small" // cheap, available everywhere
+	testRegion       = "us-east-1"
+	testInstanceType = "t3.small"  // cheap, available everywhere
+	testMPIInstance  = "c5.large"  // supports cluster placement groups (required for --mpi)
 	testTagKey      = "spawn:e2e-test-run"
 	defaultTTL      = "15m"
 )

@@ -109,12 +109,15 @@ params:
 	f.WriteString(paramContent)
 	f.Close()
 
+	// Use --no-detach to launch directly without Lambda orchestration,
+	// so instances appear immediately in spawn list.
 	out := spawn(t,
 		"launch", sweepName,
 		"--region", testRegion,
 		"--param-file", f.Name(),
 		"--sweep-name", sweepName,
 		"--max-concurrent", "4",
+		"--no-detach",
 		"--yes",
 	)
 	t.Logf("sweep launch: %s", out)
@@ -176,7 +179,7 @@ func TestTier3_MPI(t *testing.T) {
 
 	out := spawn(t,
 		"launch", arrayName,
-		"--instance-type", testInstanceType,
+		"--instance-type", testMPIInstance, // c5.large supports cluster placement groups
 		"--region", testRegion,
 		"--ttl", "20m",
 		"--count", "2",
@@ -231,8 +234,8 @@ func TestTier3_QueueExecution(t *testing.T) {
 	f.WriteString(queueConfig)
 	f.Close()
 
-	// Use spawnMayFail to detect S3 permission errors gracefully
-	out, err := spawnMayFail(t, "launch", name,
+	// Use CombinedOutput (via exec directly) to capture stderr for S3 error detection
+	queueCmd := exec.Command(spawnBin(t), "launch", name,
 		"--instance-type", testInstanceType,
 		"--region", testRegion,
 		"--ttl", "15m",
@@ -240,12 +243,17 @@ func TestTier3_QueueExecution(t *testing.T) {
 		"--wait-for-ssh=false",
 		"--batch-queue", f.Name(),
 	)
+	queueCmd.Env = os.Environ()
+	combined, err := queueCmd.CombinedOutput()
+	out := string(combined)
 	if err != nil {
-		if strings.Contains(out, "AccessDenied") || strings.Contains(out, "403") {
-			t.Skipf("batch queue requires spawn-schedules S3 bucket access (not available in dev account): %v", err)
+		if strings.Contains(out, "AccessDenied") || strings.Contains(out, "403") ||
+			strings.Contains(out, "upload to s3") || strings.Contains(out, "spawn-schedules") {
+			t.Skipf("batch queue requires spawn-schedules S3 bucket (not in dev account): %v", err)
 		}
 		t.Fatalf("launch with batch queue failed: %v\n%s", err, out)
 	}
+	t.Cleanup(func() { terminateByName(t, name) })
 	t.Cleanup(func() { terminateByName(t, name) })
 
 	// Give jobs time to execute (spored detects batch queue and runs spored run-queue)
@@ -273,11 +281,11 @@ func TestTier3_MPI_PlacementGroupRegion(t *testing.T) {
 	name := "e2e-pg-region-" + rid
 	t.Cleanup(func() { spawnMayFail(t, "stop", "--job-array-name", name) })
 
-	// Use t3.small to keep cost low; the regression was about region routing,
-	// not instance type. c5n.18xlarge would test EFA but is expensive.
+	// Use c5.large — supports cluster placement groups (t3.small does not).
+	// The regression was about region routing, not instance type.
 	out := spawn(t,
 		"launch", name,
-		"--instance-type", testInstanceType,
+		"--instance-type", testMPIInstance,
 		"--count", "2",
 		"--job-array-name", name,
 		"--region", "us-east-2", // non-default region — was the regression trigger
