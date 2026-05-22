@@ -3317,7 +3317,12 @@ func launchWithBatchQueue(ctx context.Context, plat *platform.Platform, auditLog
 	}
 
 	// Build launch config
+	instanceName := name
+	if instanceName == "" {
+		instanceName = fmt.Sprintf("%s-%s", queueConfig.QueueName, queueConfig.QueueID)
+	}
 	launchConfig := &aws.LaunchConfig{
+		Name:         instanceName,
 		InstanceType: instanceType,
 		Region:       queueRegion,
 		AMI:          resolvedAMI,
@@ -3327,12 +3332,7 @@ func launchWithBatchQueue(ctx context.Context, plat *platform.Platform, auditLog
 		SpotMaxPrice: spotMaxPrice,
 		Hibernate:    hibernate,
 		TTL:          queueConfig.GlobalTimeout, // Use global timeout as TTL
-		DNSName:      func() string {
-			if name != "" {
-				return name
-			}
-			return fmt.Sprintf("%s-%s", queueConfig.QueueName, queueConfig.QueueID)
-		}(),
+		DNSName:      instanceName,
 	}
 
 	// Add IAM role if specified
