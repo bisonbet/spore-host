@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -212,7 +211,7 @@ func TestTier3_MPI(t *testing.T) {
 }
 
 // TestTier3_QueueExecution verifies a batch queue runs jobs sequentially on one instance.
-// Requires spawn-schedules-* S3 buckets in the dev account — skipped if access denied.
+// The spawn-schedules-{region} bucket is created on demand if it doesn't exist.
 func TestTier3_QueueExecution(t *testing.T) {
 	rid := runID(t)
 	name := "e2e-queue-" + rid
@@ -237,8 +236,8 @@ func TestTier3_QueueExecution(t *testing.T) {
 	f.WriteString(queueConfig)
 	f.Close()
 
-	// Use CombinedOutput (via exec directly) to capture stderr for S3 error detection
-	queueCmd := exec.Command(spawnBin(t), "launch", name,
+	// Launch with batch queue — bucket is created on demand if it doesn't exist
+	launchOut, launchErr := spawnMayFail(t, "launch", name,
 		"--instance-type", testInstanceType,
 		"--region", testRegion,
 		"--ttl", "15m",
@@ -246,15 +245,8 @@ func TestTier3_QueueExecution(t *testing.T) {
 		"--wait-for-ssh=false",
 		"--batch-queue", f.Name(),
 	)
-	queueCmd.Env = os.Environ()
-	combined, err := queueCmd.CombinedOutput()
-	out := string(combined)
-	if err != nil {
-		if strings.Contains(out, "AccessDenied") || strings.Contains(out, "403") ||
-			strings.Contains(out, "upload to s3") || strings.Contains(out, "spawn-schedules") {
-			t.Skipf("batch queue requires spawn-schedules S3 bucket (not in dev account): %v", err)
-		}
-		t.Fatalf("launch with batch queue failed: %v\n%s", err, out)
+	if launchErr != nil {
+		t.Fatalf("launch with batch queue failed: %v\n%s", launchErr, launchOut)
 	}
 	t.Cleanup(func() { terminateByName(t, name) })
 	t.Cleanup(func() { terminateByName(t, name) })

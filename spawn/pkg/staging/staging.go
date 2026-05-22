@@ -265,10 +265,74 @@ func (c *Client) DeleteStaging(ctx context.Context, stagingID string) error {
 	return err
 }
 
-// UploadScheduleParams uploads a parameter file for scheduled execution
+// ensureSchedulesBucket creates the spawn-schedules-{region} bucket if it doesn't exist.
+// The bucket is created in the caller's AWS account (the EC2 account) so instances can
+// read from it without cross-account access. A 7-day lifecycle rule on the schedules/
+// prefix keeps the bucket clean automatically.
+func (c *Client) ensureSchedulesBucket(ctx context.Context, bucket, region string) error {
+	// Fast path: bucket already exists
+	_, err := c.s3Client.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: aws.String(bucket)})
+	if err == nil {
+		return nil
+	}
+
+	// Create the bucket
+	input := &s3.CreateBucketInput{
+		Bucket: aws.String(bucket),
+	}
+	// us-east-1 must NOT include LocationConstraint; all other regions must
+	if region != "us-east-1" {
+		input.CreateBucketConfiguration = &s3types.CreateBucketConfiguration{
+			LocationConstraint: s3types.BucketLocationConstraint(region),
+		}
+	}
+	if _, err := c.s3Client.CreateBucket(ctx, input); err != nil {
+		return fmt.Errorf("create schedules bucket %s: %w", bucket, err)
+	}
+
+	// Block public access
+	c.s3Client.PutPublicAccessBlock(ctx, &s3.PutPublicAccessBlockInput{ //nolint:errcheck
+		Bucket: aws.String(bucket),
+		PublicAccessBlockConfiguration: &s3types.PublicAccessBlockConfiguration{
+			BlockPublicAcls:       aws.Bool(true),
+			BlockPublicPolicy:     aws.Bool(true),
+			IgnorePublicAcls:      aws.Bool(true),
+			RestrictPublicBuckets: aws.Bool(true),
+		},
+	})
+
+	// 7-day lifecycle rule — queue configs are ephemeral
+	expireDays := int32(7)
+	_, err = c.s3Client.PutBucketLifecycleConfiguration(ctx, &s3.PutBucketLifecycleConfigurationInput{
+		Bucket: aws.String(bucket),
+		LifecycleConfiguration: &s3types.BucketLifecycleConfiguration{
+			Rules: []s3types.LifecycleRule{
+				{
+					ID:     aws.String("expire-schedules"),
+					Status: s3types.ExpirationStatusEnabled,
+					Filter: &s3types.LifecycleRuleFilter{
+						Prefix: aws.String("schedules/"),
+					},
+					Expiration: &s3types.LifecycleExpiration{
+						Days: &expireDays,
+					},
+				},
+			},
+		},
+	})
+	return err
+}
+
+// UploadScheduleParams uploads a parameter file for scheduled execution.
+// The destination bucket is created on demand if it doesn't exist.
 func (c *Client) UploadScheduleParams(ctx context.Context, localPath, scheduleID, region string) (string, int64, string, error) {
 	bucket := fmt.Sprintf("spawn-schedules-%s", region)
 	s3Key := fmt.Sprintf("schedules/%s/params.yaml", scheduleID)
+
+	// Create the bucket if it doesn't exist
+	if err := c.ensureSchedulesBucket(ctx, bucket, region); err != nil {
+		return "", 0, "", fmt.Errorf("ensure schedules bucket: %w", err)
+	}
 
 	// Open file
 	file, err := os.Open(localPath)
