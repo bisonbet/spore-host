@@ -37,7 +37,7 @@ func TestTier3_JobArray(t *testing.T) {
 		spawnMayFail(t, "stop", "--job-array-name", arrayName)
 	})
 
-	// Both instances must reach running state (filter server-side by job-array-name)
+	// Wait for all instances to reach running state
 	deadline := time.Now().Add(10 * time.Minute)
 	var running []InstanceJSON
 	for time.Now().Before(deadline) {
@@ -45,13 +45,17 @@ func TestTier3_JobArray(t *testing.T) {
 		var all []InstanceJSON
 		if json.Unmarshal([]byte(listOut), &all) == nil {
 			running = nil
+			var pending int
 			for _, inst := range all {
-				if inst.State == "running" {
+				switch inst.State {
+				case "running":
 					running = append(running, inst)
+				case "pending":
+					pending++
 				}
 			}
-			t.Logf("  job array %s: %d/2 running", arrayName, len(running))
-			if len(running) == 2 {
+			t.Logf("  job array %s: %d running, %d pending (total %d)", arrayName, len(running), pending, len(all))
+			if len(running) == arraySize {
 				break
 			}
 		}
