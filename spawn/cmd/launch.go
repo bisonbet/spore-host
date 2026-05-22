@@ -3303,7 +3303,7 @@ func launchWithBatchQueue(ctx context.Context, plat *platform.Platform, auditLog
 
 	// Generate user-data with queue runner bootstrap
 	s3URL := fmt.Sprintf("s3://%s/%s", scheduleBucket, s3Key)
-	queueUserData := userdata.GenerateQueueRunnerUserData(s3URL, queueConfig.QueueID)
+	queueUserData := encodeUserData(userdata.GenerateQueueRunnerUserData(s3URL, queueConfig.QueueID))
 
 	// Auto-detect AMI if not specified
 	resolvedAMI := ami
