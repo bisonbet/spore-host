@@ -71,10 +71,12 @@ export default defineConfig({
           collapsed: false,
           items: [
             { text: 'Parameter Sweeps', link: '/guides/parameter-sweeps' },
+            { text: 'Job Arrays', link: '/guides/job-arrays' },
+            { text: 'Batch Queues', link: '/guides/batch-queue' },
             { text: 'MPI Clusters', link: '/guides/mpi' },
             { text: 'Pipelines', link: '/guides/pipelines' },
             { text: 'Plugins', link: '/guides/plugins' },
-            { text: 'Job Arrays', link: '/guides/job-arrays' },
+            { text: 'Nextflow (nf-spawn)', link: '/guides/nextflow' },
           ]
         },
         {

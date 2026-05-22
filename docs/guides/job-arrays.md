@@ -38,9 +38,9 @@ spawn stop --job-array-name data-proc    # stop all
 spawn extend --job-array-name data-proc 2h    # extend all at once
 ```
 
-## Available template variables
+## Available template variables and environment variables
 
-Inside `--command`, you can use:
+Inside `--command`, you can use template substitutions:
 
 | Variable | Value |
 |----------|-------|
@@ -48,6 +48,26 @@ Inside `--command`, you can use:
 | `{total}` | Total instance count |
 | `{name}` | This instance's name (e.g. `data-proc-3`) |
 | `{job_array_id}` | Unique identifier for the array |
+
+On the instance, the same values are available as shell environment variables (set in `/etc/profile.d/job-array.sh`):
+
+| Variable | Description |
+|----------|-------------|
+| `JOB_ARRAY_INDEX` | Zero-based index of this instance |
+| `JOB_ARRAY_SIZE` | Total number of instances in the array |
+| `JOB_ARRAY_NAME` | Job array name (from `--job-array-name`) |
+| `JOB_ARRAY_ID` | Unique array ID (UUID) |
+
+These are available in any shell script or process running on the instance:
+
+```bash
+#!/bin/bash
+# This script runs on each instance in the array
+CHUNK_SIZE=$((TOTAL_RECORDS / JOB_ARRAY_SIZE))
+START=$((JOB_ARRAY_INDEX * CHUNK_SIZE))
+END=$((START + CHUNK_SIZE))
+python process.py --start $START --end $END --output s3://bucket/results/$JOB_ARRAY_INDEX/
+```
 
 ## Collecting results
 
