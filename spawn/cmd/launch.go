@@ -3327,7 +3327,12 @@ func launchWithBatchQueue(ctx context.Context, plat *platform.Platform, auditLog
 		SpotMaxPrice: spotMaxPrice,
 		Hibernate:    hibernate,
 		TTL:          queueConfig.GlobalTimeout, // Use global timeout as TTL
-		DNSName:      fmt.Sprintf("%s-%s", queueConfig.QueueName, queueConfig.QueueID),
+		DNSName:      func() string {
+			if name != "" {
+				return name
+			}
+			return fmt.Sprintf("%s-%s", queueConfig.QueueName, queueConfig.QueueID)
+		}(),
 	}
 
 	// Add IAM role if specified
