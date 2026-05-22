@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -265,29 +266,42 @@ func (c *Client) DeleteStaging(ctx context.Context, stagingID string) error {
 	return err
 }
 
-// ensureSchedulesBucket creates the spawn-schedules-{region} bucket if it doesn't exist.
-// The bucket is created in the caller's AWS account (the EC2 account) so instances can
-// read from it without cross-account access. A 7-day lifecycle rule on the schedules/
-// prefix keeps the bucket clean automatically.
-func (c *Client) ensureSchedulesBucket(ctx context.Context, bucket, region string) error {
-	// Fast path: bucket already exists
+// resolveSchedulesBucket returns the S3 bucket name to use for schedules in this account.
+// It prefers the shared name (spawn-schedules-{region}) but falls back to an account-scoped
+// name (spawn-schedules-{accountID}-{region}) if the shared name is owned by another account.
+// The bucket is created on demand with a 7-day lifecycle rule if it doesn't exist.
+func (c *Client) resolveSchedulesBucket(ctx context.Context, region string) (string, error) {
+	preferred := fmt.Sprintf("spawn-schedules-%s", region)
+	fallback := fmt.Sprintf("spawn-schedules-%s-%s", c.accountID, region)
+
+	// Try preferred name first
+	if bucket, err := c.ensureBucket(ctx, preferred, region); err == nil {
+		return bucket, nil
+	}
+	// Fall back to account-scoped name
+	return c.ensureBucket(ctx, fallback, region)
+}
+
+// ensureBucket ensures a single named bucket exists; returns the name if it does (or was created).
+// Returns an error if the bucket is owned by another account or creation fails.
+func (c *Client) ensureBucket(ctx context.Context, bucket, region string) (string, error) {
 	_, err := c.s3Client.HeadBucket(ctx, &s3.HeadBucketInput{Bucket: aws.String(bucket)})
 	if err == nil {
-		return nil
+		return bucket, nil // already exists in our account
 	}
 
-	// Create the bucket
-	input := &s3.CreateBucketInput{
-		Bucket: aws.String(bucket),
-	}
-	// us-east-1 must NOT include LocationConstraint; all other regions must
+	// Attempt to create
+	input := &s3.CreateBucketInput{Bucket: aws.String(bucket)}
 	if region != "us-east-1" {
 		input.CreateBucketConfiguration = &s3types.CreateBucketConfiguration{
 			LocationConstraint: s3types.BucketLocationConstraint(region),
 		}
 	}
-	if _, err := c.s3Client.CreateBucket(ctx, input); err != nil {
-		return fmt.Errorf("create schedules bucket %s: %w", bucket, err)
+	if _, createErr := c.s3Client.CreateBucket(ctx, input); createErr != nil {
+		if strings.Contains(createErr.Error(), "BucketAlreadyOwnedByYou") {
+			return bucket, nil // we own it
+		}
+		return "", createErr // BucketAlreadyExists (other account) or other error
 	}
 
 	// Block public access
@@ -320,19 +334,17 @@ func (c *Client) ensureSchedulesBucket(ctx context.Context, bucket, region strin
 			},
 		},
 	})
-	return err
+	return bucket, err
 }
 
 // UploadScheduleParams uploads a parameter file for scheduled execution.
-// The destination bucket is created on demand if it doesn't exist.
+// The destination bucket is resolved (and created) on demand.
 func (c *Client) UploadScheduleParams(ctx context.Context, localPath, scheduleID, region string) (string, int64, string, error) {
-	bucket := fmt.Sprintf("spawn-schedules-%s", region)
-	s3Key := fmt.Sprintf("schedules/%s/params.yaml", scheduleID)
-
-	// Create the bucket if it doesn't exist
-	if err := c.ensureSchedulesBucket(ctx, bucket, region); err != nil {
-		return "", 0, "", fmt.Errorf("ensure schedules bucket: %w", err)
+	bucket, err := c.resolveSchedulesBucket(ctx, region)
+	if err != nil {
+		return "", 0, "", fmt.Errorf("resolve schedules bucket: %w", err)
 	}
+	s3Key := fmt.Sprintf("schedules/%s/params.yaml", scheduleID)
 
 	// Open file
 	file, err := os.Open(localPath)
