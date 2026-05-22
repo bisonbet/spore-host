@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -236,8 +237,9 @@ func TestTier3_QueueExecution(t *testing.T) {
 	f.WriteString(queueConfig)
 	f.Close()
 
-	// Launch with batch queue — bucket is created on demand if it doesn't exist
-	launchOut, launchErr := spawnMayFail(t, "launch", name,
+	// Launch with batch queue — bucket is created on demand if it doesn't exist.
+	// Use combined output to capture stderr (where bucket/S3 errors appear).
+	queueCmd := exec.Command(spawnBin(t), "launch", name,
 		"--instance-type", testInstanceType,
 		"--region", testRegion,
 		"--ttl", "15m",
@@ -245,9 +247,12 @@ func TestTier3_QueueExecution(t *testing.T) {
 		"--wait-for-ssh=false",
 		"--batch-queue", f.Name(),
 	)
+	queueCmd.Env = os.Environ()
+	combined, launchErr := queueCmd.CombinedOutput()
 	if launchErr != nil {
-		t.Fatalf("launch with batch queue failed: %v\n%s", launchErr, launchOut)
+		t.Fatalf("launch with batch queue failed: %v\n%s", launchErr, string(combined))
 	}
+	t.Logf("queue launch: %s", string(combined)[:min(len(combined), 300)])
 	t.Cleanup(func() { terminateByName(t, name) })
 	t.Cleanup(func() { terminateByName(t, name) })
 
