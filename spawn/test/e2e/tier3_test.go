@@ -112,6 +112,7 @@ params:
 
 	// Use --no-detach to launch directly without Lambda orchestration,
 	// so instances appear immediately in spawn list.
+	// --ttl required when using --no-detach (safety check).
 	out := spawn(t,
 		"launch", sweepName,
 		"--region", testRegion,
@@ -119,6 +120,7 @@ params:
 		"--sweep-name", sweepName,
 		"--max-concurrent", "4",
 		"--no-detach",
+		"--ttl", "20m",
 		"--yes",
 	)
 	t.Logf("sweep launch: %s", out)
