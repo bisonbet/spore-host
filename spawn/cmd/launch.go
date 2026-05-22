@@ -3361,6 +3361,15 @@ func launchWithBatchQueue(ctx context.Context, plat *platform.Platform, auditLog
 		return fmt.Errorf("failed to initialize AWS client: %w", err)
 	}
 
+	// Set up SSH key pair if not specified
+	if launchConfig.KeyName == "" {
+		keyName, err := setupSSHKey(ctx, awsClient, queueRegion, plat)
+		if err != nil {
+			return fmt.Errorf("failed to setup SSH key: %w", err)
+		}
+		launchConfig.KeyName = keyName
+	}
+
 	// Launch instance
 	fmt.Fprintf(os.Stderr, "\n🚀 Launching instance...\n")
 	instance, err := awsClient.Launch(ctx, *launchConfig)
