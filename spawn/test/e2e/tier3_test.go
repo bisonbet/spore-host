@@ -37,24 +37,28 @@ func TestTier3_JobArray(t *testing.T) {
 		spawnMayFail(t, "stop", "--job-array-name", arrayName)
 	})
 
-	// Wait for all instances to reach running state
+	// Wait for all instances to reach running state.
+	// Use Name prefix filter (client-side) rather than --job-array-name to avoid
+	// EC2 tag propagation lag — tags may not be visible for 30-60s after launch.
 	deadline := time.Now().Add(10 * time.Minute)
 	var running []InstanceJSON
 	for time.Now().Before(deadline) {
-		listOut, _ := spawnMayFail(t, "list", "--job-array-name", arrayName, "--output", "json")
+		listOut, _ := spawnMayFail(t, "list", "--region", testRegion, "--output", "json")
 		var all []InstanceJSON
 		if json.Unmarshal([]byte(listOut), &all) == nil {
 			running = nil
 			var pending int
 			for _, inst := range all {
-				switch inst.State {
-				case "running":
-					running = append(running, inst)
-				case "pending":
-					pending++
+				if inst.JobArrayName == arrayName || strings.HasPrefix(inst.Name, arrayName+"-") {
+					switch inst.State {
+					case "running":
+						running = append(running, inst)
+					case "pending":
+						pending++
+					}
 				}
 			}
-			t.Logf("  job array %s: %d running, %d pending (total %d)", arrayName, len(running), pending, len(all))
+			t.Logf("  job array %s: %d running, %d pending", arrayName, len(running), pending)
 			if len(running) == arraySize {
 				break
 			}
@@ -134,14 +138,19 @@ params:
 		}
 	})
 
-	// Poll for all 4 instances to launch (filter by sweep-name)
+	// Poll for all 4 instances to launch — use name prefix to avoid tag propagation lag
 	deadline := time.Now().Add(10 * time.Minute)
 	var launched int
 	for time.Now().Before(deadline) {
-		listOut, _ := spawnMayFail(t, "list", "--sweep-name", sweepName, "--output", "json")
+		listOut, _ := spawnMayFail(t, "list", "--region", testRegion, "--output", "json")
 		var all []InstanceJSON
 		if json.Unmarshal([]byte(listOut), &all) == nil {
-			launched = len(all)
+			launched = 0
+			for _, inst := range all {
+				if inst.SweepName == sweepName || strings.HasPrefix(inst.Name, sweepName+"-") {
+					launched++
+				}
+			}
 			t.Logf("  sweep %s: %d/4 instances", sweepName, launched)
 			if launched >= 4 {
 				break
@@ -277,16 +286,16 @@ func TestTier3_MPI_PlacementGroupRegion(t *testing.T) {
 	)
 	t.Logf("MPI launch in us-east-2: %s", out)
 
-	// Wait for both nodes to reach running (filter by job-array-name in us-east-2)
+	// Wait for both nodes to reach running — use name prefix to avoid tag propagation lag
 	deadline := time.Now().Add(10 * time.Minute)
 	var running int
 	for time.Now().Before(deadline) {
-		listOut, _ := spawnMayFail(t, "list", "--job-array-name", name, "--region", "us-east-2", "--output", "json")
+		listOut, _ := spawnMayFail(t, "list", "--region", "us-east-2", "--output", "json")
 		var all []InstanceJSON
 		if json.Unmarshal([]byte(listOut), &all) == nil {
 			running = 0
 			for _, inst := range all {
-				if inst.State == "running" {
+				if (inst.JobArrayName == name || strings.HasPrefix(inst.Name, name+"-")) && inst.State == "running" {
 					running++
 				}
 			}
