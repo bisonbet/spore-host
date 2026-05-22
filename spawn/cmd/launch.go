@@ -3335,9 +3335,13 @@ func launchWithBatchQueue(ctx context.Context, plat *platform.Platform, auditLog
 		launchConfig.IamInstanceProfile = iamRole
 	}
 
-	// Add network config if specified
-	launchConfig.SecurityGroupIDs = []string{sgID}
-	launchConfig.SubnetID = subnetID
+	// Add network config if specified (sgID may be empty — let spawn auto-create)
+	if sgID != "" {
+		launchConfig.SecurityGroupIDs = []string{sgID}
+	}
+	if subnetID != "" {
+		launchConfig.SubnetID = subnetID
+	}
 
 	// CRITICAL SAFETY CHECK: Prevent zombie instances
 	// If neither TTL nor idle timeout are set, default to 1h idle timeout
