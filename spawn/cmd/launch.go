@@ -3295,21 +3295,32 @@ func launchWithBatchQueue(ctx context.Context, plat *platform.Platform, auditLog
 
 	// Upload to S3
 	stagingClient := staging.NewClient(devCfg, accountID)
-	s3Key, size, _, err := stagingClient.UploadScheduleParams(ctx, tmpFile.Name(), queueConfig.QueueID, queueRegion)
+	scheduleBucket, s3Key, size, _, err := stagingClient.UploadScheduleParams(ctx, tmpFile.Name(), queueConfig.QueueID, queueRegion)
 	if err != nil {
 		return fmt.Errorf("failed to upload queue config: %w", err)
 	}
 	fmt.Fprintf(os.Stderr, "✓ Uploaded: %s (%.2f KB)\n", s3Key, float64(size)/1024)
 
 	// Generate user-data with queue runner bootstrap
-	s3URL := fmt.Sprintf("s3://spawn-schedules-%s/%s", queueRegion, s3Key)
+	s3URL := fmt.Sprintf("s3://%s/%s", scheduleBucket, s3Key)
 	queueUserData := userdata.GenerateQueueRunnerUserData(s3URL, queueConfig.QueueID)
+
+	// Auto-detect AMI if not specified
+	resolvedAMI := ami
+	if resolvedAMI == "" {
+		awsClientForAMI, amiErr := aws.NewClient(ctx)
+		if amiErr == nil {
+			if detected, amiErr2 := awsClientForAMI.GetRecommendedAMI(ctx, queueRegion, instanceType); amiErr2 == nil {
+				resolvedAMI = detected
+			}
+		}
+	}
 
 	// Build launch config
 	launchConfig := &aws.LaunchConfig{
 		InstanceType: instanceType,
 		Region:       queueRegion,
-		AMI:          ami,
+		AMI:          resolvedAMI,
 		KeyName:      keyPair,
 		UserData:     queueUserData,
 		Spot:         spot,

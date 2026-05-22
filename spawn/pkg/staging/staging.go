@@ -339,17 +339,19 @@ func (c *Client) ensureBucket(ctx context.Context, bucket, region string) (strin
 
 // UploadScheduleParams uploads a parameter file for scheduled execution.
 // The destination bucket is resolved (and created) on demand.
-func (c *Client) UploadScheduleParams(ctx context.Context, localPath, scheduleID, region string) (string, int64, string, error) {
+// UploadScheduleParams uploads a parameter file for scheduled execution.
+// Returns (bucket, s3Key, size, sha256, error).
+func (c *Client) UploadScheduleParams(ctx context.Context, localPath, scheduleID, region string) (string, string, int64, string, error) {
 	bucket, err := c.resolveSchedulesBucket(ctx, region)
 	if err != nil {
-		return "", 0, "", fmt.Errorf("resolve schedules bucket: %w", err)
+		return "", "", 0, "", fmt.Errorf("resolve schedules bucket: %w", err)
 	}
 	s3Key := fmt.Sprintf("schedules/%s/params.yaml", scheduleID)
 
 	// Open file
 	file, err := os.Open(localPath)
 	if err != nil {
-		return "", 0, "", fmt.Errorf("open file: %w", err)
+		return "", "", 0, "", fmt.Errorf("open file: %w", err)
 	}
 	defer func() { _ = file.Close() }()
 
@@ -357,13 +359,13 @@ func (c *Client) UploadScheduleParams(ctx context.Context, localPath, scheduleID
 	hash := sha256.New()
 	size, err := io.Copy(hash, file)
 	if err != nil {
-		return "", 0, "", fmt.Errorf("calculate hash: %w", err)
+		return "", "", 0, "", fmt.Errorf("calculate hash: %w", err)
 	}
 	sha256sum := fmt.Sprintf("%x", hash.Sum(nil))
 
 	// Reset file pointer
 	if _, err := file.Seek(0, 0); err != nil {
-		return "", 0, "", fmt.Errorf("seek file: %w", err)
+		return "", "", 0, "", fmt.Errorf("seek file: %w", err)
 	}
 
 	// Upload to S3
@@ -378,8 +380,8 @@ func (c *Client) UploadScheduleParams(ctx context.Context, localPath, scheduleID
 		Tagging: aws.String("Project=spawn&Component=scheduler&ScheduleID=" + scheduleID),
 	})
 	if err != nil {
-		return "", 0, "", fmt.Errorf("upload to s3: %w", err)
+		return "", "", 0, "", fmt.Errorf("upload to s3: %w", err)
 	}
 
-	return s3Key, size, sha256sum, nil
+	return bucket, s3Key, size, sha256sum, nil
 }
