@@ -254,11 +254,14 @@ func TestTier3_QueueExecution(t *testing.T) {
 	}
 	t.Logf("queue launch: %s", string(combined)[:min(len(combined), 300)])
 	t.Cleanup(func() { terminateByName(t, name) })
-	t.Cleanup(func() { terminateByName(t, name) })
 
-	// Give jobs time to execute (spored detects batch queue and runs spored run-queue)
+	// Wait for instance to be running, then give spored time to:
+	// 1. Install (~90s via userdata)
+	// 2. Download queue config from S3
+	// 3. Execute job1 and job2 sequentially (~30s each)
 	waitForRunning(t, name, 5*time.Minute)
-	time.Sleep(2 * time.Minute)
+	t.Log("instance running — waiting for spored to install and execute queue (~5 min)")
+	time.Sleep(5 * time.Minute)
 
 	// Verify both jobs produced output
 	out1 := sshExec(t, name, "cat /tmp/job1.txt 2>/dev/null || echo MISSING")
