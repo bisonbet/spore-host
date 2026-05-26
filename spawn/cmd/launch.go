@@ -3380,6 +3380,15 @@ func launchWithBatchQueue(ctx context.Context, plat *platform.Platform, auditLog
 		launchConfig.KeyName = keyName
 	}
 
+	// Set up IAM instance profile if not specified
+	if launchConfig.IamInstanceProfile == "" {
+		instanceProfile, err := awsClient.SetupSporedIAMRole(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to setup IAM role: %w", err)
+		}
+		launchConfig.IamInstanceProfile = instanceProfile
+	}
+
 	// Launch instance
 	fmt.Fprintf(os.Stderr, "\n🚀 Launching instance...\n")
 	instance, err := awsClient.Launch(ctx, *launchConfig)
