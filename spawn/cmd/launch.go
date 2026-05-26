@@ -3306,9 +3306,36 @@ func launchWithBatchQueue(ctx context.Context, plat *platform.Platform, auditLog
 	}
 	fmt.Fprintf(os.Stderr, "✓ Uploaded: %s (%.2f KB)\n", s3Key, float64(size)/1024)
 
-	// Generate user-data with queue runner bootstrap
+	// Build combined user-data: standard spored installer + queue runner.
+	// The queue runner script waits for spored to be ready before executing jobs.
 	s3URL := fmt.Sprintf("s3://%s/%s", scheduleBucket, s3Key)
-	queueUserData := encodeUserData(userdata.GenerateQueueRunnerUserData(s3URL, queueConfig.QueueID))
+	queueRunnerScript := userdata.GenerateQueueRunnerUserData(s3URL, queueConfig.QueueID)
+
+	// Build the standard spored userdata (SSH key setup + spored installer)
+	stdScript, buildErr := buildUserData(plat, &aws.LaunchConfig{
+		InstanceType: instanceType,
+		Region:       queueRegion,
+	})
+	var combinedScript string
+	if buildErr == nil && stdScript != "" {
+		// Append queue runner after spored installer (strip duplicate #!/bin/bash header)
+		queuePart := queueRunnerScript
+		if len(queuePart) > 3 && queuePart[:2] == "#!" {
+			// Find end of first line to strip shebang
+			nl := 0
+			for i, c := range queuePart {
+				if c == '\n' {
+					nl = i + 1
+					break
+				}
+			}
+			queuePart = queuePart[nl:]
+		}
+		combinedScript = stdScript + "\n\n# === Batch queue runner ===\n" + queuePart
+	} else {
+		combinedScript = queueRunnerScript
+	}
+	queueUserData := encodeUserData(combinedScript)
 
 	// Auto-detect AMI if not specified
 	resolvedAMI := ami
