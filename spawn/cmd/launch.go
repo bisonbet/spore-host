@@ -1574,7 +1574,28 @@ func launchWithProgress(ctx context.Context, awsClient *aws.Client, config *aws.
 		}
 	}
 
-	// Display success
+	// Output: JSON array or TUI depending on --output flag
+	if getOutputFormat() == "json" {
+		out := []map[string]interface{}{
+			{
+				"instance_id":   result.InstanceID,
+				"name":          config.Name,
+				"instance_type": config.InstanceType,
+				"region":        config.Region,
+				"public_ip":     result.PublicIP,
+				"state":         "running",
+				"dns":           dnsRecord,
+			},
+		}
+		jsonBytes, err := json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %w", err)
+		}
+		fmt.Println(string(jsonBytes))
+		return nil
+	}
+
+	// Display success (TUI mode)
 	sshCmd := plat.GetSSHCommand("ec2-user", result.PublicIP)
 	prog.DisplaySuccess(result.InstanceID, result.PublicIP, sshCmd, config)
 
@@ -2893,6 +2914,31 @@ func launchJobArray(ctx context.Context, awsClient *aws.Client, baseConfig *aws.
 	// Write job array ID to file for workflow integration
 	if err := writeOutputID(jobArrayID, outputIDFile); err != nil {
 		fmt.Fprintf(os.Stderr, "⚠️  Failed to write job array ID to file: %v\n", err)
+	}
+
+	// JSON output mode — always an array, consistent with single-instance path
+	if getOutputFormat() == "json" {
+		out := make([]map[string]interface{}, len(launchedInstances))
+		for i, inst := range launchedInstances {
+			out[i] = map[string]interface{}{
+				"instance_id":     inst.InstanceID,
+				"name":            inst.Name,
+				"instance_type":   baseConfig.InstanceType,
+				"region":          baseConfig.Region,
+				"public_ip":       inst.PublicIP,
+				"state":           "running",
+				"job_array_name":  jobArrayName,
+				"job_array_id":    jobArrayID,
+				"job_array_index": i,
+				"job_array_size":  count,
+			}
+		}
+		jsonBytes, err := json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %w", err)
+		}
+		fmt.Println(string(jsonBytes))
+		return nil
 	}
 
 	// Display success for job array
