@@ -25,6 +25,11 @@ spore.host will request a Spot instance. If no capacity is available, it fails i
 truffle spot g5.xlarge --regions us-east-1,us-west-2,eu-west-1
 ```
 
+::: tip Finding the right instance type
+Not sure which instance to use? See [Finding the Right Instance](/guides/finding-instances) for a step-by-step walkthrough: `truffle find` → `truffle search` → `truffle spot` → `truffle quotas`.
+:::
+```
+
 Spot prices vary by region and AZ — sometimes significantly. Running in `us-west-2` instead of `us-east-1` can save an additional 20–30% on the already-discounted Spot price.
 
 ## Diversify across instance types

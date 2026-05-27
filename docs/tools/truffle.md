@@ -8,58 +8,118 @@ Truffle finds and compares EC2 instance types. It's read-only — it never launc
 brew install spore-host/tap/truffle
 ```
 
-## Core commands
+## Sub-commands
 
-### `truffle find`
+Truffle has distinct sub-commands for different tasks. They are **not interchangeable** — flags available on one command may not exist on another.
 
-Search for instance types using plain language or filters:
+### `truffle find` — natural language search
+
+Discover instance families using plain language. Understands processor names, GPU models, network capabilities, and size descriptions.
 
 ```sh
-truffle find "nvidia h100"
-truffle find "arm64 64gb memory"
-truffle find "cheap gpu"
-truffle find "t3" --regions us-east-1
+truffle find "epyc genoa"           # AMD EPYC Genoa (4th gen)
+truffle find "h100 8gpu efa"        # NVIDIA H100 with EFA networking
+truffle find "graviton large"       # ARM64 Graviton, large size class
+truffle find "sapphire rapids 32 cores"
+truffle find "milan 64gb"
 ```
 
-Plain language works — truffle understands GPU model names, processor vendors, size descriptions, and network requirements. See [truffle find reference](/tools/reference/truffle#find) for all options.
-
-### `truffle spot`
-
-Get current Spot prices for a specific instance type:
-
+Include specs **in the query string** — `truffle find` does not accept `--min-vcpu` or `--min-memory`:
 ```sh
-truffle spot p4d.24xlarge
-truffle spot g5.2xlarge --regions us-east-1,us-west-2,eu-west-1
+truffle find "epyc genoa 16 cores"      # ✅ spec in query
+truffle find "epyc genoa" --min-vcpu 16 # ❌ --min-vcpu not available on find
 ```
 
-### `truffle quotas`
+Flags:
+- `--skip-azs` — faster, skip AZ lookup
+- `--regions` — limit to specific regions
+- `--app <name>` — find instances suitable for a catalog application
 
-Check your service quotas before launching:
+### `truffle search` — pattern search with filters
+
+Search by instance type name pattern (wildcards and regex). Supports numeric filters.
 
 ```sh
-truffle quotas --regions us-east-1 --family P
-truffle quotas --regions us-east-1,us-west-2
-truffle quotas --family P --request
+truffle search "m8a.*"                              # all m8a sizes
+truffle search "m8a.*" --min-vcpu 16               # ✅ --min-vcpu works here
+truffle search "m8a.*" --min-vcpu 16 --min-memory 64
+truffle search "c7a.*" --architecture x86_64
+truffle search "g5.*" --skip-azs
 ```
 
-Returns current quota, usage, and available headroom per instance family. Use `--request` to generate `aws service-quotas` increase commands for near-full families.
+The pattern is anchored — it must match the full instance type name. Wildcards (`*`, `?`) are supported.
 
-### `truffle capacity`
+Flags: `--min-vcpu`, `--min-memory`, `--architecture`, `--family`, `--show-price`, `--pick-first`, `--skip-azs`
 
-Check On-Demand Capacity Reservations (ODCRs) in your account:
+### `truffle spot` — current Spot prices
+
+Get live Spot prices for a specific instance type across regions and AZs.
 
 ```sh
-truffle capacity --region us-east-1
-truffle capacity --instance-type p4d.24xlarge
+truffle spot m8a.4xlarge
+truffle spot "m7a.*" --sort-by-price --active-only
+truffle spot g5.xlarge --regions us-east-1,us-west-2 --show-savings
+```
+
+### `truffle quotas` — service quota check
+
+Check vCPU quotas before launching to avoid capacity errors.
+
+```sh
+truffle quotas --regions us-east-1
+truffle quotas --family Standard --regions us-east-1   # M, C, R, T instances
+truffle quotas --family P --regions us-east-1          # P-family GPU instances
+truffle quotas --service sagemaker --family g5         # SageMaker ml.g5.* quotas
+truffle quotas --family Standard --request             # generate increase commands
+```
+
+**Instance family codes:**
+
+| Code | Instances |
+|------|-----------|
+| `Standard` | A, C, D, H, I, M, R, T, Z (general purpose) |
+| `G` | g4dn, g5, g6 (graphics/GPU) |
+| `P` | p3, p4, p5 (GPU training) |
+| `Inf` | inf1, inf2 (Inferentia) |
+| `Trn` | trn1 (Trainium) |
+
+### `truffle capacity` — capacity reservations
+
+Check existing On-Demand Capacity Reservations in your account.
+
+```sh
+truffle capacity
+truffle capacity --gpu-only
+truffle capacity --instance-types p5.48xlarge,p4d.24xlarge
+```
+
+## Typical workflow: find → search → spot → check quota → launch
+
+```sh
+# 1. Discover the instance family
+truffle find "epyc genoa"
+
+# 2. Browse sizes within that family (with spec filters)
+truffle search "m8a.*" --min-vcpu 16 --min-memory 64
+
+# 3. Check current Spot prices
+truffle spot m8a.4xlarge --sort-by-price --active-only
+
+# 4. Verify you have quota (m8a is Standard family)
+truffle quotas --family Standard --regions us-east-1
+
+# 5. Launch
+spawn launch my-job --instance-type m8a.4xlarge --spot --ttl 4h
 ```
 
 ## Piping to spawn
 
-Truffle's output can be piped to spawn:
+Use `--pick-first` to get a single instance type name for piping:
 
 ```sh
-truffle find "t3.medium" --pick-first | spawn launch --ttl 4h
-truffle spot g5.xlarge --sort-by-price --pick-first | spawn launch training --ttl 8h
+spawn launch my-job \
+  --instance-type $(truffle search "m8a.*" --min-vcpu 16 --pick-first) \
+  --spot --ttl 4h
 ```
 
 ## Full command reference

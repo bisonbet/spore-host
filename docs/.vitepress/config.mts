@@ -50,6 +50,7 @@ export default defineConfig({
           text: 'Compute',
           collapsed: false,
           items: [
+            { text: 'Finding the Right Instance', link: '/guides/finding-instances' },
             { text: 'GPU Training Jobs', link: '/guides/gpu-training' },
             { text: 'Jupyter Notebooks', link: '/guides/jupyter' },
             { text: 'Spot Instances', link: '/guides/spot-instances' },
