@@ -26,34 +26,8 @@ jobs:
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
 
-      - name: go mod tidy (all modules)
-        run: |
-          go mod tidy || true
-          cd spawn                   && go mod tidy
-          cd ../truffle              && go mod tidy
-          cd ../lagotto              && go mod tidy
-          cd ../mcp                  && go mod tidy
-          cd ../spawn/lambda/rest-api && go mod tidy
-          cd ../../../pkg/i18n       && go mod tidy
-          cd ../pricing              && go mod tidy
-
-      - name: govulncheck - root
-        run: govulncheck ./... || true  # root module has no Go packages in multi-module repo
-
-      - name: govulncheck - spawn
-        run: cd spawn && govulncheck ./...
-
-      - name: govulncheck - truffle
-        run: cd truffle && govulncheck ./...
-
-      - name: govulncheck - lagotto
-        run: cd lagotto && govulncheck ./...
-
-      - name: govulncheck - pkg/i18n
-        run: cd pkg/i18n && govulncheck ./...
-
-      - name: govulncheck - pkg/pricing
-        run: cd pkg/pricing && govulncheck ./...
+      - name: govulncheck - rest-api Lambda
+        run: cd lambda/rest-api && go mod tidy && govulncheck ./...
 
   trivy:
     name: Trivy Security Scan
@@ -74,22 +48,6 @@ jobs:
         with:
           scan-type: config
           scan-ref: .
-          severity: HIGH,CRITICAL
-          exit-code: 1
-
-  trivy-image:
-    name: Trivy Container Scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Build Docker image
-        run: docker build -t sporedothost/spawn:scan -f spawn/Dockerfile .
-
-      - name: Trivy image scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: sporedothost/spawn:scan
           severity: HIGH,CRITICAL
           exit-code: 1
 

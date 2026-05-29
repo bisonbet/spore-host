@@ -325,7 +325,7 @@ echo "Tables ready."
 ## Step 6 — Build and deploy the rest-api Lambda
 
 ```sh
-cd spawn/lambda/rest-api
+cd lambda/rest-api
 
 GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o bootstrap .
 zip rest-api.zip bootstrap
