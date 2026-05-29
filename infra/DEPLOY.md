@@ -467,7 +467,7 @@ After completing the above, record the following values for future reference
 | Component | Issue | Notes |
 |-----------|-------|-------|
 | Dashboard (web UI) | #275 | Requires Midway OIDC integration; integ Midway app registration needed first |
-| Slack/SMS notifications | — | Deploy `spawn/lambda/spore-bot` following the same pattern as rest-api; requires Slack app registration |
+| Slack/SMS notifications | — | Deploy `lambda/spore-bot` following the same pattern as rest-api; requires Slack app registration |
 | Sweep orchestration | — | Deploy `spawn/lambda/sweep-orchestrator` for parameter sweep support |
 | Full CloudFormation stack | #276 | `make deploy` target that covers all of the above in one command |
 

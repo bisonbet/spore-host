@@ -155,7 +155,7 @@ export SPORED_TAG_PREFIX=ux
 If you want `/spawn` slash commands in your Slack workspace, deploy the spore-bot Lambda:
 
 ```sh
-cd spore-host/spawn/lambda/spore-bot
+cd spore-host/lambda/spore-bot
 
 GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o bootstrap .
 zip spore-bot.zip bootstrap
@@ -185,7 +185,7 @@ aws dynamodb create-table \
   --billing-mode PAY_PER_REQUEST \
   --region us-east-1 --profile infra
 
-# Deploy (see spawn/lambda/spore-bot/README for full IAM policy)
+# Deploy (see lambda/spore-bot/README for full IAM policy)
 aws lambda create-function \
   --function-name spore-bot \
   --runtime provided.al2023 \

@@ -27,7 +27,7 @@ This guide is for organizations deploying their own spore.host infrastructure (e
 ### 1. Build the Lambda
 
 ```bash
-cd spawn/lambda/spore-bot
+cd lambda/spore-bot
 make build
 # Produces: function.zip (linux/arm64 binary)
 ```
@@ -93,7 +93,7 @@ Workspace administrators can set a shorter TTL per workspace using `spawn bot wo
 After code changes:
 
 ```bash
-cd spawn/lambda/spore-bot
+cd lambda/spore-bot
 make build
 aws s3 cp function.zip s3://<your-binaries-bucket>/spore-bot/function.zip
 aws lambda update-function-code \
