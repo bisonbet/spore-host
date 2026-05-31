@@ -46,17 +46,23 @@ Detailed status for one instance:
 spawn status my-instance
 spawn status i-0a1b2c3d4e5f
 spawn status my-instance -o json       # machine-readable
-spawn status my-instance --check-complete && echo "done"  # exit 0=complete, 1=failed, 2=running, 3=error
+spawn status my-instance --check-complete   # exit 0=complete 1=failed 2=running 3=error
 ```
 
-**`--check-complete` exit codes** — useful for polling from scripts:
+**`--check-complete`** polls the instance's completion file and exits with a
+standardized code, so scripts can wait for a workload to finish (v0.36.6+):
 
 | Exit | Meaning |
 |------|---------|
-| 0 | Completed |
-| 1 | Failed or cancelled |
-| 2 | Still running |
-| 3 | Error querying status |
+| 0 | Complete — completion file present |
+| 1 | Failed — completion file reports a failure status |
+| 2 | Running — completion file not yet present |
+| 3 | Error — instance unreachable or status undeterminable |
+
+```sh
+# Wait for a workload to finish
+while spawn status my-job --check-complete; [ $? -eq 2 ]; do sleep 30; done
+```
 
 **JSON schema** (`-o json`) — key fields returned:
 
@@ -78,6 +84,19 @@ spawn status my-instance --check-complete && echo "done"  # exit 0=complete, 1=f
 spawn stop my-instance              # stop (billing pauses, data preserved)
 spawn hibernate my-instance         # hibernate to disk (saves RAM state)
 spawn start my-instance             # start stopped or hibernated instance
+```
+
+`stop` and `hibernate` preserve EBS volumes. To permanently destroy an instance, use `terminate`.
+
+### `spawn terminate`
+
+Permanently terminate an instance — destroys the instance and its EBS volumes
+(unlike `stop`/`hibernate`). Irreversible, so it confirms by default:
+
+```sh
+spawn terminate my-instance              # prompts, then terminates
+spawn terminate my-instance -y           # skip confirmation
+spawn terminate --job-array-name workers # terminate a whole job array
 ```
 
 ### `spawn extend`
@@ -184,10 +203,11 @@ inst = spore.spawn.status("my-job")
 inst.wait("terminated")
 ```
 
-Or poll `spawn status` directly:
+Or poll `spawn status --check-complete` and branch on its exit code (works for a
+single instance and, via `spawn sweep status --check-complete`, for sweeps):
 ```bash
 # Exit 0=complete, 1=failed, 2=running, 3=error
-spawn status my-job --check-complete
+while spawn status my-job --check-complete; [ $? -eq 2 ]; do sleep 30; done
 ```
 
 ## Full command reference
