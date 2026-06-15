@@ -14,6 +14,41 @@ own changelogs for CLI releases.
 ## [Unreleased]
 
 ### Security
+- **Hosted REST API now enforces per-project tenant isolation** (audit C1, #369).
+  Previously every handler received a validated API-key principal but never used
+  it, so any valid key could list/launch/stop/terminate/extend **every** instance
+  in the account. Launches are now stamped with `spawn:project=<key's project>`,
+  and list/get/stop/start/hibernate/terminate/extend are scoped to the
+  principal's project (fail-closed: a key with no project can't launch or reach
+  any instance; non-owned instances return 404, not 403, so existence isn't
+  leaked). **Operator note:** instances launched before this change carry no
+  `spawn:project` tag and become invisible to the API — backfill the tag
+  (`aws ec2 create-tags --tags Key=spawn:project,Value=<project>`) to re-expose
+  them.
+- **SMS "extend" reply now writes `spawn:ttl-deadline`** (not just `spawn:ttl`,
+  which spored ignores — a silent no-op, same class as #371) and is capped at the
+  7-day maximum.
+- **Teams Bot Framework requests now fully validate the bearer JWT** (audit H4,
+  #372). Previously a `Bearer …` request was trusted as long as the server-side
+  `TEAMS_APP_ID` env was set — no token validation at all — so any caller of the
+  public Function URL could forge a Teams activity. The token is now verified for
+  RS256 signature against Microsoft's published JWKS, issuer
+  (`https://api.botframework.com`), audience (`== TEAMS_APP_ID`), and expiry;
+  `alg:none`/HMAC-confusion are rejected. Verification fails closed.
+- **Slack/Teams signature verification now rejects an empty signing secret**
+  (audit H5, #373). HMAC with an empty key is forgeable, and OAuth-installed
+  Slack workspaces persist no per-workspace secret. Slack now falls back to the
+  app-level `SLACK_SIGNING_SECRET` env (the secret is app-level, not
+  per-workspace), and both verifiers fail closed when no secret is available.
+- **Hosted REST API now enforces lifecycle bounds** (audit H3, #371). Unlike the
+  CLI, the API called the spawn client directly and bypassed the 1h-idle
+  zombie-prevention default, so an empty-TTL launch produced an instance with no
+  deadline and no reaper tag. Launches with neither TTL nor idle timeout now get
+  a default idle timeout, all TTL/idle/extend durations are capped at a 7-day
+  maximum, and the `extend` action now writes `spawn:ttl-deadline` (not just
+  `spawn:ttl`) so the extension actually takes effect (it was a silent no-op,
+  same class as spore-host-mcp#11). The `/spore extend` and `/spore idle` bot
+  commands gained the same deadline fix and 7-day cap.
 - **spore-bot `/notify` now gates per-user DM and SMS fan-out on instance
   registration** (audit C2, spore-host/spawn#369-370 class). Previously the
   endpoint only checked that `workspace_id`/`instance_id` were non-empty, so

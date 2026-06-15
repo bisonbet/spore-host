@@ -13,6 +13,25 @@ import (
 	spawnconfig "github.com/spore-host/spawn/pkg/config"
 )
 
+// projectTag is the EC2 tag that scopes an instance to the API-key principal's
+// project. The hosted API is single-account: every launch runs as the same
+// Lambda role, so identity tags (spawn:iam-user, spawn:account-id) are identical
+// across tenants and can't isolate anything. The principal's project is the only
+// real tenant discriminator, so we stamp it on launch and gate every read/action
+// on it (spore-host#369).
+const projectTag = "spawn:project"
+
+// ownsInstance reports whether the principal may see/act on an instance. It is
+// fail-closed: a principal with an empty project, or an instance with no/blank
+// project tag, never matches — so a leaked key with no project can't reach
+// pre-existing untagged instances, and an empty project can't act as a wildcard.
+func ownsInstance(p *Principal, tags map[string]string) bool {
+	if p == nil || p.Project == "" {
+		return false
+	}
+	return tags[projectTag] == p.Project
+}
+
 func handleListInstances(ctx context.Context, cfg aws.Config, req events.APIGatewayV2HTTPRequest, p *Principal) (events.APIGatewayV2HTTPResponse, error) {
 	region := req.QueryStringParameters["region"]
 	state := req.QueryStringParameters["state"]
@@ -43,6 +62,11 @@ func handleListInstances(ctx context.Context, cfg aws.Config, req events.APIGate
 
 	out := make([]instanceOut, 0, len(instances))
 	for _, inst := range instances {
+		// Tenant isolation: only surface instances belonging to this principal's
+		// project (spore-host#369).
+		if !ownsInstance(p, inst.Tags) {
+			continue
+		}
 		dns := inst.Tags["spawn:dns-name"]
 		out = append(out, instanceOut{
 			InstanceID:       inst.InstanceID,
@@ -59,6 +83,35 @@ func handleListInstances(ctx context.Context, cfg aws.Config, req events.APIGate
 		})
 	}
 	return jsonResp(http.StatusOK, map[string]any{"instances": out, "count": len(out)}), nil
+}
+
+// Lifecycle bounds for the hosted REST API. Unlike the CLI (which prompts and
+// defaults to a 1h idle timeout in cmd/launch.go), the API calls the spawn
+// client directly — so the safety net must live here. Without it, an empty-TTL
+// launch yields an instance with NO deadline and NO reaper tag that runs until
+// manually killed (spore-host#371).
+const (
+	// defaultIdleTimeout is applied when a launch request sets neither TTL nor
+	// idle timeout — mirrors the CLI's zombie-prevention default.
+	defaultIdleTimeout = "1h"
+	// maxTTL is the hard ceiling on any TTL or extend duration through the API.
+	maxTTL = 7 * 24 * time.Hour
+)
+
+// capDuration parses a Go duration and rejects values that are non-positive or
+// exceed maxTTL. Returns the normalized string form on success.
+func capDuration(d string) (string, error) {
+	parsed, err := time.ParseDuration(d)
+	if err != nil {
+		return "", fmt.Errorf("invalid duration %q (use Go units like 2h, 24h, 168h)", d)
+	}
+	if parsed <= 0 {
+		return "", fmt.Errorf("duration %q must be positive", d)
+	}
+	if parsed > maxTTL {
+		return "", fmt.Errorf("duration %q exceeds maximum of %s", d, maxTTL)
+	}
+	return d, nil
 }
 
 // LaunchRequest is the JSON body for POST /v1/instances.
@@ -88,6 +141,30 @@ func handleLaunch(ctx context.Context, cfg aws.Config, req events.APIGatewayV2HT
 		return errResp(http.StatusBadRequest, "instance_type and region are required"), nil
 	}
 
+	// Tenant isolation (spore-host#369): the launched instance must be stamped
+	// with the principal's project so later list/get/action can scope to it.
+	// Reject a key with no project rather than create an un-isolated instance.
+	if p == nil || p.Project == "" {
+		return errResp(http.StatusForbidden, "API key has no project; cannot launch"), nil
+	}
+
+	// Enforce lifecycle bounds (spore-host#371). Validate any caller-supplied
+	// TTL/idle timeout against the hard maximum, and if BOTH are empty inject a
+	// default idle timeout so the instance can never become a zombie.
+	if body.TTL != "" {
+		if _, err := capDuration(body.TTL); err != nil {
+			return errResp(http.StatusBadRequest, err.Error()), nil
+		}
+	}
+	if body.IdleTimeout != "" {
+		if _, err := capDuration(body.IdleTimeout); err != nil {
+			return errResp(http.StatusBadRequest, err.Error()), nil
+		}
+	}
+	if body.TTL == "" && body.IdleTimeout == "" {
+		body.IdleTimeout = defaultIdleTimeout
+	}
+
 	lc := spawnclient.LaunchConfig{
 		Name:               body.Name,
 		InstanceType:       body.InstanceType,
@@ -102,6 +179,7 @@ func handleLaunch(ctx context.Context, cfg aws.Config, req events.APIGatewayV2HT
 		CompletionFile:     body.CompletionFile,
 		SlackWorkspaceID:   body.SlackWorkspace,
 		ActiveProcessesRaw: body.ActiveProcesses,
+		Tags:               map[string]string{projectTag: p.Project},
 	}
 
 	// Inject notification URL for hosted spore.host
@@ -136,6 +214,11 @@ func handleGetInstance(ctx context.Context, cfg aws.Config, id string, p *Princi
 	}
 	for _, inst := range instances {
 		if inst.InstanceID == id || strings.EqualFold(inst.Name, id) {
+			// Tenant isolation: 404 (not 403) for instances outside the
+			// principal's project, so we don't leak their existence (#369).
+			if !ownsInstance(p, inst.Tags) {
+				return errResp(http.StatusNotFound, fmt.Sprintf("instance %q not found", id)), nil
+			}
 			return jsonResp(http.StatusOK, inst), nil
 		}
 	}
@@ -158,6 +241,11 @@ func handleInstanceAction(ctx context.Context, cfg aws.Config, id, action string
 		}
 	}
 	if target == nil {
+		return errResp(http.StatusNotFound, fmt.Sprintf("instance %q not found", id)), nil
+	}
+	// Tenant isolation: refuse to act on an instance outside the principal's
+	// project, masked as 404 so existence isn't leaked (#369).
+	if !ownsInstance(p, target.Tags) {
 		return errResp(http.StatusNotFound, fmt.Sprintf("instance %q not found", id)), nil
 	}
 
@@ -200,12 +288,42 @@ func handleInstanceAction(ctx context.Context, cfg aws.Config, id, action string
 		if body.Duration == "" {
 			return errResp(http.StatusBadRequest, "duration required"), nil
 		}
+		if _, err := capDuration(body.Duration); err != nil {
+			return errResp(http.StatusBadRequest, err.Error()), nil
+		}
+		extendDuration, err := time.ParseDuration(body.Duration)
+		if err != nil {
+			return errResp(http.StatusBadRequest, fmt.Sprintf("invalid duration: %v", err)), nil
+		}
+		// spored treats spawn:ttl-deadline (absolute) as authoritative and ignores
+		// spawn:ttl. Writing only spawn:ttl is a silent no-op — the instance still
+		// dies at its original deadline (same bug class as spore-host-mcp#11). Push
+		// the absolute deadline forward and write BOTH tags, mirroring cmd/extend.go.
+		var newDeadline time.Time
+		if dl, ok := target.Tags["spawn:ttl-deadline"]; ok {
+			if parsed, perr := time.Parse(time.RFC3339, dl); perr == nil {
+				newDeadline = parsed.Add(extendDuration)
+			}
+		}
+		if newDeadline.IsZero() {
+			if cur, cerr := time.ParseDuration(target.TTL); cerr == nil {
+				newDeadline = time.Now().Add(cur).Add(extendDuration)
+			} else {
+				newDeadline = time.Now().Add(extendDuration)
+			}
+		}
 		if err := client.UpdateInstanceTags(ctx, target.Region, target.InstanceID, map[string]string{
-			"spawn:ttl": body.Duration,
+			"spawn:ttl":          body.Duration,
+			"spawn:ttl-deadline": newDeadline.UTC().Format(time.RFC3339),
 		}); err != nil {
 			return errResp(http.StatusInternalServerError, fmt.Sprintf("extend failed: %v", err)), nil
 		}
-		return jsonResp(http.StatusOK, map[string]string{"status": "extended", "ttl": body.Duration, "instance_id": target.InstanceID}), nil
+		return jsonResp(http.StatusOK, map[string]string{
+			"status":      "extended",
+			"ttl":         body.Duration,
+			"deadline":    newDeadline.UTC().Format(time.RFC3339),
+			"instance_id": target.InstanceID,
+		}), nil
 
 	default:
 		return errResp(http.StatusBadRequest, fmt.Sprintf("unknown action %q — valid: stop, start, hibernate, terminate, extend", action)), nil
