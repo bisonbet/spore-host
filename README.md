@@ -9,7 +9,7 @@
 
 **spore.host** is a suite of tools for launching and managing AWS EC2 instances (Linux **and Windows**) — with automatic lifecycle management so instances clean up after themselves.
 
-This repository (`spore-host/spore-host`) holds the **shared infrastructure** behind spore.host: the hosted REST API, the dashboard, the Python SDK, deployment automation, AMI builds, and the documentation site. **The CLI tools each live in their own repository** (see below).
+This repository (`spore-host/spore-host`) holds the **shared infrastructure** behind spore.host: the hosted REST API, the dashboard, deployment automation, AMI builds, and the documentation site. **The CLI tools and SDKs each live in their own repository** (see below) — the Python SDK is published from [spore-host/python-sdk](https://github.com/spore-host/python-sdk).
 
 ---
 
@@ -24,6 +24,8 @@ Each tool is developed and released independently:
 | 👁️ **lagotto** | [spore-host/lagotto](https://github.com/spore-host/lagotto) | Watch for EC2 capacity and act when it appears |
 | 🤖 **spore-host-mcp** | [spore-host/spore-host-mcp](https://github.com/spore-host/spore-host-mcp) | AI assistant integration (Claude, Cursor) |
 | 🧩 **spore-plugins** | [spore-host/spore-plugins](https://github.com/spore-host/spore-plugins) | Official plugin registry for spawn |
+| 🐍 **python-sdk** | [spore-host/python-sdk](https://github.com/spore-host/python-sdk) | Python SDK (`pip install spore-host`) for notebooks and scripts |
+| 🧬 **nf-spawn** | [spore-host/nf-spawn](https://github.com/spore-host/nf-spawn) | Nextflow executor plugin — run pipeline steps on ephemeral instances |
 | 📚 **libs** | [spore-host/libs](https://github.com/spore-host/libs) | Shared Go libraries (i18n, catalog, pricing) |
 
 ## Install the tools
@@ -82,8 +84,6 @@ spore-host/
 ├── lambda/
 │   └── rest-api/    # Hosted REST API Lambda (instance management + SMS webhook)
 ├── web/             # Dashboard static assets (dashboard.html, library.html, …)
-├── sdk/
-│   └── python/      # Python SDK (REST API client)
 ├── infra/           # AMI builds, TLS certs, infrastructure deployment guide
 ├── scripts/         # Deployment & setup automation (Cognito, API Gateway, DynamoDB, S3, IAM)
 ├── config/          # OAuth credentials (gitignored secrets)

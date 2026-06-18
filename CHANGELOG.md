@@ -13,6 +13,18 @@ own changelogs for CLI releases.
 
 ## [Unreleased]
 
+### Fixed
+- Corrected broken GitHub and pkg.go.dev links on the website and docs that
+  assumed a monorepo layout: the tools are split repos, so `truffle`, `spawn`,
+  `lagotto`, and the MCP server now link to their own `github.com/spore-host/*`
+  repos (and Go imports use `github.com/spore-host/<tool>/...`, not a nested
+  `spore-host/spore-host/...` path).
+- Python SDK docs/site no longer say "coming soon" / "not on PyPI yet" — the
+  `spore-host` package is published (`pip install spore-host`); point SDK links
+  at the standalone `spore-host/python-sdk` repo.
+- Fixed the `scttfrdmn/tap` Homebrew command on the dashboard (→ `spore-host/tap`)
+  and added the missing `docs/public/favicon.svg`.
+
 ### Added
 - spore-bot formats the new `pre_stop_failed` / `pre_stop_timeout` lifecycle
   events (spawn#186): a failed or timed-out `--pre-stop` hook now shows as a

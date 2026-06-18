@@ -1,7 +1,7 @@
 # Python SDK
 
 ::: tip Two SDKs are available
-**REST API client** (`sdk/python/`) — manages instances and queries truffle via the spore.host HTTP API. Covered on this page.
+**REST API client** ([`spore-host/python-sdk`](https://github.com/spore-host/python-sdk)) — manages instances and queries truffle via the spore.host HTTP API. Covered on this page.
 
 **Native CGO bindings** (`truffle/bindings/python/`) — calls the truffle Go library directly from Python, 10–50× faster. See [`bindings/python/`](https://github.com/spore-host/truffle/tree/main/bindings/python) in the truffle repo.
 :::
@@ -10,12 +10,9 @@ The `spore-host` Python package lets you discover EC2 instances, check Spot pric
 
 The SDK talks to the spore.host REST API. AWS credentials are used for authentication — no separate login is required.
 
-::: tip Not on PyPI yet
-Until the package is published, install directly from the repository:
 ```sh
-pip install "git+https://github.com/spore-host/spore-host.git#subdirectory=sdk/python"
+pip install spore-host
 ```
-:::
 
 ## Requirements
 

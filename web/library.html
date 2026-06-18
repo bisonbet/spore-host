@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>For Developers — spore.host</title>
-  <meta name="description" content="Use spore.host as a Go library or call via the MCP server. Python SDK and REST API coming soon.">
+  <meta name="description" content="Use spore.host as a Go library, the Python SDK (pip install spore-host), or via the MCP server. Hosted REST API coming soon.">
   <script>(function(){var t=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);}());</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -45,7 +45,7 @@
           The truffle and spawn packages are clean, importable Go libraries. Use them in your own tools,
           scripts, or services — no CLI subprocess calls required.
           The MCP server ships as a ready-to-use integration for AI assistants.
-          Python SDK and REST API are on the roadmap.
+          The Python SDK is available now (<code>pip install spore-host</code>); the hosted REST API is on the roadmap.
         </p>
       </div>
     </div>
@@ -63,9 +63,9 @@
             <h3>truffle — capacity search</h3>
             <p>Search instance types, fetch Spot prices, check service quotas.</p>
 <pre><code>import (
-    truffleaws "github.com/spore-host/spore-host/truffle/pkg/aws"
-    "github.com/spore-host/spore-host/truffle/pkg/find"
-    "github.com/spore-host/spore-host/truffle/pkg/quotas"
+    truffleaws "github.com/spore-host/truffle/pkg/aws"
+    "github.com/spore-host/truffle/pkg/find"
+    "github.com/spore-host/truffle/pkg/quotas"
 )
 
 // Natural language search
@@ -93,7 +93,7 @@ ok, msg := qc.CanLaunch("p4d.24xlarge", 96, info, false)</code></pre>
           <div class="dev-block">
             <h3>spawn — instance management</h3>
             <p>List, launch, stop, terminate, and update instances programmatically.</p>
-<pre><code>import spawnclient "github.com/spore-host/spore-host/spawn/pkg/aws"
+<pre><code>import spawnclient "github.com/spore-host/spawn/pkg/aws"
 
 client, _ := spawnclient.NewClient(ctx)
 
@@ -122,8 +122,8 @@ client.UpdateInstanceTags(ctx, result.Region, result.InstanceID,
         </div>
 
         <div style="margin-top: 2rem; display: flex; gap: 1rem; flex-wrap: wrap;">
-          <a href="https://pkg.go.dev/github.com/spore-host/spore-host/truffle" target="_blank" rel="noopener" class="btn btn-outline">truffle on pkg.go.dev →</a>
-          <a href="https://pkg.go.dev/github.com/spore-host/spore-host/spawn" target="_blank" rel="noopener" class="btn btn-outline">spawn on pkg.go.dev →</a>
+          <a href="https://pkg.go.dev/github.com/spore-host/truffle" target="_blank" rel="noopener" class="btn btn-outline">truffle on pkg.go.dev →</a>
+          <a href="https://pkg.go.dev/github.com/spore-host/spawn" target="_blank" rel="noopener" class="btn btn-outline">spawn on pkg.go.dev →</a>
         </div>
       </div>
     </section>
@@ -165,7 +165,7 @@ client.UpdateInstanceTags(ctx, result.Region, result.InstanceID,
               <li><code>spawn_terminate</code> — terminate permanently</li>
               <li><code>spawn_extend</code> — extend TTL</li>
             </ul>
-            <a href="https://github.com/spore-host/spore-host/tree/main/mcp" target="_blank" rel="noopener" class="tool-link tool-mcp" style="color:var(--mcp); font-weight:600; font-size:0.875rem; margin-top:1rem; display:inline-block">MCP server source →</a>
+            <a href="https://github.com/spore-host/spore-host-mcp" target="_blank" rel="noopener" class="tool-link tool-mcp" style="color:var(--mcp); font-weight:600; font-size:0.875rem; margin-top:1rem; display:inline-block">MCP server source →</a>
           </div>
         </div>
       </div>

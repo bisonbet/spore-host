@@ -66,4 +66,4 @@ For a full setup walkthrough, see [AI Assistant (MCP)](/guides/mcp-setup).
 
 ## Source
 
-The MCP server is open source and ships as a single static binary. → [mcp/ on GitHub](https://github.com/spore-host/spore-host/tree/main/mcp)
+The MCP server is open source and ships as a single static binary. → [spore-host-mcp on GitHub](https://github.com/spore-host/spore-host-mcp)
